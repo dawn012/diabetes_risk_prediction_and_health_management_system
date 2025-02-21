@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>797068714189-krui6e6o4u6cbtp2iiel60svdmjmk0ij.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.797068714189-krui6e6o4u6cbtp2iiel60svdmjmk0ij</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>797068714189-3vb8vq0hhroi0gkjc0r50epua4rvsk7k.apps.googleusercontent.com</string>
+	<key>API_KEY</key>
+	<string>AIzaSyDD8qd_opVciRoL3vWJHzrBRTAUT1dB0Pw</string>
+	<key>GCM_SENDER_ID</key>
+	<string>797068714189</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.example.diabetesRiskPredictionAndHealthManagementSystem</string>
+	<key>PROJECT_ID</key>
+	<string>diabetes-health-system</string>
+	<key>STORAGE_BUCKET</key>
+	<string>diabetes-health-system.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:797068714189:ios:dedbaef2a4724d44e44984</string>
+</dict>
+</plist>

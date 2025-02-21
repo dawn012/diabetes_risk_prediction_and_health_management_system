@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "es2016",
+     "lib": [
+       "ES2022", "DOM"
+     ],
+    "moduleResolution": "node",
+    "types": ["node", "mongoose"],
+    "module": "commonjs",
+    "rootDir": "./lib/src",
+    "outDir": "./dist",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true
+  }
+}

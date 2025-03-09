@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "797068714189",
+    "project_id": "diabetes-health-system",
+    "storage_bucket": "diabetes-health-system.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:797068714189:android:918880e5cc6fd2cce44984",
+        "android_client_info": {
+          "package_name": "com.example.diabetes_risk_prediction_and_health_management_system"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "797068714189-3vb8vq0hhroi0gkjc0r50epua4rvsk7k.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.diabetes_risk_prediction_and_health_management_system",
+            "certificate_hash": "5938674ef86f2710bb9b40388f33fc8ae81158a4"
+          }
+        },
+        {
+          "client_id": "797068714189-lv5iq7n0uncm4f0pitnct7s99ikleacn.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBXHiE18Fj0y9ae9ZYfaGchKUEFEbIQYRc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "797068714189-lv5iq7n0uncm4f0pitnct7s99ikleacn.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "797068714189-krui6e6o4u6cbtp2iiel60svdmjmk0ij.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.diabetesRiskPredictionAndHealthManagementSystem"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

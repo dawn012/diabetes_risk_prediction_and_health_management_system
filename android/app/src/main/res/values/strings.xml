@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">DiaTrack</string>
+    <string name="facebook_app_id">2302213943490846</string>
+    <string name="fb_login_protocol_scheme">fb2302213943490846</string>
+    <string name="facebook_client_token">62f62bbf399e74e13f89a8108b9c2f52</string>
+</resources>

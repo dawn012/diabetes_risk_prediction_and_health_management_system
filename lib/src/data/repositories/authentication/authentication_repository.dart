@@ -10,7 +10,6 @@ import '../../../../navigation_menu.dart';
 import '../../../features/authentication/views/login/login_screen.dart';
 import '../../../features/authentication/views/onboarding/onboarding.dart';
 import '../../../features/authentication/views/signup/verify_email.dart';
-import '../../../features/homepage.dart';
 import '../../../utils/constants/text_strings.dart';
 import '../../../utils/exceptions/firebase_auth_exceptions.dart';
 import '../../../utils/exceptions/firebase_exceptions.dart';
@@ -20,14 +19,15 @@ import '../../../utils/exceptions/platform_exceptions.dart';
 class AuthenticationRepository extends GetxController {
   static AuthenticationRepository get instance => Get.find();
 
-  // Variables
+  /// Variables
   final deviceStorage = GetStorage();
   final _auth = FirebaseAuth.instance;
-  // late final Rx<User?> _firebaseUser;
+
+  /// Get Authenticated User Data
+  User? get authUser => _auth.currentUser;
 
   // 用于存储 Firebase 发送的验证码会话 ID
   var verificationId = ''.obs;
-  late final GoogleSignInAccount _googleUser;
 
   // Getters
   // User? get firebaseUser => _firebaseUser.value;

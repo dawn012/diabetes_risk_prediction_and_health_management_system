@@ -1,17 +1,22 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/cupertino.dart';
 
+import '../../../utils/constants/firebase_field_names.dart';
 import '../../../utils/formatters/formatter.dart';
 
 class UserModel {
-  final String id;
+  final String uid;
   final String username;
   final String email;
   String phoneNumber;
   String profilePicture;
+  // final List<String> friends;
+  // final List<String> sentRequests;
+  // final List<String> receivedRequests;
 
   /// Constructor
   UserModel({
-    required this.id,
+    required this.uid,
     required this.username,
     required this.email,
     required this.phoneNumber,
@@ -24,7 +29,7 @@ class UserModel {
   /// Static function to create an empty user model
   static UserModel empty() {
     return UserModel(
-      id: '',
+      uid: '',
       username: '',
       email: '',
       phoneNumber: '',
@@ -35,10 +40,11 @@ class UserModel {
   /// Convert model to JSON structure for storing data in Firebase
   Map<String, dynamic> toJson() {
     return {
-      "Username": username,
-      "Email": email,
-      "PhoneNumber": phoneNumber,
-      "ProfilePicture": profilePicture,
+      FirebaseFieldNames.uid: uid,
+      FirebaseFieldNames.username: username,
+      FirebaseFieldNames.email: email,
+      FirebaseFieldNames.phoneNumber: phoneNumber,
+      FirebaseFieldNames.profilePicture: profilePicture,
     };
   }
 
@@ -48,11 +54,11 @@ class UserModel {
     if (document.data() != null) {
       final data = document.data()!;
       return UserModel(
-          id: document.id,
-          username: data['username'] ?? '',
-          email: data['email'] ?? '',
-          phoneNumber: data['phoneNumber'] ?? '',
-          profilePicture: data['profilePicture'] ?? '',
+          uid: data[FirebaseFieldNames.uid] ?? '',
+          username: data[FirebaseFieldNames.username] ?? '',
+          email: data[FirebaseFieldNames.email] ?? '',
+          phoneNumber: data[FirebaseFieldNames.phoneNumber] ?? '',
+          profilePicture: data[FirebaseFieldNames.profilePicture] ?? '',
       );
     } else {
       return UserModel.empty();

@@ -2,6 +2,7 @@ import 'package:diabetes_risk_prediction_and_health_management_system/src/utils/
 import 'package:diabetes_risk_prediction_and_health_management_system/src/utils/theme/widget_themes/bottom_sheet_theme.dart';
 import 'package:diabetes_risk_prediction_and_health_management_system/src/utils/theme/widget_themes/checkbox_theme.dart';
 import 'package:diabetes_risk_prediction_and_health_management_system/src/utils/theme/widget_themes/chip_theme.dart';
+import 'package:diabetes_risk_prediction_and_health_management_system/src/utils/theme/widget_themes/divider_theme.dart';
 import 'package:diabetes_risk_prediction_and_health_management_system/src/utils/theme/widget_themes/elevated_button_theme.dart';
 import 'package:diabetes_risk_prediction_and_health_management_system/src/utils/theme/widget_themes/outlined_button_theme.dart';
 import 'package:diabetes_risk_prediction_and_health_management_system/src/utils/theme/widget_themes/text_button_theme.dart';
@@ -45,6 +46,7 @@ class TAppTheme {
     textButtonTheme: TTextButtonTheme.lightTextButtonTheme,
     outlinedButtonTheme: TOutlinedButtonTheme.lightOutlinedButtonTheme,
     inputDecorationTheme: TTextFormFieldTheme.lightInputDecorationTheme,
+    dividerTheme: TDividerTheme.lightDividerTheme,
   );
 
   static ThemeData darkTheme = ThemeData(
@@ -63,5 +65,6 @@ class TAppTheme {
     textButtonTheme: TTextButtonTheme.darkTextButtonTheme,
     outlinedButtonTheme: TOutlinedButtonTheme.darkOutlinedButtonTheme,
     inputDecorationTheme: TTextFormFieldTheme.darkInputDecorationTheme,
+    dividerTheme: TDividerTheme.darkDividerTheme,
   );
 }

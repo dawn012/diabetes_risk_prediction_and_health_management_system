@@ -22,7 +22,7 @@ class TAppBarTheme {
     scrolledUnderElevation: 0,
     backgroundColor: Colors.transparent,
     surfaceTintColor: Colors.transparent,
-    iconTheme: IconThemeData(color: TColors.black, size: 24.0),
+    iconTheme: IconThemeData(color: TColors.white, size: 24.0),
     actionsIconTheme: IconThemeData(color: TColors.white, size: 24.0),
     titleTextStyle: TextStyle(fontSize: 18.0, fontWeight: FontWeight.w600, color: TColors.white),
   );

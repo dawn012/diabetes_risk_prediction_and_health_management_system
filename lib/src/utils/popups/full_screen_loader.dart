@@ -9,7 +9,7 @@ class TFullScreenLoader {
   static void openLoadingDialog(String text, String animation) {
     showDialog(
         context: Get.overlayContext!,  // Use Get.overlayContext for overlay dialogs
-        barrierDismissible: false,  // The dialog can't be dismissed by tapping outside it
+        barrierDismissible: false,  // The dialogs can't be dismissed by tapping outside it
         builder: (_) => PopScope(
           canPop: false,  // Disable popping with the back button
           child: Container(
@@ -27,9 +27,9 @@ class TFullScreenLoader {
     );
   }
 
-  /// Stop the currently open loading dialog
+  /// Stop the currently open loading dialogs
   /// This method doesn't return anything
   static stopLoading() {
-    Navigator.of(Get.overlayContext!).pop();  // Close the dialog using the navigator
+    Navigator.of(Get.overlayContext!).pop();  // Close the dialogs using the navigator
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:icons_plus/icons_plus.dart';
 
 import '../../../../common/widgets/appbar/appbar.dart';
@@ -6,6 +7,7 @@ import '../../../../common/widgets/images/t_circular_image.dart';
 import '../../../../common/widgets/texts/section_heading.dart';
 import '../../../../utils/constants/image_strings.dart';
 import '../../../../utils/constants/sizes.dart';
+import '../../controllers/user_controller.dart';
 import 'widgets/profile_menu.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -13,6 +15,8 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final controller = UserController.instance;
+
     return Scaffold(
       appBar: const TAppBar(showBackArrow: true, title: Text('Profile'),),
 
@@ -42,8 +46,8 @@ class ProfileScreen extends StatelessWidget {
               const TSectionHeading(title: 'Profile Information', showActionButton: false),
               const SizedBox(height: TSizes.spaceBtwItems),
 
-              TProfileMenu(title: 'Username', value: 'Dawn', onTap: (){},),
-              TProfileMenu(title: 'Email', value: 'dawn@gmail.com', onTap: (){},),
+              Obx(() => TProfileMenu(title: 'Username', value: controller.user.value.username, onTap: (){},)),
+              Obx(() => TProfileMenu(title: 'Email', value: controller.user.value.email, onTap: (){},)),
 
               const SizedBox(height: TSizes.spaceBtwItems),
               const Divider(),
@@ -55,8 +59,17 @@ class ProfileScreen extends StatelessWidget {
 
               TProfileMenu(title: 'User ID', value: '12345', icon: Iconsax.copy_outline, onTap: (){},),
               TProfileMenu(title: 'Phone Number', value: '017-4529262', onTap: (){},),
-              TProfileMenu(title: 'Gender', value: 'Nale', onTap: (){},),
+              TProfileMenu(title: 'Gender', value: 'Male', onTap: (){},),
               TProfileMenu(title: 'Date of Birth', value: '10 Sep, 2004', onTap: (){},),
+              const Divider(),
+              const SizedBox(height: TSizes.spaceBtwItems,),
+
+              Center(
+                child: TextButton(
+                    onPressed: () {},
+                    child: const Text('Close Account', style: TextStyle(color: Colors.red),),
+                ),
+              )
             ],
           ),
         ),

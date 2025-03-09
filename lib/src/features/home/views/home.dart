@@ -1,14 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:icons_plus/icons_plus.dart';
 
-import '../../../common/widgets/appbar/appbar.dart';
-import '../../../common/widgets/custom_shapes/containers/circular_container.dart';
 import '../../../common/widgets/custom_shapes/containers/primary_header_container.dart';
-import '../../../common/widgets/custom_shapes/curved_edges/curved_edges.dart';
-import '../../../common/widgets/custom_shapes/curved_edges/curved_edges_widget.dart';
 import '../../../utils/constants/colors.dart';
 import '../../../utils/constants/sizes.dart';
-import '../../../utils/constants/text_strings.dart';
 import 'widgets/home_appbar.dart';
 
 class HomeScreen extends StatelessWidget {

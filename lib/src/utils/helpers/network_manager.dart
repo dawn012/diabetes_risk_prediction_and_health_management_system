@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/services.dart';
@@ -37,10 +38,18 @@ class NetworkManager extends GetxController {
       final result = await _connectivity.checkConnectivity();
       if (result == ConnectivityResult.none) {
         return false;
-      } else {
+      }
+
+      final lookup = await InternetAddress.lookup('google.com');
+      if (lookup.isNotEmpty && lookup.first.rawAddress.isNotEmpty) {
         return true;
       }
+      else {
+        return false;
+      }
     } on PlatformException catch (_) {
+      return false;
+    } catch (_) {
       return false;
     }
   }

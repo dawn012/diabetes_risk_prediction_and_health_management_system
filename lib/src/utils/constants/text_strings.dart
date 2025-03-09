@@ -98,10 +98,18 @@ class TTexts {
 
   // -- Error Message
   static const String commonErrorMessage = "Something went wrong. Please try again.";
+  static const String networkErrorMessage = "You're offline. Please check your network connection and try again.";
 
   // -- Home
   static const String homeAppbarTitle = "Good day for managing diabetes";
   static const String homeAppbarSubTitle = "DiaTrack";
+
+  // -- Community
+  static const String postSuccessMessage = "Your community has been shared successfully!";
+  static const String like = "Like";
+  static const String comment = "Comment";
+  static const String share = "Share";
+  static const String writeComment = "Write your comment";
 }
 
 

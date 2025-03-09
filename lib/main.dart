@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 
 import 'app.dart';
+import 'firebase_options.dart';
 import 'src/data/repositories/authentication/authentication_repository.dart';
 
 void main() async {
@@ -31,7 +32,7 @@ void main() async {
             appId: "1:797068714189:web:f8b91ba81aa8c07ee44984",
             measurementId: "G-BR1JQP883Z"));
   } else {
-    await Firebase.initializeApp()
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform)
         .then((FirebaseApp value) => Get.put(AuthenticationRepository())); // Get.put() 会将 AuthenticationRepository 放入 GetX 的依赖注入系统中，确保可以在应用的任何地方访问到 AuthenticationRepository 实例
   }
 

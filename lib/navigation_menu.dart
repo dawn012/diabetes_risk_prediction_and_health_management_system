@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:icons_plus/icons_plus.dart';
 
+import 'src/features/community/views/community_menu.dart';
 import 'src/features/home/views/home.dart';
 import 'src/features/personalization/views/settings/settings.dart';
 import 'src/utils/constants/colors.dart';
@@ -40,5 +41,5 @@ class NavigationMenu extends StatelessWidget {
 class NavigationController extends GetxController {
   final Rx<int> selectedIndex = 0.obs;
 
-  final screens = [const HomeScreen(), Container(color: Colors.purple,), Container(color: Colors.orange,), const SettingsScreen(),];
+  final screens = [const HomeScreen(), Container(color: Colors.purple,), const CommunityMenu(), const SettingsScreen(),];
 }

@@ -51,5 +51,7 @@ class TColors {
   static const Color tCardBgColor = Color(0xfff7f6f1);
   // static const Color tWhiteColor = Color(0xffffffff);
   // static const Color tDarkColor = Color(0xff000000);
+
+  static const Color communityBgColor = Color(0xffc9ccd3);
 }
 

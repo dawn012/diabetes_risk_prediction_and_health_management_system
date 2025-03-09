@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:icons_plus/icons_plus.dart';
 
-import '../../../utils/constants/sizes.dart';
 import '../../../utils/device/device_utility.dart';
 
 // PreferredSizeWidget 要求实现 preferredSize 属性，表示组件的理想尺寸。

@@ -10,6 +10,7 @@ import '../../../../common/widgets/texts/section_heading.dart';
 import '../../../../data/repositories/authentication/authentication_repository.dart';
 import '../../../../utils/constants/colors.dart';
 import '../../../../utils/constants/sizes.dart';
+import '../../../subscription/views/subscription_plan_selection_screen.dart';
 import '../profile/profile.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -80,10 +81,11 @@ class SettingsScreen extends StatelessWidget {
                     title: 'My Addresses',
                     subTitle: 'Set your address',
                   ),
-                  const TSettingsMenuTile(
+                  TSettingsMenuTile(
                     icon: Iconsax.safe_home_bold,
-                    title: 'My Addresses',
-                    subTitle: 'Set your address',
+                    title: 'Subscription',
+                    subTitle: 'Subscribe the premium plan',
+                    onTap: () => Get.to(() => const SubscriptionPlanScreen()),
                   ),
                   const TSettingsMenuTile(
                     icon: Iconsax.safe_home_bold,

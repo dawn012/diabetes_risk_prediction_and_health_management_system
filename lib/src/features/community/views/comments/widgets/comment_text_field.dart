@@ -12,14 +12,15 @@ import '../../../controllers/comment_controller.dart';
 class CommentTextField extends StatelessWidget {
   const CommentTextField({super.key, this.postId, this.parentCommentId});
 
-  final String? postId;
-  final String? parentCommentId;
+  final String? postId;  // comment
+  final String? parentCommentId;  // reply
 
   @override
   Widget build(BuildContext context) {
     final controller = CommentController.instance;
     final user = UserController.instance.user.value;
     final dark = THelperFunctions.isDarkMode(context);
+    final FocusNode commentNode = FocusNode();
 
     return PopScope(
       canPop: false, // 控制是否允许返回
@@ -38,8 +39,8 @@ class CommentTextField extends StatelessWidget {
 
             /// User Profile Image
             TCircularImage(
-              image: user.profilePicture.isNotEmpty
-                  ? user.profilePicture
+              image: user.profileImg.isNotEmpty
+                  ? user.profileImg
                   : TImages.user,
               padding: 0,
               width: 35,
@@ -57,24 +58,30 @@ class CommentTextField extends StatelessWidget {
                 ),
                 child: TextField(
                   controller: controller.commentText,
+                  focusNode: controller.commentFocusNode,
+                  enabled: true,
                   decoration: InputDecoration(
                     hintText: TTexts.writeComment,
                     border: InputBorder.none,
                     enabledBorder: InputBorder.none,
                     focusedBorder: InputBorder.none,
                   ),
+                  onSubmitted: (_) => controller.handleCommentSubmit(postId, parentCommentId),
                 ),
               ),
             ),
             const SizedBox(width: 6),
 
             /// 发送按钮
-            IconButton(
-              onPressed: () => controller.makeComment(
-                  postId: postId, parentCommentId: parentCommentId),
+            Obx(() => IconButton(
+              onPressed: controller.isButtonEnabled.value
+                  ? () => controller.handleCommentSubmit(postId, parentCommentId)
+                  : null, // 按钮禁用
               icon: const Icon(Icons.send),
-              color: dark ? TColors.white : TColors.black,
-            ),
+              color: controller.isButtonEnabled.value
+                  ? (dark ? TColors.white : TColors.black) // 启用时正常颜色
+                  : Colors.grey, // 禁用时灰色
+            )),
           ],
         ),
       ),

@@ -2,17 +2,25 @@ class FirebaseFieldNames {
   FirebaseFieldNames._();
 
   ///-- Users
+  static const String userId = 'userId';
   static const String username = 'username';
+  static const String userType = 'userType';
   static const String email = 'email';
-  static const String phoneNumber = 'phone_number';
+  static const String password = 'password';
+  static const String phoneNumber = 'phoneNumber';
+  static const String profileImg = 'profileImg';
+  static const String joinDate = 'joinDate';
+  static const String totalScore = 'totalScore';
+  static const String isVerify = 'isVerify';
+  static const String loginAttempt = 'loginAttempt';
+  static const String lastAttemptTime = 'lastAttemptTime';
+  static const String accountAvailable = 'accountAvailable';
+
   static const String birthDay = 'birth_day';
   static const String gender = 'gender';
-  static const String password = 'password';
   static const String friends = 'friends';
   static const String sentRequests = 'sent_requests';
   static const String receivedRequests = 'receivedRequests';
-  static const String uid = 'uid';
-  static const String profilePicture = 'profile_picture';
 
   ///-- Posts
   static const String postId = 'post_id';
@@ -55,4 +63,72 @@ class FirebaseFieldNames {
   static const timestamp = 'timestamp';
   static const messageId = 'message_id';
   static const messageType = 'message_type';
+
+  ///-- Achievement
+  static const String achievementId = 'achievementId';
+  static const String achievementTitle = 'achievementTitle';
+  static const String description = 'description';
+  static const String achievementType = 'achievementType';
+  static const String imagePath = 'imagePath';
+  static const String levels = 'levels';
+  static const String isActive = 'isActive';
+  // static const String createdAt = 'createdAt';
+
+  ///-- Achievement Level
+  static const String level = 'level';
+  static const String criteria = 'criteria';
+  static const String criteriaUnit = 'criteriaUnit';
+  static const String points = 'points';
+
+  ///-- User Achievement
+  static const String userAchievementId = 'userAchievementId';
+  static const String currentLevel = 'currentLevel';
+  static const String currentCount = 'currentCount';
+  static const String status = 'status';
+  static const String startedAt = 'startedAt';
+  static const String completedAt = 'completedAt';
+
+  ///-- Reminder
+  static const String reminderId = 'reminderId';
+  static const String reminderTitle = 'reminderTitle';
+  static const String baseTime = 'baseTime';
+  static const String repeatType = 'repeatType';
+  static const String customDays = 'customDays';
+  static const String intervalTime = 'intervalTime';
+  static const String endDate = 'endDate';
+  static const String nextTriggerTime = 'nextTriggerTime';
+  static const String snoozeDuration = 'snoozeDuration';
+  // static const String isActive = 'isActive';
+
+  /// -- ReminderSchedule
+  static const String scheduleId = 'scheduleId';
+  static const String triggerTime = 'triggerTime';
+  static const String originalTime = 'originalTime';
+  static const String snoozeCount = 'snoozeCount';
+  // static const String status = 'status';
+
+  // User Subscription
+  static const String subscriptionId = "subscriptionId";
+  // static const String userId = "userId";
+  static const String subscriptionPlan = "subscriptionPlan";
+  static const String paymentTransaction = "paymentTransaction";
+  static const String startDateTime = "startDateTime";
+  static const String endDateTime = "endDateTime";
+  static const String autoRenew = "autoRenew";
+  // static const String status = "status";
+
+  // Subscription Plan
+  static const String subscriptionPlanId = "subscriptionPlanId";
+  static const String planName = "planName";
+  static const String price = "price";
+  static const String durationDays = "durationDays";
+  static const String features = "features";
+  // static const String isActive = "isActive";
+
+  // Payment Transaction
+  static const String transactionId = "transactionId";
+  static const String amount = "amount";
+  static const String currency = "currency";
+  static const String paymentMethod = "paymentMethod";
+  static const String transactionDateTime = "transactionDateTime";
 }

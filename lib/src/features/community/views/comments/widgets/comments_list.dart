@@ -14,7 +14,7 @@ class CommentsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.put(CommentController(postId: postId));
+    final controller = CommentController.instance;
 
     return Expanded(
       child: Obx(() {
@@ -45,7 +45,7 @@ class CommentsList extends StatelessWidget {
               return Column(
                 children: [
                   CommentTile(comment: comment),
-                  const SizedBox(height: TSizes.spaceBtwItems,),
+                  const SizedBox(height: TSizes.spaceBtwItems),
                 ],
               );
             },

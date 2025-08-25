@@ -1,5 +1,5 @@
 const admin = require("firebase-admin");
-const { updateReplyCountOnCreate, updateReplyCountOnDelete } = require("./comments");
+// const { updateReplyCountOnCreate, updateReplyCountOnDelete, deleteCommentAndReplies } = require("./comments");
 
 // 初始化 Firebase Admin（防止多次初始化）
 if (admin.apps.length === 0) {
@@ -19,6 +19,21 @@ if (admin.apps.length === 0) {
  由于 initializeApp 依赖 this，所以它会报错。
 */
 
+// 导入其他文件的 Cloud Functions
+import * as authentication from "./authentication";
+import * as comments from "./comments";
+
+export const {
+  setDefaultUserRole,
+  addUserWithRole
+} = authentication;
+
+export const {
+  updateReplyCountOnCreate,
+  updateReplyCountOnDelete,
+  deleteCommentAndReplies
+} = comments;
+
 // 正确导出 Cloud Functions
-module.exports = { updateReplyCountOnCreate, updateReplyCountOnDelete };
+// module.exports = { updateReplyCountOnCreate, updateReplyCountOnDelete, deleteCommentAndReplies };
 

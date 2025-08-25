@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import '../../../../../../navigation_menu.dart';
 import '../../../../../utils/constants/colors.dart';
 import '../../../../../utils/constants/sizes.dart';
 import '../../../../../utils/constants/text_strings.dart';
@@ -101,36 +100,47 @@ class _LoginFormState extends State<TLoginForm> {
             const SizedBox(height: TSizes.spaceBtwInputFields / 2),
 
             /// Remember Me & Forget Password
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Obx(
-                      () => Checkbox(
-                          value: controller.rememberMe,
-                          onChanged: (value) {
-                            controller.toggleRememberMe();
-                          }),
-                    ),
-                    GestureDetector(
-                      onTap: () {
-                        controller.toggleRememberMe();
-                      },
-                      child: const Text(TTexts.rememberMe),
-                    ),
-                  ],
-                ),
+            // Row(
+            //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            //   children: [
+            //     Row(
+            //       children: [
+            //         Obx(
+            //           () => Checkbox(
+            //               value: controller.rememberMe,
+            //               onChanged: (value) {
+            //                 controller.toggleRememberMe();
+            //               }),
+            //         ),
+            //         GestureDetector(
+            //           onTap: () {
+            //             controller.toggleRememberMe();
+            //           },
+            //           child: const Text(TTexts.rememberMe),
+            //         ),
+            //       ],
+            //     ),
+            //
+            //     /// Forget Password
+            //     TextButton(
+            //       onPressed: () {
+            //         ForgetPasswordScreen.buildShowModalBottomSheet(context);
+            //       },
+            //       child: Text('${TTexts.forgetPassword}?'),
+            //     ),
+            //   ],
+            // ),
 
-                /// Forget Password
-                TextButton(
-                  onPressed: () {
-                    ForgetPasswordScreen.buildShowModalBottomSheet(context);
-                  },
-                  child: Text('${TTexts.forgetPassword}?'),
-                ),
-              ],
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: () {
+                  ForgetPasswordScreen.buildShowModalBottomSheet(context);
+                },
+                child: Text('${TTexts.forgetPassword}?'),
+              ),
             ),
+
             const SizedBox(
               height: TSizes.spaceBtwSections,
             ),

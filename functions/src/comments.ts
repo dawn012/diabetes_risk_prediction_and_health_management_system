@@ -1,34 +1,57 @@
-const { onDocumentCreated, onDocumentDeleted } = require("firebase-functions/v2/firestore");
-const { getFirestore, FieldValue } = require("firebase-admin/firestore");
-const admin = require("firebase-admin");
+import { onDocumentCreated, onDocumentDeleted } from "firebase-functions/v2/firestore";
+import { getFirestore, FieldValue, DocumentReference } from "firebase-admin/firestore";
+import * as admin from "firebase-admin";
 
-// 初始化 Firebase Admin
-if (admin.apps.length === 0) {
+// 初始化 Firebase Admin（防止重复初始化）
+if (!admin.apps.length) {
   admin.initializeApp();
 }
 
 const db = getFirestore();
 
 // ✅ 监听 Firestore "comments/{commentId}/replies/{replyId}" 的创建事件
-export const updateReplyCountOnCreate = onDocumentCreated("comments/{commentId}/replies/{replyId}", async (event: any) => {
-  const commentId = event.params.commentId;
-  if (!commentId) return;
+export const updateReplyCountOnCreate = onDocumentCreated(
+  "comments/{commentId}/replies/{replyId}",
+  async (event) => {
+    const commentId = event.params.commentId as string;
+    if (!commentId) return;
 
-  const commentRef = db.collection("comments").doc(commentId);
-  await commentRef.update({
-    reply_count: FieldValue.increment(1),
-  });
-});
+    const commentRef: DocumentReference = db.collection("comments").doc(commentId);
+    await commentRef.update({
+      reply_count: FieldValue.increment(1),
+    });
+  }
+);
 
 // ✅ 监听 Firestore "comments/{commentId}/replies/{replyId}" 的删除事件
-export const updateReplyCountOnDelete = onDocumentDeleted("comments/{commentId}/replies/{replyId}", async (event: any) => {
-  const commentId = event.params.commentId;
-  if (!commentId) return;
+export const updateReplyCountOnDelete = onDocumentDeleted(
+  "comments/{commentId}/replies/{replyId}",
+  async (event) => {
+    const commentId = event.params.commentId as string;
+    if (!commentId) return;
 
-  const commentRef = db.collection("comments").doc(commentId);
-  await commentRef.update({
-    reply_count: FieldValue.increment(-1),
-  });
-});
+    const commentRef: DocumentReference = db.collection("comments").doc(commentId);
+    await commentRef.update({
+      reply_count: FieldValue.increment(-1),
+    });
+  }
+);
 
-// module.exports = { updateReplyCountOnCreate, updateReplyCountOnDelete };
+// ✅ 监听 Firestore "comments/{commentId}" 的删除事件，同时删除所有 replies
+export const deleteCommentAndReplies = onDocumentDeleted(
+  "comments/{commentId}",
+  async (event) => {
+    const commentId = event.params.commentId as string;
+    if (!commentId) return;
+
+    const repliesRef = db.collection("comments").doc(commentId).collection("replies");
+    const repliesSnapshot = await repliesRef.get();
+
+    const batch = db.batch();
+    repliesSnapshot.forEach((doc) => {
+      batch.delete(doc.ref);
+    });
+
+    return batch.commit();
+  }
+);

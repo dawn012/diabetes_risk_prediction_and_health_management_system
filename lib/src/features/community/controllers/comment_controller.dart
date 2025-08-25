@@ -1,11 +1,12 @@
-import 'package:diabetes_risk_prediction_and_health_management_system/src/common/loaders/loaders.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import '../../../common/widgets/dialogs/confirm_dialog.dart';
+import '../../../common/loaders/loaders.dart';
+import '../../../common/widgets/dialogs/dialog.dart';
 import '../../../data/repositories/community/comment_repository.dart';
 import '../../../utils/constants/text_strings.dart';
 import '../../../utils/helpers/network_manager.dart';
+import '../../personalization/controllers/user_controller.dart';
 import '../models/comment_model.dart';
 
 class CommentController extends GetxController {
@@ -13,36 +14,49 @@ class CommentController extends GetxController {
   CommentController({required this.postId});
 
   static CommentController get instance => Get.find();
-
   final commentRepo = Get.put(CommentRepository());
+  final userController = Get.find<UserController>();
 
   final comments = <CommentModel>[].obs;
+  final replies = <String, RxList<CommentModel>>{}.obs;
   final isFetching = false.obs;
   final errorMessage = ''.obs;
-
-  final replies = <String, RxList<CommentModel>>{}.obs; // 存储 `commentId` 对应的回复
-  final expandedReplies = <String, bool>{}.obs; // 控制某个 `commentId` 的 `replies` 展开状态
-  final loadingReplies = <String, bool>{}.obs; // 控制 `replies` 是否在加载
+  final expandedReplies = <String, bool>{}.obs;
+  final loadingReplies = <String, bool>{}.obs;
 
   final commentText = TextEditingController();
+  final isButtonEnabled = false.obs;
+  final editingCommentId = RxnString();
+  final originalCommentText = ''.obs;
+  FocusNode commentFocusNode = FocusNode();
+
+  var currentSort = 'newest'.obs;
 
   @override
   void onInit() {
     super.onInit();
     _bindCommentsStream();
+    commentText.addListener(_updateButtonState);
   }
 
-  /// 绑定 Firestore Stream
-  void _bindCommentsStream() {
-    comments.bindStream(commentRepo.fetchComments(postId));
+  void sortCommentsBy(String sortType) {
+    currentSort.value = sortType;
+
+    if (sortType == 'top') {
+      comments.sort((a, b) => b.likes.length.compareTo(a.likes.length));
+    } else if (sortType == 'newest') {
+      comments.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    }
   }
+
+  /// =================== READ =================== ///
+  void _bindCommentsStream() => comments.bindStream(commentRepo.fetchComments(postId));
 
   void fetchComments() {
     isFetching.value = true;
     errorMessage.value = '';
-
     try {
-      _bindCommentsStream(); // 重新订阅 Firestore 数据
+      _bindCommentsStream();
     } catch (e) {
       errorMessage.value = 'Failed to load comments. Please try again.';
     } finally {
@@ -53,83 +67,171 @@ class CommentController extends GetxController {
   void fetchReplies(String parentCommentId) {
     if (replies.containsKey(parentCommentId)) {
       expandedReplies[parentCommentId] = !(expandedReplies[parentCommentId] ?? false);
-      return; // 已经获取过，不再重复请求 Firestore
+      return;  // 已经获取过，不再重复请求 Firestore
     }
 
     loadingReplies[parentCommentId] = true;
-
     try {
       // 绑定 Firestore Stream
       replies[parentCommentId] = <CommentModel>[].obs;
-      replies[parentCommentId]!.bindStream(
-        commentRepo.fetchReplies(parentCommentId),
-      );
-
+      replies[parentCommentId]!.bindStream(commentRepo.fetchReplies(parentCommentId));
       expandedReplies[parentCommentId] = true;
     } catch (e) {
-      TLoaders.errorSnackBar(title: TTexts.error, message: "Failed to fetch replies.");
+      _showErrorSnackBar("Failed to fetch replies.");
     } finally {
       loadingReplies[parentCommentId] = false;
     }
   }
 
+  /// =================== CREATE =================== ///
+  Future<void> makeComment({String? postId, String? parentCommentId}) async {
+    final text = commentText.text.trim();
+    if (text.isEmpty) return;
+
+    if (!await _checkInternetConnection()) return;
+
+    commentText.clear();
+
+    await (parentCommentId != null
+        ? commentRepo.makeReply(text: text, parentCommentId: parentCommentId)
+        : commentRepo.makeComment(text: text, postId: postId!));
+
+    sortCommentsBy(currentSort.value);
+  }
+
+  void handleCommentSubmit(String? postId, String? parentCommentId) {
+    if (!isButtonEnabled.value) return;
+    editingCommentId.value != null ? updateComment(parentCommentId) : makeComment(postId: postId, parentCommentId: parentCommentId);
+  }
+
+  /// =================== UPDATE =================== ///
+  void editComment(CommentModel comment) async {
+    final shouldConfirm = _shouldConfirmBeforeLeaving();
+    if (shouldConfirm) {
+      final result = await TDialog.keepWriting(
+        title: "Unsaved Comment",
+        message: "Do you want to keep writing or discard?",
+      );
+      if (!result) _discardComment();
+    }
+
+    editingCommentId.value = comment.commentId;
+    originalCommentText.value = comment.text;
+    commentText.text = comment.text;
+
+    Future.delayed(Duration(milliseconds: 300), () {
+      commentText.selection = TextSelection.collapsed(offset: commentText.text.length);
+      commentFocusNode.requestFocus();
+    });
+  }
+
+  Future<void> updateComment(String? parentCommentId) async {
+    if (editingCommentId.value == null || commentText.text.trim().isEmpty || commentText.text.trim() == originalCommentText.value) return;
+
+    try {
+      await (parentCommentId != null
+          ? commentRepo.updateReplySingleField(replyId: editingCommentId.value!, parentCommentId: parentCommentId, json: {'text': commentText.text.trim()})
+          : commentRepo.updateSingleField(commentId: editingCommentId.value!, json: {'text': commentText.text.trim()}));
+
+      _clearEditingState();
+    } catch (e) {
+      _showErrorSnackBar("Failed to update comment.");
+    } finally {
+      sortCommentsBy(currentSort.value);
+    }
+  }
+
+  Future<void> cancelEdit() async {
+    final shouldConfirm = _shouldConfirmBeforeLeaving();
+    if (shouldConfirm) {
+      final result = await TDialog.keepWriting(
+        title: "Discard edits?",
+        message: "Your changes will be lost.",
+      );
+      if (!result) {
+        commentFocusNode.unfocus();
+        _clearEditingState();
+      }
+    }
+  }
+
+  /// =================== DELETE =================== ///
+  /// Delete Comment Warning
+  void deleteCommentWarningPopup(CommentModel comment, bool isComment) {
+    TDialog.deleteDialog(
+      title: 'Delete Comment',
+      message: 'Delete your comment permanently?',
+      onConfirm: () {
+        deleteComment(comment, isComment);
+        Get.back();
+      },
+    );
+  }
+
+  /// Delete Comment
+  Future<void> deleteComment(CommentModel comment, bool isComment) async {
+    try {
+      isComment ? await commentRepo.removeComment(comment.commentId) : await commentRepo.removeReply(parentCommentId: comment.parentCommentId!, replyId: comment.commentId);
+      TLoaders.successSnackBar(title: 'Success', message: 'Comment deleted successfully');
+    } catch (e) {
+      _showErrorSnackBar(e.toString());
+    } finally {
+      sortCommentsBy(currentSort.value);
+    }
+  }
+
+  /// =================== TOGGLE LIKE =================== ///
   Future<void> toggleLike(String commentId, List<String> likes, String? parentCommentId) async {
     try {
       await commentRepo.likeDislikeComment(commentId: commentId, likes: likes, parentCommentId: parentCommentId);
     } catch (e) {
       TLoaders.errorSnackBar(title: TTexts.error, message: TTexts.commonErrorMessage);
+    } finally {
+      sortCommentsBy(currentSort.value);
     }
   }
 
-  Future<void> makeComment({String? postId, String? parentCommentId}) async {
-    final text = commentText.text.trim();
-    if (text.isNotEmpty) {
-      // Check Internet Connectivity
-      final isConnected = await NetworkManager.instance.isConnected();
-      if (!isConnected) {
-        TLoaders.errorSnackBar(title: TTexts.error, message: TTexts.networkErrorMessage);
-        return;
-      }
-
-      commentText.clear();
-      await commentRepo.makeComment(
-        text: text,
-        postId: postId,
-        parentCommentId: parentCommentId, // 传递 parentCommentId
-      );
-    }
-  }
+  /// =================== UTILS =================== ///
+  bool isOwner(String authorId) => userController.user.value.userId == authorId;
 
   /// 询问用户是否要丢弃未保存的评论，并执行导航
   Future<void> handleCommentNavigation(void Function() navigate) async {
-    final shouldConfirm = await _shouldConfirmBeforeLeaving();
-    if (!shouldConfirm) {
-      navigate(); // 直接执行跳转逻辑
+    if (!_shouldConfirmBeforeLeaving()) {
+      navigate();  // 直接执行跳转逻辑
       return;
     }
 
-    final result = await Get.dialog<bool>(
-      ConfirmDialog(
-        title: "Unsaved Comment",
-        message: "Do you want to keep writing or discard?",
-      ),
-    ) ?? true; // 默认返回 true (Keep Writing)
-
+    final result = await TDialog.keepWriting(title: "Unsaved Comment", message: "Do you want to keep writing or discard?");
     if (!result) {
+      commentFocusNode.unfocus();
       _discardComment();
-
-      /// 确保 Dialog 关闭后再执行跳转
-      Future.delayed(Duration.zero, () {
-        navigate();
-      });
+      // 确保 Dialog 关闭后再执行跳转
+      Future.delayed(Duration(milliseconds: 200), navigate);
     }
   }
 
-  Future<bool> _shouldConfirmBeforeLeaving() async {
-    return commentText.text.trim().isNotEmpty;
+  void _updateButtonState() {
+    isButtonEnabled.value = commentText.text.trim().isNotEmpty && commentText.text.trim() != originalCommentText.value;
   }
 
-  void _discardComment() {
+  bool _shouldConfirmBeforeLeaving() => commentText.text.trim().isNotEmpty;
+
+  void _discardComment() => commentText.clear();
+
+  /// 清空编辑状态
+  void _clearEditingState() {
+    editingCommentId.value = null;
+    originalCommentText.value = '';
     commentText.clear();
+  }
+
+  Future<bool> _checkInternetConnection() async {
+    final isConnected = await NetworkManager.instance.isConnected();
+    if (!isConnected) _showErrorSnackBar(TTexts.networkErrorMessage);
+    return isConnected;
+  }
+
+  void _showErrorSnackBar(String message) {
+    TLoaders.errorSnackBar(title: TTexts.error, message: message);
   }
 }

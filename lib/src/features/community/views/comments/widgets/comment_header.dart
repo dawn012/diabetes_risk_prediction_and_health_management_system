@@ -10,23 +10,24 @@ import '../../../../../utils/constants/colors.dart';
 import '../../../../../utils/constants/image_strings.dart';
 import '../../../../authentication/models/user_model.dart';
 import '../../../../personalization/controllers/user_controller.dart';
+import '../../../controllers/comment_controller.dart';
 import '../../../models/comment_model.dart';
 
 class CommentHeader extends StatelessWidget {
-  const CommentHeader({super.key, required this.comment});
+  const CommentHeader({super.key, required this.comment, required this.isComment});
 
   final CommentModel comment;
+  final bool isComment;
 
   @override
   Widget build(BuildContext context) {
     final userController = UserController.instance;
-    final dark = THelperFunctions.isDarkMode(context);
 
     return Obx(() {
       // 1️⃣ 如果缓存里有用户数据，直接用
       if (userController.userCache.containsKey(comment.authorId)) {
         final user = userController.userCache[comment.authorId]!;
-        return _buildUserComment(context, user, comment, dark);
+        return _buildUserComment(user);
       } else {
         // 2️⃣ 如果没有，就 fetch
         return FutureBuilder<UserModel>(
@@ -40,15 +41,16 @@ class CommentHeader extends StatelessWidget {
               return const Text("Error loading user info");
             }
 
-            return _buildUserComment(context, snapshot.data!, comment, dark);
+            return _buildUserComment(snapshot.data!);
           },
         );
       }
     });
   }
 
+  Widget _buildUserComment(UserModel user) {
+    final context = Get.context!;
 
-  Widget _buildUserComment(BuildContext context, UserModel user, CommentModel comment, bool dark) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -56,8 +58,8 @@ class CommentHeader extends StatelessWidget {
 
         /// 用户头像
         TCircularImage(
-          image: user.profilePicture.isNotEmpty
-              ? user.profilePicture
+          image: user.profileImg.isNotEmpty
+              ? user.profileImg
               : TImages.user,
           padding: 0,
           width: 35,
@@ -101,7 +103,7 @@ class CommentHeader extends StatelessWidget {
                       padding: EdgeInsets.zero,  // 移除额外的 padding
                       icon: const Icon(Icons.more_vert, size: 20),
                       onPressed: () {
-                        _showCommentOptions(context, dark);
+                        _showCommentOptions();
                       },
                     ),
                   ),
@@ -123,29 +125,31 @@ class CommentHeader extends StatelessWidget {
   }
 
   /// 显示 Comment 选项 Bottom Sheet
-  void _showCommentOptions(BuildContext context, bool dark) {
+  void _showCommentOptions() {
+    final context = Get.context!;
+    final dark = THelperFunctions.isDarkMode(context);
+    final commentController = CommentController.instance;
+
     showModalBottomSheet(
       context: context,
       builder: (context) {
         return CommentBottomSheet(
           title: "Comment",
           options: [
-            BottomSheetOption(
-              text: "Edit",
-              icon: Icons.edit_outlined,
-              iconColor: dark ? TColors.white : TColors.black,
-              onTap: () {
-                print("Edit tapped");
-              },
-            ),
-            BottomSheetOption(
-              text: "Delete",
-              icon: Icons.delete_outline_outlined,
-              iconColor: dark ? TColors.white : TColors.black,
-              onTap: () {
-                print("Delete tapped");
-              },
-            ),
+            if (commentController.isOwner(comment.authorId)) ...[  // 只有是作者，才显示 Edit 和 Delete
+              BottomSheetOption(
+                text: "Edit",
+                icon: Icons.edit_outlined,
+                iconColor: dark ? TColors.white : TColors.black,
+                onTap: () => commentController.editComment(comment),
+              ),
+              BottomSheetOption(
+                text: "Delete",
+                icon: Icons.delete_outline_outlined,
+                iconColor: dark ? TColors.white : TColors.black,
+                onTap: () => commentController.deleteCommentWarningPopup(comment, isComment),
+              ),
+            ],
           ],
         );
       },

@@ -20,44 +20,69 @@ class CommentRepository extends GetxController {
   final _auth = FirebaseAuth.instance;
   final _storage = FirebaseStorage.instance;
 
-  /// Make Comment
   Future<String?> makeComment({
     required String text,
-    String? postId,
-    String? parentCommentId, // 允许传递 parentCommentId
+    required String postId,
   }) async {
     try {
       final commentId = const Uuid().v1();
       final authorId = _auth.currentUser!.uid;
       final now = DateTime.now();
 
-      // 创建评论或回复
       CommentModel comment = CommentModel(
         commentId: commentId,
         authorId: authorId,
-        postId: parentCommentId == null ? postId : null, // ✅ 只有顶级评论才存 postId
+        postId: postId,
         text: text,
         createdAt: now,
         likes: const [],
-        parentCommentId: parentCommentId, // 这里用于标识是否是回复
+        parentCommentId: null, // 这里不需要 parentCommentId
       );
 
-      // 存入 Firestore
-      if (parentCommentId == null) {
-        // 🚀 **存入 `comments` 集合**
-        await _db
-            .collection(FirebaseCollectionNames.comments)
-            .doc(commentId)
-            .set(comment.toJson());
-      } else {
-        // 🚀 **存入 `comments/{parentCommentId}/replies` 子集合**
-        await _db
-            .collection(FirebaseCollectionNames.comments) // 进入 comments 集合
-            .doc(parentCommentId) // 定位到父级评论
-            .collection(FirebaseCollectionNames.replies) // 存入 `replies` 子集合
-            .doc(commentId)
-            .set(comment.toJson());
-      }
+      // 存入 `comments` 集合
+      await _db
+          .collection(FirebaseCollectionNames.comments)
+          .doc(commentId)
+          .set(comment.toJson());
+
+      return null;
+    } on FirebaseException catch (e) {
+      throw TFirebaseException(e.code).message;
+    } on FormatException catch (_) {
+      throw const TFormatException();
+    } on PlatformException catch (e) {
+      throw TPlatformException(e.code).message;
+    } catch (e) {
+      throw TTexts.commonErrorMessage;
+    }
+  }
+
+  Future<String?> makeReply({
+    required String text,
+    required String parentCommentId,
+  }) async {
+    try {
+      final replyId = const Uuid().v1();
+      final authorId = _auth.currentUser!.uid;
+      final now = DateTime.now();
+
+      CommentModel reply = CommentModel(
+        commentId: replyId,
+        authorId: authorId,
+        postId: null, // 回复不存 postId
+        text: text,
+        createdAt: now,
+        likes: const [],
+        parentCommentId: parentCommentId, // 标识属于哪个父评论
+      );
+
+      // 存入 `replies` 子集合
+      await _db
+          .collection(FirebaseCollectionNames.comments)
+          .doc(parentCommentId)
+          .collection(FirebaseCollectionNames.replies)
+          .doc(replyId)
+          .set(reply.toJson());
 
       return null;
     } on FirebaseException catch (e) {
@@ -157,5 +182,88 @@ class CommentRepository extends GetxController {
         .get();
 
     return snapshot.docs.length;
+  }
+
+  Future<void> updateCommentDetails(CommentModel updatedComment) async {
+    try {
+      await _db
+          .collection(FirebaseCollectionNames.comments)
+          .doc(updatedComment.commentId)
+          .update(updatedComment.toJson());
+    } on FirebaseException catch (e) {
+      throw TFirebaseException(e.code).message;
+    } on FormatException catch (_) {
+      throw const TFormatException();
+    } on PlatformException catch (e) {
+      throw TPlatformException(e.code).message;
+    } catch (e) {
+      throw TTexts.commonErrorMessage;
+    }
+  }
+
+  Future<void> updateSingleField({required String commentId, required Map<String, dynamic> json}) async {
+    try {
+      await _db.collection(FirebaseCollectionNames.comments).doc(commentId).update(json);
+    } on FirebaseException catch (e) {
+      throw TFirebaseException(e.code).message;
+    } on FormatException catch (_) {
+      throw const TFormatException();
+    } on PlatformException catch (e) {
+      throw TPlatformException(e.code).message;
+    } catch (e) {
+      throw TTexts.commonErrorMessage;
+    }
+  }
+
+  Future<void> updateReplySingleField({required String replyId, required String parentCommentId, required Map<String, dynamic> json}) async {
+    try {
+      await _db
+          .collection(FirebaseCollectionNames.comments)
+          .doc(parentCommentId)
+          .collection(FirebaseCollectionNames.replies)
+          .doc(replyId).update(json);
+    } on FirebaseException catch (e) {
+      throw TFirebaseException(e.code).message;
+    } on FormatException catch (_) {
+      throw const TFormatException();
+    } on PlatformException catch (e) {
+      throw TPlatformException(e.code).message;
+    } catch (e) {
+      throw TTexts.commonErrorMessage;
+    }
+  }
+
+  /// Function to remove comment and reply (if any) from Firestore
+  Future<void> removeComment(String commentId) async {
+    try {
+      await _db.collection(FirebaseCollectionNames.comments).doc(commentId).delete();
+    } on FirebaseException catch (e) {
+      throw TFirebaseException(e.code).message;
+    } on FormatException catch (_) {
+      throw const TFormatException();
+    } on PlatformException catch (e) {
+      throw TPlatformException(e.code).message;
+    } catch (e) {
+      throw TTexts.commonErrorMessage;
+    }
+  }
+
+  /// Function to remove comment and reply (if any) from Firestore
+  Future<void> removeReply({required String parentCommentId, required String replyId}) async {
+    try {
+      await _db
+          .collection(FirebaseCollectionNames.comments)
+          .doc(parentCommentId)
+          .collection(FirebaseCollectionNames.replies)
+          .doc(replyId).delete();
+    } on FirebaseException catch (e) {
+      throw TFirebaseException(e.code).message;
+    } on FormatException catch (_) {
+      throw const TFormatException();
+    } on PlatformException catch (e) {
+      throw TPlatformException(e.code).message;
+    } catch (e) {
+      throw TTexts.commonErrorMessage;
+    }
   }
 }

@@ -51,6 +51,26 @@ class CreatePostScreen extends StatelessWidget {
               ),
               const SizedBox(height: 20),
 
+              // Text(
+              //   'Select Post Type',
+              //   style: TextStyle(fontWeight: FontWeight.bold),
+              // ),
+              // const SizedBox(height: 10),
+              // Obx(() => DropdownButton<String>(
+              //   isExpanded: true,
+              //   value: controller.selectedPostType.value,
+              //   items: controller.postTypes
+              //       .map((type) => DropdownMenuItem<String>(
+              //     value: type,
+              //     child: Text(type),
+              //   ))
+              //       .toList(),
+              //   onChanged: (value) {
+              //     if (value != null) controller.selectedPostType.value = value;
+              //   },
+              // )),
+              // const SizedBox(height: 20),
+
               // Monitor file changes
               Obx(() {
                 return Column(

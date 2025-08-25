@@ -21,7 +21,8 @@ class PostInfoTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = UserController.instance;
+    // final controller = UserController.instance;
+    final controller = Get.put(UserController());
 
     return Obx(() {
       if (controller.userCache.containsKey(userId)) {

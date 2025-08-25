@@ -10,10 +10,10 @@ import 'comment_footer.dart';
 import 'comment_header.dart';
 
 class CommentTile extends StatelessWidget {
-  const CommentTile({super.key, required this.comment, this.showReplyCount = true});
+  const CommentTile({super.key, required this.comment, this.isComment = true});
 
   final CommentModel comment;
-  final bool showReplyCount;
+  final bool isComment;
 
   @override
   Widget build(BuildContext context) {
@@ -30,6 +30,7 @@ class CommentTile extends StatelessWidget {
             /// Comment Header
             CommentHeader(
               comment: comment,
+              isComment: isComment,
             ),
       
             const SizedBox(height: TSizes.spaceBtwItems),
@@ -40,7 +41,7 @@ class CommentTile extends StatelessWidget {
             ),
 
             /// Show Reply Count (if any)
-            if (showReplyCount && replyCount > 0) ...[
+            if (isComment && replyCount > 0) ...[
               const SizedBox(height: 10),
               Padding(
                 padding: const EdgeInsets.only(left: 63),

@@ -52,6 +52,11 @@ class TColors {
   // static const Color tWhiteColor = Color(0xffffffff);
   // static const Color tDarkColor = Color(0xff000000);
 
+  /* -- Ranking Color -- */
+  static const Color gold = Color(0xFFFFB300);
+  static const Color silver = Color(0xFF9E9E9E);
+  static const Color bronze = Color(0xFFBF6000);
+
   static const Color communityBgColor = Color(0xffc9ccd3);
 }
 

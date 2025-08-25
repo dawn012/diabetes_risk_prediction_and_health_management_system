@@ -18,7 +18,12 @@ class PostCreateController extends GetxController {
 
   final postRepo = Get.put(PostRepository());
 
+  final postTitle = TextEditingController();
   final postContent = TextEditingController();
+
+  final selectedPostType = 'General Discussion'.obs;
+  final postTypes = ['General Discussion', 'Tips & Tricks', 'Meal or Recipe', 'Success Story'].obs;
+
   var file = Rxn<File>();
   final fileType = 'image'.obs;
   final isLoading = false.obs;

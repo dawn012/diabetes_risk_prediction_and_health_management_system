@@ -16,7 +16,7 @@ class CommentFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = CommentController.instance;
-    final isLiked = comment.likes.contains(UserController.instance.user.value.uid);
+    final isLiked = comment.likes.contains(UserController.instance.user.value.userId);
 
     return Row(
       children: [

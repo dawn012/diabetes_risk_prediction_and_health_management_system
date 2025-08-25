@@ -18,7 +18,8 @@ class PostButtons extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = PostController.instance;
-    final isLiked = post.likes.contains(UserController.instance.user.value.uid);
+    final userController = Get.put(UserController());
+    final isLiked = post.likes.contains(userController.user.value.userId);
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,

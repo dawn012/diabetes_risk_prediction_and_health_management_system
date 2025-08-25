@@ -18,7 +18,7 @@ class UserRepository extends GetxController {
   /// Function to save user data to Firestore
   Future<void> saveUserRecord(UserModel user) async {
     try {
-      await _db.collection(FirebaseCollectionNames.users).doc(user.uid).set(user.toJson());
+      await _db.collection(FirebaseCollectionNames.users).doc(user.userId).set(user.toJson());
       // await _db.collection('Users').doc(user.id).set({
       //   'email': user.email,
       //   ''
@@ -83,7 +83,7 @@ class UserRepository extends GetxController {
   /// Update any field in specific Users Collection
   Future<void> updateUserDetails(UserModel updatedUser) async {
     try {
-      await _db.collection(FirebaseCollectionNames.users).doc(updatedUser.uid).update(updatedUser.toJson());
+      await _db.collection(FirebaseCollectionNames.users).doc(updatedUser.userId).update(updatedUser.toJson());
     } on FirebaseException catch (e) {
       throw TFirebaseException(e.code).message;
     } on FormatException catch (_) {

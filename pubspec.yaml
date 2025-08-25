@@ -46,6 +46,8 @@ dependencies:
   jiffy: ^6.3.2  # formatting dates and time ago
   uuid: ^4.5.1  # generating ids for users
   fluttertoast: ^8.2.12  # show toast message
+  fl_chart: ^1.0.0
+  flutter_staggered_animations: ^1.1.1
 
   #-- MEDIA PROCESSING PACKAGES
   image_picker: ^1.1.2  # pick images
@@ -70,10 +72,11 @@ dependencies:
   firebase_storage: ^12.4.3
 #  firebase_admin: ^0.3.0+1
 
-  ## -- ICON PACKAGES
+  #-- ICON PACKAGES
   cupertino_icons: ^1.0.8
   icons_plus: ^5.0.0
   font_awesome_flutter: ^10.8.0
+  flutter_svg: ^2.0.17
 
   # PRODUCT SPECIFIC PACKAGES
 #  readmore: ^3.0.0

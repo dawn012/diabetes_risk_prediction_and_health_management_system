@@ -8,7 +8,7 @@ class CommentModel {
   final String commentId;
   final String authorId;
   final String? postId;
-  final String text;
+  final String content;
   final DateTime createdAt;
   final List<String> likes;
   final int replyCount;
@@ -19,7 +19,7 @@ class CommentModel {
     required this.commentId,
     required this.authorId,
     this.postId,
-    required this.text,
+    required this.content,
     required this.createdAt,
     required this.likes,
     this.replyCount = 0,
@@ -34,7 +34,7 @@ class CommentModel {
       FirebaseFieldNames.commentId: commentId,
       FirebaseFieldNames.authorId: authorId,
       if (postId != null) FirebaseFieldNames.postId: postId,  // ✅ 只有 comment 存
-      FirebaseFieldNames.text: text,
+      FirebaseFieldNames.content: content,
       FirebaseFieldNames.createdAt: createdAt.millisecondsSinceEpoch,
       FirebaseFieldNames.likes: likes,
       FirebaseFieldNames.replyCount: replyCount,
@@ -49,7 +49,7 @@ class CommentModel {
       commentId: data[FirebaseFieldNames.commentId] ?? '',
       authorId: data[FirebaseFieldNames.authorId] ?? '',
       postId: data[FirebaseFieldNames.postId],
-      text: data[FirebaseFieldNames.text] ?? '',
+      content: data[FirebaseFieldNames.content] ?? '',
       createdAt: DateTime.fromMillisecondsSinceEpoch(
         data[FirebaseFieldNames.createdAt] ?? 0,
       ),

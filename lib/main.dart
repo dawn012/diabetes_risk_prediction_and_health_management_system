@@ -29,7 +29,8 @@ void main() async {
             storageBucket: "diabetes-health-system.firebasestorage.app",
             messagingSenderId: "797068714189",
             appId: "1:797068714189:web:f8b91ba81aa8c07ee44984",
-            measurementId: "G-BR1JQP883Z"));
+            measurementId: "G-BR1JQP883Z"
+        )).then((FirebaseApp value) => Get.put(AuthenticationRepository()));
   } else {
     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform)
         .then((FirebaseApp value) => Get.put(AuthenticationRepository())); // Get.put() 会将 AuthenticationRepository 放入 GetX 的依赖注入系统中，确保可以在应用的任何地方访问到 AuthenticationRepository 实例
@@ -39,6 +40,10 @@ void main() async {
   // await FirebaseAppCheck.instance.activate(
   //   androidProvider: AndroidProvider.debug,
   // );
+
+  /// -- 启动角色监听
+  final authRepo = Get.find<AuthenticationRepository>();
+  authRepo.startRoleListener();
 
   runApp(const App());
 }

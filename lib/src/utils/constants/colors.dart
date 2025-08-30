@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 class TColors {
   TColors._();
 
+  /// User Side Color
   /* -- App Basic Colors -- */
   static const Color primary = Color(0xff017aff);
   static const Color secondary = Color(0xff143371);
@@ -22,7 +23,7 @@ class TColors {
 
   /* -- Background Container Colors -- */
   static const Color lightContainer = Color(0xfff6f6f6);
-  static Color  darkContainer = Colors.white.withValues(alpha: 0.1);
+  static Color darkContainer = Colors.white.withValues(alpha: 0.1);
 
   /* -- Button Colors -- */
   static const Color buttonPrimary = Color(0xff017aff);
@@ -34,10 +35,22 @@ class TColors {
   static const Color borderSecondary = Color(0xffe6e6e6);
 
   /* -- Error and Validation Colors -- */
-  static const Color error = Color(0xffd32f2f);
-  static const Color success = Color(0xff388e3c);
-  static const Color warning = Color(0xfff57c00);
-  static const Color info = Color(0xff1976d2);
+  // static const Color error = Color(0xffd32f2f);
+  // static const Color success = Color(0xff388e3c);
+  // static const Color warning = Color(0xfff57c00);
+  // static const Color info = Color(0xff1976d2);
+  static const Color success = Color(0xFF10B981);
+  static const Color successLight = Color(0xFF6EE7B7);
+  static const Color successDark = Color(0xFF047857);
+  static const Color warning = Color(0xFFF59E0B);
+  static const Color warningLight = Color(0xFFFCD34D);
+  static const Color warningDark = Color(0xFFB45309);
+  static const Color error = Color(0xFFEF4444);
+  static const Color errorLight = Color(0xFFFCA5A5);
+  static const Color errorDark = Color(0xFFDC2626);
+  static const Color info = Color(0xFF3B82F6);
+  static const Color infoLight = Color(0xFF93C5FD);
+  static const Color infoDark = Color(0xFF1D4ED8);
 
   /* -- Neutral Shades -- */
   static const Color black = Color(0xff232323);

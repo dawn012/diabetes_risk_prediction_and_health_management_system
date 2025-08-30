@@ -8,6 +8,7 @@ import 'package:get_storage/get_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../../../navigation_menu.dart';
+import '../../../features/admin/views/admin_dashboard/admin_dashboard_screen.dart';
 import '../../../features/authentication/views/login/login_screen.dart';
 import '../../../features/authentication/views/onboarding/onboarding.dart';
 import '../../../features/authentication/views/signup/verify_email.dart';
@@ -27,6 +28,10 @@ class AuthenticationRepository extends GetxController {
   /// Get Authenticated User Data
   User? get authUser => _auth.currentUser;
 
+  final userRole = Rx<String>('user');
+  bool get isAdminUser => userRole.value == 'admin';
+  bool get isRegularUser => userRole.value == 'user';
+
   // 用于存储 Firebase 发送的验证码会话 ID
   var verificationId = ''.obs;
 
@@ -41,15 +46,24 @@ class AuthenticationRepository extends GetxController {
     // _firebaseUser.bindStream(_auth.userChanges());
     FlutterNativeSplash.remove();
     screenRedirect();
+    if (authUser != null) {
+      getUserRole();
+    }
   }
 
   screenRedirect() async {
     final user = _auth.currentUser;
     if (user != null) {
+      final role = await getUserRole();
+
       // If the user is logged in
       if (user.emailVerified) {
         // If the user's email is verified, navigate to the Homepage
-        Get.offAll(() => NavigationMenu());
+        if (role == 'admin' || role.contains('manager')) {
+          Get.offAll(() => AdminDashboardScreen()); // 你需要创建这个页面
+        } else {
+          Get.offAll(() => NavigationMenu());
+        }
       } else {
         // If the user's email is not verified, navigate to the MainVerification
         Get.offAll(() => VerifyEmailScreen());
@@ -311,5 +325,49 @@ class AuthenticationRepository extends GetxController {
     } catch (e) {
       throw TTexts.commonErrorMessage;
     }
+  }
+
+  /// Get User Role from Custom Claims
+  Future<String> getUserRole() async {
+    try {
+      if (authUser == null) {
+        userRole.value = 'user';
+        return 'user';
+      }
+
+      // 强制刷新token以确保获取最新的claims
+      final idTokenResult = await authUser!.getIdTokenResult(true);
+      final claims = idTokenResult.claims;
+
+      if (claims != null && claims.containsKey('role')) {
+        userRole.value = claims['role'] as String;
+        return userRole.value;
+      } else {
+        userRole.value = 'user'; // 默认角色
+        return 'user';
+      }
+    } catch (e) {
+      print('Error getting user role: $e');
+      userRole.value = 'user';
+      return 'user';
+    }
+  }
+
+  /// Check if the user is admin
+  Future<bool> isAdmin() async {
+    final role = await getUserRole();
+    return role == 'admin';
+  }
+
+  // 监听用户角色变化
+  void startRoleListener() {
+    // 当用户状态变化时重新获取角色
+    _auth.userChanges().listen((User? user) async {
+      if (user != null) {
+        await getUserRole();
+      } else {
+        userRole.value = 'user';
+      }
+    });
   }
 }

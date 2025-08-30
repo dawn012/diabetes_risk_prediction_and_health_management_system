@@ -1,4 +1,5 @@
-const admin = require("firebase-admin");
+import * as functions from "firebase-functions";
+import * as admin from "firebase-admin";
 // const { updateReplyCountOnCreate, updateReplyCountOnDelete, deleteCommentAndReplies } = require("./comments");
 
 // 初始化 Firebase Admin（防止多次初始化）
@@ -33,6 +34,30 @@ export const {
   updateReplyCountOnDelete,
   deleteCommentAndReplies
 } = comments;
+
+export const setAdminClaim = functions.https.onRequest(async (req, res) => {
+  try {
+    // 你可以通过 query 或 body 获取 uid
+    const uid = req.query.uid as string || req.body.uid;
+    if (!uid) {
+      res.status(400).send("Missing UID");
+      return;
+    }
+
+    // 设置 custom claims
+    await admin.auth().setCustomUserClaims(uid, { role: "admin" });
+    console.log(`Custom claim 'admin' set for user ${uid}`);
+
+    // 标记 emailVerified
+    await admin.auth().updateUser(uid, { emailVerified: true });
+    console.log(`Email verified set for user ${uid}`);
+
+    res.status(200).send(`User ${uid} updated: admin + emailVerified`);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error);
+  }
+});
 
 // 正确导出 Cloud Functions
 // module.exports = { updateReplyCountOnCreate, updateReplyCountOnDelete, deleteCommentAndReplies };

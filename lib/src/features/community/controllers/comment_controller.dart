@@ -85,16 +85,16 @@ class CommentController extends GetxController {
 
   /// =================== CREATE =================== ///
   Future<void> makeComment({String? postId, String? parentCommentId}) async {
-    final text = commentText.text.trim();
-    if (text.isEmpty) return;
+    final content = commentText.text.trim();
+    if (content.isEmpty) return;
 
     if (!await _checkInternetConnection()) return;
 
     commentText.clear();
 
     await (parentCommentId != null
-        ? commentRepo.makeReply(text: text, parentCommentId: parentCommentId)
-        : commentRepo.makeComment(text: text, postId: postId!));
+        ? commentRepo.makeReply(content: content, parentCommentId: parentCommentId)
+        : commentRepo.makeComment(content: content, postId: postId!));
 
     sortCommentsBy(currentSort.value);
   }
@@ -116,8 +116,8 @@ class CommentController extends GetxController {
     }
 
     editingCommentId.value = comment.commentId;
-    originalCommentText.value = comment.text;
-    commentText.text = comment.text;
+    originalCommentText.value = comment.content;
+    commentText.text = comment.content;
 
     Future.delayed(Duration(milliseconds: 300), () {
       commentText.selection = TextSelection.collapsed(offset: commentText.text.length);

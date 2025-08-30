@@ -45,9 +45,9 @@ class PostRepository extends GetxController {
       PostModel post = PostModel(
         postId: postId,
         posterId: posterId,
-        content: content,
+        postContent: content,
         postType: postType,
-        fileUrl: downloadUrl,
+        mediaFiles: downloadUrl,
         createdAt: now,
         likes: const [],
       );
@@ -73,7 +73,7 @@ class PostRepository extends GetxController {
   Stream<List<PostModel>> fetchPosts() {
     return _db
         .collection(FirebaseCollectionNames.posts)
-        .orderBy(FirebaseFieldNames.datePublished, descending: true)
+        .orderBy(FirebaseFieldNames.createdAt, descending: true)
         // 监听这个集合的所有更改，并返回一个 Stream<QuerySnapshot>
         .snapshots() // 如果没有 .snapshots(): 那 .get() 只会获取一次数据，不会监听实时变化。
         .map((snapshot) {
@@ -122,7 +122,7 @@ class PostRepository extends GetxController {
     return _db
         .collection(FirebaseCollectionNames.posts)
         .where(FirebaseFieldNames.postType, isEqualTo: 'video')
-        .orderBy(FirebaseFieldNames.datePublished, descending: true)
+        .orderBy(FirebaseFieldNames.createdAt, descending: true)
         .snapshots()
         .map((snapshot) {
       return snapshot.docs.map((doc) => PostModel.fromSnapshot(doc)).toList();

@@ -30,46 +30,59 @@ class LoginController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    email.text = localStorage.read('REMEMBER_ME_EMAIL') ?? '';
-    password.text = localStorage.read('REMEMBER_ME_PASSWORD') ?? '';
+    try {
+      email.text = localStorage.read('REMEMBER_ME_EMAIL') ?? '';
+      password.text = localStorage.read('REMEMBER_ME_PASSWORD') ?? '';
+    } catch (e) {
+      print('GetStorage error on web: $e');
+      // Set default values if storage fails
+      email.text = '';
+      password.text = '';
+    }
   }
 
   // Email and Password Login
   Future<void> emailAndPasswordSignIn() async {
     try {
+      print('Hello1');
       // Start Loading
-      TFullScreenLoader.openLoadingDialog('Logging you in...', TImages.loadingAnimation);
+      // TFullScreenLoader.openLoadingDialog('Logging you in...', TImages.loadingAnimation);
 
       // Check Internet Connectivity
-      final isConnected = await NetworkManager.instance.isConnected();
-      if (!isConnected) {
-        // Remove loader
-        TFullScreenLoader.stopLoading();
-        return;
-      }
+      // final isConnected = await NetworkManager.instance.isConnected();
+      // if (!isConnected) {
+      //   // Remove loader
+      //   TFullScreenLoader.stopLoading();
+      //   return;
+      // }
+      print('Hello2');
 
       // Form Validation
       if (!loginFormKey.currentState!.validate()) {
         // Remove loader
-        TFullScreenLoader.stopLoading();
+        // TFullScreenLoader.stopLoading();
         return;
       }
 
+      print('Hello3');
       // Save data if Remember Me is selected
-      if (_rememberMe.value) {
-        localStorage.write('REMEMBER_ME_EMAIL', email.text.trim());
-        localStorage.write('REMEMBER_ME_PASSWORD', password.text.trim());
-      }
+      // if (_rememberMe.value) {
+      //   localStorage.write('REMEMBER_ME_EMAIL', email.text.trim());
+      //   localStorage.write('REMEMBER_ME_PASSWORD', password.text.trim());
+      // }
 
       // Login user using Email & Password Authentication
       final userCredentials = await AuthenticationRepository.instance.loginWithEmailAndPassword(email.text.trim(), password.text.trim());
 
+      print('Hello4');
       // Remove Loader
-      TFullScreenLoader.stopLoading();
+      // TFullScreenLoader.stopLoading();
 
+      print('Hello5');
       // Redirect
       AuthenticationRepository.instance.screenRedirect();
     } catch (e) {
+      print('Error: $e');
       // Remove loader
       TFullScreenLoader.stopLoading();
 

@@ -7,18 +7,18 @@ import '../../../utils/constants/firebase_field_names.dart';
 class PostModel {
   final String postId;
   final String posterId;
-  final String content;
+  final String postContent;
   final String postType;
-  final String fileUrl;
+  final String mediaFiles;
   final DateTime createdAt;
   final List<String> likes;
 
   const PostModel({
     required this.postId,
     required this.posterId,
-    required this.content,
+    required this.postContent,
     required this.postType,
-    required this.fileUrl,
+    required this.mediaFiles,
     required this.createdAt,
     required this.likes,
   });
@@ -27,9 +27,9 @@ class PostModel {
     return {
       FirebaseFieldNames.postId: postId,
       FirebaseFieldNames.posterId: posterId,
-      FirebaseFieldNames.content: content,
-      FirebaseFieldNames.fileUrl: fileUrl,
-      FirebaseFieldNames.datePublished: createdAt.millisecondsSinceEpoch,
+      FirebaseFieldNames.postContent: postContent,
+      FirebaseFieldNames.mediaFiles: mediaFiles,
+      FirebaseFieldNames.createdAt: createdAt.millisecondsSinceEpoch,
       FirebaseFieldNames.likes: likes,
       FirebaseFieldNames.postType: postType,
     };
@@ -40,11 +40,11 @@ class PostModel {
     return PostModel(
       postId: data[FirebaseFieldNames.postId] ?? '',
       posterId: data[FirebaseFieldNames.posterId] ?? '',
-      content: data[FirebaseFieldNames.content] ?? '',
+      postContent: data[FirebaseFieldNames.postContent] ?? '',
       postType: data[FirebaseFieldNames.postType] ?? '',
-      fileUrl: data[FirebaseFieldNames.fileUrl] ?? '',
+      mediaFiles: data[FirebaseFieldNames.mediaFiles] ?? '',
       createdAt: DateTime.fromMillisecondsSinceEpoch(
-        data[FirebaseFieldNames.datePublished] ?? 0,
+        data[FirebaseFieldNames.createdAt] ?? 0,
       ),
       likes: List<String>.from(
         (data[FirebaseFieldNames.likes] ?? []),

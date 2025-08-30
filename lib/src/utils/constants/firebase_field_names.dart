@@ -16,53 +16,66 @@ class FirebaseFieldNames {
   static const String lastAttemptTime = 'lastAttemptTime';
   static const String accountAvailable = 'accountAvailable';
 
-  static const String birthDay = 'birth_day';
-  static const String gender = 'gender';
+  ///-- Users Profile
+  static const String gender = "gender";
+  static const String dateOfBirth = "dateOfBirth";
+  static const String weight = "weight";
+  static const String height = "height";
+  static const String dietPreference = "dietPreference";
+  static const String allergies = "allergies";
+  static const String isTakeMedication = "isTakeMedication";
+  static const String prescribedFrequency = "prescribedFrequency";
+  static const String sleepDuration = "sleepDuration";
+  static const String stressLevel = "stressLevel";
+  static const String waterIntake = "waterIntake";
+  static const String updatedAt = "updatedAt";
+
   static const String friends = 'friends';
-  static const String sentRequests = 'sent_requests';
+  static const String sentRequests = 'sentRequests';
   static const String receivedRequests = 'receivedRequests';
 
   ///-- Posts
-  static const String postId = 'post_id';
-  static const String posterId = 'poster_id';
-  static const String content = 'content';
-  static const String fileUrl = 'file_url';
-  static const String datePublished = 'date_published';
-  static const String postType = 'post_type';
+  static const String postId = 'postId';
+  static const String posterId = 'posterId';
+  static const String postType = 'postType';
+  static const String postContent = 'postContent';
+  static const String mediaFiles = 'mediaFiles';
   static const String likes = 'likes';
+  static const String createdAt = 'createdAt';
+  static const String isDisable = 'isDisable';
 
   ///-- Comments
-  static const String commentId = 'comment_id';
-  static const String authorId = 'author_id';
-  static const String createdAt = 'created_at';
-  static const String text = 'text';
+  static const String commentId = 'commentIdd';
+  static const String authorId = 'authorId';
+  // static const String createdAt = 'createdAt';
+  static const String content = 'content';
 
   ///-- Replies
-  static const String parentCommentId = 'parent_comment_id';
+  static const String parentCommentId = 'parentCommentId';
   static const String mentions = 'mentions';
-  static const String replyCount = 'reply_count';
+  static const String replyCount = 'replyCount';
 
   ///-- Story
-  static const String imageUrl = 'image_url';
-  static const String storyId = 'story_id';
+  static const String imageUrl = 'imageUrl';
+  static const String storyId = 'storyId';
   static const String views = 'views';
 
   ///-- Video
-  static const String videoUrl = 'video_url';
-  static const String videoId = 'video_id';
+  static const String videoUrl = 'videoUrl';
+  static const String videoId = 'videoId';
 
   ///-- Chat
   static const members = 'members';
-  static const chatroomId = 'chatroom_id';
-  static const lastMessage = 'last_message';
-  static const lastMessageTs = 'last_message_ts';
+  static const chatroomId = 'chatroomId';
+  static const lastMessage = 'lastMessage';
+  static const lastMessageTs = 'lastMessageTs';
   static const message = 'message';
-  static const senderId = 'sender_id';
-  static const receiverId = 'receiver_id';
+  static const senderId = 'senderId';
+  static const receiverId = 'receiverId';
   static const seen = 'seen';
   static const timestamp = 'timestamp';
-  static const messageId = 'message_id';
-  static const messageType = 'message_type';
+  static const messageId = 'messageId';
+  static const messageType = 'messageType';
 
   ///-- Achievement
   static const String achievementId = 'achievementId';

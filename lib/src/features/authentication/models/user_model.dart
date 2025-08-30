@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../utils/constants/firebase_field_names.dart';
 import '../../../utils/formatters/formatter.dart';
+import '../../personalization/models/user_profile_model.dart';
 
 class UserModel {
   final String userId;
@@ -16,6 +17,7 @@ class UserModel {
   final int loginAttempt;
   final int lastAttemptTime;
   final bool accountAvailable;
+  UserProfileModel profile;
   // final List<String> friends;
   // final List<String> sentRequests;
   // final List<String> receivedRequests;
@@ -34,7 +36,8 @@ class UserModel {
     required this.loginAttempt,
     required this.lastAttemptTime,
     required this.accountAvailable,
-  });
+    UserProfileModel? profile,
+  }) : profile = profile ?? UserProfileModel.empty();
   
   /// Helper function to format phone number
   String get formattedPhoneNo => TFormatter.formatPhoneNumber(phoneNumber);

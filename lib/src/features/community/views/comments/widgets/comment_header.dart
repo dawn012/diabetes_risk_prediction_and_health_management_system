@@ -114,7 +114,7 @@ class CommentHeader extends StatelessWidget {
 
               /// 评论文本
               Text(
-                comment.text,
+                comment.content,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             ],

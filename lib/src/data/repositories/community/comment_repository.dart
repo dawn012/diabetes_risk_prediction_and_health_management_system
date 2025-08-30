@@ -21,7 +21,7 @@ class CommentRepository extends GetxController {
   final _storage = FirebaseStorage.instance;
 
   Future<String?> makeComment({
-    required String text,
+    required String content,
     required String postId,
   }) async {
     try {
@@ -33,7 +33,7 @@ class CommentRepository extends GetxController {
         commentId: commentId,
         authorId: authorId,
         postId: postId,
-        text: text,
+        content: content,
         createdAt: now,
         likes: const [],
         parentCommentId: null, // 这里不需要 parentCommentId
@@ -58,7 +58,7 @@ class CommentRepository extends GetxController {
   }
 
   Future<String?> makeReply({
-    required String text,
+    required String content,
     required String parentCommentId,
   }) async {
     try {
@@ -70,7 +70,7 @@ class CommentRepository extends GetxController {
         commentId: replyId,
         authorId: authorId,
         postId: null, // 回复不存 postId
-        text: text,
+        content: content,
         createdAt: now,
         likes: const [],
         parentCommentId: parentCommentId, // 标识属于哪个父评论

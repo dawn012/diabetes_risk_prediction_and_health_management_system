@@ -34,12 +34,12 @@ class PostTile extends StatelessWidget {
           /// Post Text
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-            child: Text(post.content),
+            child: Text(post.postContent),
           ),
 
           /// Post Image / Video
           PostImageVideoView(
-            fileUrl: post.fileUrl,
+            fileUrl: post.mediaFiles,
             fileType: post.postType,
           ),
 

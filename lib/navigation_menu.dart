@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 import 'package:icons_plus/icons_plus.dart';
 
 import 'src/features/community/views/community_menu.dart';
+import 'src/features/diabetes_prediction/views/diabetes_input/height_weight_input_screen.dart';
 import 'src/features/personalization/views/settings/settings.dart';
 import 'src/utils/constants/colors.dart';
 import 'src/utils/helpers/helper_functions.dart';
@@ -215,7 +216,7 @@ class _AddMenu extends StatelessWidget {
             children: [
               _buildShortcutButton("Predict Risk", Icons.analytics_outlined, () {
                 Get.back();
-
+                Get.to(() => const HeightWeightInputScreen());
               }),
               _buildShortcutButton("Reminder", Icons.notifications_outlined, () {
                 Get.back();

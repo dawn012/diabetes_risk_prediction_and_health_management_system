@@ -16,7 +16,7 @@ class LoginScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dark = THelperFunctions.isDarkMode(context);
+    final darkMode = THelperFunctions.isDarkMode(context);
     final controller = Get.put(LoginController());
 
     return Scaffold(

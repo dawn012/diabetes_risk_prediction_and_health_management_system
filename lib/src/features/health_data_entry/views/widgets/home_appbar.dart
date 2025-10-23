@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 
 import '../../../../common/widgets/appbar/appbar.dart';
 import '../../../../utils/constants/colors.dart';
+import '../../../notification/views/notification_screen.dart';
 import '../dashboard.dart';
 
 class THomeAppBar extends StatelessWidget {
@@ -30,7 +31,7 @@ class THomeAppBar extends StatelessWidget {
       ),
       actions: [
         TNotificationIcon(
-          onPressed: () {},
+          onPressed: () => Get.to(() => NotificationScreen()),
           iconColor: TColors.white,
         ),
       ],

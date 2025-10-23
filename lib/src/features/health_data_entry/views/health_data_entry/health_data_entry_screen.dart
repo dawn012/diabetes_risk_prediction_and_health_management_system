@@ -1,19 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:icons_plus/icons_plus.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../common/widgets/dialogs/common_confirmation_dialog.dart';
 import '../../../../utils/constants/colors.dart';
+import '../../../../utils/constants/enums.dart';
 import '../../../../utils/constants/sizes.dart';
 import '../../../../utils/helpers/helper_functions.dart';
 import '../../controllers/health_data_entry_controller.dart';
+import '../../models/health_data_model.dart';
 
 class HealthDataEntryScreen extends StatelessWidget {
-  const HealthDataEntryScreen({super.key});
+  final HealthDataModel? editData;
+  final List<String>? initialSections;
+
+  const HealthDataEntryScreen({super.key, this.editData, this.initialSections});
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.put(HealthDataEntryController());
+    final controller = Get.put(HealthDataEntryController(editData: editData, initialSections: initialSections));
     final darkMode = THelperFunctions.isDarkMode(context);
+    final isEditing = editData != null;
 
     return Scaffold(
       backgroundColor: darkMode ? TColors.dark : Colors.grey.shade50,
@@ -21,14 +30,27 @@ class HealthDataEntryScreen extends StatelessWidget {
         automaticallyImplyLeading: false,
         backgroundColor: darkMode ? TColors.dark : Colors.grey.shade50,
         elevation: 0,
-        title: Text(
-          'Add Health Data',
-          style: TextStyle(
-            color: darkMode ? TColors.white : TColors.black,
-            fontWeight: FontWeight.bold,
-            fontSize: 20
-          ),
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back),
+          onPressed: () => Get.back(),
         ),
+        title: Text(
+          isEditing ? 'Edit Health Data' : 'Add Health Data',
+          style: TextStyle(
+              color: darkMode ? TColors.white : TColors.black,
+              fontWeight: FontWeight.bold,
+              fontSize: 20),
+        ),
+        actions: [
+          if (isEditing)
+            IconButton(
+              icon: Icon(
+                Icons.delete_outline,
+                color: Colors.red,
+              ),
+              onPressed: () => _showDeleteDialog(context, controller),
+            ),
+        ],
       ),
       body: Column(
         children: [
@@ -50,30 +72,31 @@ class HealthDataEntryScreen extends StatelessWidget {
                   /// Active Health Metrics
                   Obx(() => Column(
                     children: controller.activeSections
-                        .map((section) => _buildHealthMetricSection(context, section, darkMode, controller))
+                        .map((section) => _buildHealthMetricSection(
+                        context, section, darkMode, controller))
                         .toList(),
                   )),
 
                   SizedBox(height: TSizes.spaceBtwItems),
 
                   /// Add Others Section
-                  Obx(() => controller.getAvailableSections().isNotEmpty
-                      ? _buildAddOthersSection(context, darkMode, controller)
-                      : SizedBox.shrink()),
+                  Obx(() =>
+                      _buildAddOthersSection(context, darkMode, controller)),
                 ],
               ),
             ),
           ),
 
           /// Bottom Buttons
-          _buildBottomButtons(context, darkMode, controller),
+          _buildBottomButtons(context, darkMode, controller, isEditing),
         ],
       ),
     );
   }
 
   /// Time Selection Section
-  Widget _buildTimeSection(BuildContext context, bool darkMode, HealthDataEntryController controller) {
+  Widget _buildTimeSection(BuildContext context, bool darkMode,
+      HealthDataEntryController controller) {
     return Container(
       padding: const EdgeInsets.all(TSizes.md),
       decoration: BoxDecoration(
@@ -125,7 +148,8 @@ class HealthDataEntryScreen extends StatelessWidget {
   }
 
   /// Period Selection Section
-  Widget _buildPeriodSection(BuildContext context, bool darkMode, HealthDataEntryController controller) {
+  Widget _buildPeriodSection(BuildContext context, bool darkMode,
+      HealthDataEntryController controller) {
     return Container(
       padding: const EdgeInsets.all(TSizes.md),
       decoration: BoxDecoration(
@@ -149,7 +173,7 @@ class HealthDataEntryScreen extends StatelessWidget {
             child: Obx(() => Row(
               children: [
                 Text(
-                  controller.selectedPeriod.value,
+                  controller.selectedPeriod.value.displayName,
                   style: TextStyle(
                     color: TColors.primary,
                     fontWeight: FontWeight.w500,
@@ -169,7 +193,8 @@ class HealthDataEntryScreen extends StatelessWidget {
   }
 
   /// Health Metric Section Builder
-  Widget _buildHealthMetricSection(BuildContext context, String section, bool darkMode, HealthDataEntryController controller) {
+  Widget _buildHealthMetricSection(BuildContext context, String section,
+      bool darkMode, HealthDataEntryController controller) {
     return Container(
       margin: const EdgeInsets.only(bottom: TSizes.spaceBtwItems),
       padding: const EdgeInsets.all(TSizes.md),
@@ -223,16 +248,22 @@ class HealthDataEntryScreen extends StatelessWidget {
   }
 
   /// Build inputs for each section
-  List<Widget> _buildSectionInputs(String section, bool darkMode, HealthDataEntryController controller) {
+  List<Widget> _buildSectionInputs(String section, bool darkMode,
+      HealthDataEntryController controller) {
     switch (section) {
       case 'Blood Glucose':
         return [
           _buildInputField(
             'Glucose',
-            'Enter',
+            'Enter glucose level',
             'mmol/L',
             controller.glucoseController,
             darkMode,
+            controller,
+            fieldKey: 'glucose',
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+            ],
           ),
         ];
 
@@ -240,18 +271,44 @@ class HealthDataEntryScreen extends StatelessWidget {
         return [
           _buildInputField(
             'Systolic',
-            'Enter',
+            'Enter systolic',
             'mmHg',
             controller.systolicController,
             darkMode,
+            controller,
+            fieldKey: 'systolic',
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(3),
+            ],
           ),
           SizedBox(height: TSizes.sm),
           _buildInputField(
             'Diastolic',
-            'Enter',
+            'Enter diastolic',
             'mmHg',
             controller.diastolicController,
             darkMode,
+            controller,
+            fieldKey: 'diastolic',
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(3),
+            ],
+          ),
+          SizedBox(height: TSizes.sm),
+          _buildInputField(
+            'Pulse',
+            'Enter pulse',
+            'bpm',
+            controller.pulseController,
+            darkMode,
+            controller,
+            fieldKey: 'pulse',
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(3),
+            ],
           ),
         ];
 
@@ -259,29 +316,42 @@ class HealthDataEntryScreen extends StatelessWidget {
         return [
           _buildInputField(
             'Weight',
-            'Enter',
+            'Enter weight',
             'kg',
             controller.weightController,
             darkMode,
+            controller,
+            fieldKey: 'weight',
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+            ],
           ),
           SizedBox(height: TSizes.sm),
           _buildInputField(
             'Body Fat',
-            'Enter',
+            'Enter body fat',
             '%',
             controller.bodyFatController,
             darkMode,
+            controller,
+            fieldKey: 'bodyFat',
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+            ],
           ),
         ];
 
       case 'Exercise':
         return [
           _buildInputField(
-            'Activity Name',
+            'Activity',
             'Enter exercise name',
             '',
             controller.exerciseNameController,
             darkMode,
+            controller,
+            fieldKey: 'activityType',
+            keyboardType: TextInputType.text,
           ),
           SizedBox(height: TSizes.sm),
           _buildInputField(
@@ -290,15 +360,15 @@ class HealthDataEntryScreen extends StatelessWidget {
             'minutes',
             controller.durationController,
             darkMode,
+            controller,
+            fieldKey: 'duration',
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(4),
+            ],
           ),
           SizedBox(height: TSizes.sm),
-          _buildInputField(
-            'Intensity Level',
-            'Low/Medium/High',
-            '',
-            controller.intensityController,
-            darkMode,
-          ),
+          _buildIntensitySelector(darkMode, controller),
         ];
 
       case 'Note':
@@ -309,7 +379,9 @@ class HealthDataEntryScreen extends StatelessWidget {
             '',
             controller.noteController,
             darkMode,
+            controller,
             maxLines: 3,
+            keyboardType: TextInputType.multiline,
           ),
         ];
 
@@ -318,21 +390,15 @@ class HealthDataEntryScreen extends StatelessWidget {
     }
   }
 
-  /// Input Field Builder
-  Widget _buildInputField(
-      String label,
-      String hint,
-      String unit,
-      TextEditingController textController,
-      bool darkMode, {
-        int maxLines = 1,
-      }) {
+  /// Intensity selector
+  Widget _buildIntensitySelector(
+      bool darkMode, HealthDataEntryController controller) {
     return Row(
       children: [
         Expanded(
           flex: 2,
           child: Text(
-            label,
+            'Intensity',
             style: Theme.of(Get.context!).textTheme.bodyMedium?.copyWith(
               color: darkMode ? TColors.white : TColors.black,
             ),
@@ -340,33 +406,152 @@ class HealthDataEntryScreen extends StatelessWidget {
         ),
         Expanded(
           flex: 3,
-          child: TextField(
-            controller: textController,
-            maxLines: maxLines,
-            style: TextStyle(color: darkMode ? TColors.white : TColors.black),
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle: TextStyle(
-                color: darkMode ? Colors.grey.shade500 : Colors.grey.shade400,
-              ),
-              border: UnderlineInputBorder(
-                borderSide: BorderSide(
-                  color: darkMode ? Colors.grey.shade600 : Colors.grey.shade300,
-                ),
-              ),
-              enabledBorder: UnderlineInputBorder(
-                borderSide: BorderSide(
-                  color: darkMode ? Colors.grey.shade600 : Colors.grey.shade300,
-                ),
-              ),
-              focusedBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: TColors.primary),
-              ),
-              suffixText: unit.isNotEmpty ? unit : null,
-              suffixStyle: TextStyle(
-                color: darkMode ? Colors.grey.shade400 : Colors.grey.shade600,
+          child: Obx(() => DropdownButton<IntensityLevel>(
+            value: controller.selectedIntensityLevel.value,
+            isExpanded: true,
+            underline: Container(
+              height: 1,
+              color: darkMode ? Colors.grey.shade600 : Colors.grey.shade300,
+            ),
+            dropdownColor: darkMode ? TColors.darkerGrey : Colors.white,
+            style: TextStyle(
+              color: darkMode ? TColors.white : TColors.black,
+            ),
+            items: IntensityLevel.values.map((IntensityLevel level) {
+              return DropdownMenuItem<IntensityLevel>(
+                value: level,
+                child: Text(level.displayName),
+              );
+            }).toList(),
+            onChanged: (IntensityLevel? newValue) {
+              if (newValue != null) {
+                controller.updateIntensityLevel(newValue);
+              }
+            },
+          )),
+        ),
+      ],
+    );
+  }
+
+  /// Input Field Builder with improved error display - FIXED
+  Widget _buildInputField(
+      String label,
+      String hint,
+      String unit,
+      TextEditingController textController,
+      bool darkMode,
+      HealthDataEntryController controller, {
+        int maxLines = 1,
+        String? fieldKey,
+        TextInputType? keyboardType,
+        List<TextInputFormatter>? inputFormatters,
+      }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Label - Fixed flex
+        Expanded(
+          flex: 2,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 12.0),
+            child: Text(
+              label,
+              style: Theme.of(Get.context!).textTheme.bodyMedium?.copyWith(
+                color: darkMode ? TColors.white : TColors.black,
               ),
             ),
+          ),
+        ),
+
+        // Input field with error - FIXED: Error only shows under input
+        Expanded(
+          flex: 3,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Obx(() {
+                final hasError = fieldKey != null &&
+                    controller.getFieldError(fieldKey) != null;
+
+                return TextField(
+                  controller: textController,
+                  maxLines: maxLines,
+                  keyboardType: keyboardType ??
+                      (unit.isNotEmpty && unit != 'Low/Medium/High'
+                          ? TextInputType.numberWithOptions(decimal: true)
+                          : TextInputType.text),
+                  inputFormatters: inputFormatters,
+                  style: TextStyle(
+                    color: darkMode ? TColors.white : TColors.black,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: hint,
+                    hintStyle: TextStyle(
+                      color: darkMode
+                          ? Colors.grey.shade500
+                          : Colors.grey.shade400,
+                    ),
+                    border: UnderlineInputBorder(
+                      borderSide: BorderSide(
+                        color: hasError
+                            ? TColors.error
+                            : (darkMode
+                            ? Colors.grey.shade600
+                            : Colors.grey.shade300),
+                      ),
+                    ),
+                    enabledBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(
+                        color: hasError
+                            ? TColors.error
+                            : (darkMode
+                            ? Colors.grey.shade600
+                            : Colors.grey.shade300),
+                      ),
+                    ),
+                    focusedBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(
+                        color: hasError ? TColors.error : TColors.primary,
+                        width: 2,
+                      ),
+                    ),
+                    suffixText: unit.isNotEmpty ? unit : null,
+                    suffixStyle: TextStyle(
+                      color: darkMode
+                          ? Colors.grey.shade400
+                          : Colors.grey.shade600,
+                    ),
+                    contentPadding: EdgeInsets.symmetric(vertical: 8),
+                  ),
+                  onChanged: (_) {
+                    // Clear error when user starts typing
+                    if (fieldKey != null && hasError) {
+                      controller.fieldErrors.remove(fieldKey);
+                      controller.fieldErrors.refresh();
+                    }
+                  },
+                );
+              }),
+
+              // Error message - Only under the input field
+              if (fieldKey != null)
+                Obx(() {
+                  final error = controller.getFieldError(fieldKey);
+                  if (error == null) return SizedBox(height: 4);
+
+                  return Padding(
+                    padding: EdgeInsets.only(top: 4),
+                    child: Text(
+                      error,
+                      style: TextStyle(
+                        color: TColors.error,
+                        fontSize: 11,
+                      ),
+                    ),
+                  );
+                }),
+            ],
           ),
         ),
       ],
@@ -374,66 +559,85 @@ class HealthDataEntryScreen extends StatelessWidget {
   }
 
   /// Add Others Section
-  Widget _buildAddOthersSection(BuildContext context, bool darkMode, HealthDataEntryController controller) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: TSizes.md),
-          child: Text(
-            'Add others:',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: darkMode ? Colors.grey.shade400 : Colors.grey.shade600,
-            ),
-          ),
-        ),
-        ...controller.getAvailableSections().map((section) =>
-            _buildAddOptionTile(context, section, darkMode, controller)
-        ).toList(),
-      ],
-    );
-  }
+  Widget _buildAddOthersSection(BuildContext context, bool darkMode,
+      HealthDataEntryController controller) {
+    final availableSections = controller.getAvailableSections();
 
-  /// Add Option Tile
-  Widget _buildAddOptionTile(BuildContext context, String section, bool darkMode, HealthDataEntryController controller) {
+    if (availableSections.isEmpty) {
+      return SizedBox.shrink();
+    }
+
     return Container(
-      margin: const EdgeInsets.only(bottom: TSizes.sm),
-      child: GestureDetector(
-        onTap: () => controller.addSection(section),
-        child: Container(
-          padding: const EdgeInsets.all(TSizes.md),
-          decoration: BoxDecoration(
-            color: darkMode ? TColors.darkerGrey : Colors.white,
-            borderRadius: BorderRadius.circular(TSizes.cardRadiusLg),
-            border: Border.all(
-              color: darkMode ? Colors.grey.shade700 : Colors.grey.shade200,
+      padding: const EdgeInsets.all(TSizes.md),
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: darkMode ? TColors.darkerGrey : Colors.white,
+        borderRadius: BorderRadius.circular(TSizes.cardRadiusLg),
+        border: Border.all(
+          color: darkMode ? Colors.grey.shade700 : Colors.grey.shade200,
+          style: BorderStyle.solid,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Add Others',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: darkMode ? TColors.white : TColors.black,
+              fontWeight: FontWeight.bold,
             ),
           ),
-          child: Row(
-            children: [
-              _getSectionIcon(section),
-              SizedBox(width: TSizes.sm),
-              Expanded(
-                child: Text(
-                  section,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: darkMode ? TColors.white : TColors.black,
+          SizedBox(height: TSizes.sm),
+          Wrap(
+            spacing: TSizes.sm,
+            runSpacing: TSizes.sm,
+            children: availableSections.map((section) {
+              return GestureDetector(
+                onTap: () => controller.addSection(section),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: TSizes.md,
+                    vertical: TSizes.sm,
+                  ),
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: TColors.primary.withOpacity(0.3),
+                    ),
+                    borderRadius: BorderRadius.circular(TSizes.cardRadiusSm),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _getSectionIcon(section),
+                      SizedBox(width: TSizes.xs),
+                      Text(
+                        section,
+                        style: TextStyle(
+                          color: TColors.primary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      SizedBox(width: TSizes.xs),
+                      Icon(
+                        Icons.add,
+                        size: 16,
+                        color: TColors.primary,
+                      ),
+                    ],
                   ),
                 ),
-              ),
-              Icon(
-                Icons.add,
-                color: darkMode ? TColors.white : TColors.black,
-              ),
-            ],
+              );
+            }).toList(),
           ),
-        ),
+        ],
       ),
     );
   }
 
   /// Bottom Buttons
-  Widget _buildBottomButtons(BuildContext context, bool darkMode, HealthDataEntryController controller) {
+  Widget _buildBottomButtons(BuildContext context, bool darkMode,
+      HealthDataEntryController controller, bool isEditing) {
     return Container(
       padding: const EdgeInsets.all(TSizes.defaultSpace),
       decoration: BoxDecoration(
@@ -444,257 +648,56 @@ class HealthDataEntryScreen extends StatelessWidget {
           ),
         ),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: OutlinedButton(
-              onPressed: () => Get.back(),
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(color: TColors.primary),
-                padding: const EdgeInsets.symmetric(vertical: TSizes.md),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(TSizes.cardRadiusLg),
-                ),
-              ),
-              child: Text(
-                'Cancel',
-                style: TextStyle(color: TColors.primary),
-              ),
-            ),
-          ),
-          SizedBox(width: TSizes.spaceBtwItems),
-          Expanded(
-            child: ElevatedButton(
-              onPressed: controller.saveHealthData,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: TColors.primary,
-                padding: const EdgeInsets.symmetric(vertical: TSizes.md),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(TSizes.cardRadiusLg),
-                ),
-              ),
-              child: Text(
-                'Done',
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Get Section Icon
-  Widget _getSectionIcon(String section) {
-    IconData icon;
-    Color color;
-
-    switch (section) {
-      case 'Blood Glucose':
-        icon = Icons.opacity;
-        color = TColors.primary;
-        break;
-      case 'Blood Pressure & Pulse':
-        icon = Icons.favorite;
-        color = Colors.red;
-        break;
-      case 'Weight & Body Fat':
-        icon = Icons.monitor_weight;
-        color = Colors.blue;
-        break;
-      case 'Exercise':
-        icon = Icons.fitness_center;
-        color = Colors.orange;
-        break;
-      case 'Note':
-        icon = Icons.note;
-        color = Colors.purple;
-        break;
-      default:
-        icon = Icons.health_and_safety;
-        color = Colors.grey;
-    }
-
-    return Icon(icon, color: color, size: 20);
-  }
-
-  /// Show Date Time Picker
-  void _showDateTimePicker(BuildContext context, bool darkMode, HealthDataEntryController controller) {
-    Get.dialog(
-      _DateTimePicker(
-        initialDate: controller.selectedDate.value,
-        initialTime: controller.selectedTime.value,
-        darkMode: darkMode,
-        onDateTimeChanged: controller.updateDateTime,
-      ),
-    );
-  }
-
-  /// Show Period Picker
-  void _showPeriodPicker(BuildContext context, bool darkMode, HealthDataEntryController controller) {
-    Get.bottomSheet(
-      _PeriodPicker(
-        periods: controller.periods,
-        selectedPeriod: controller.selectedPeriod.value,
-        darkMode: darkMode,
-        onPeriodSelected: controller.updatePeriod,
-      ),
-      backgroundColor: Colors.transparent,
-    );
-  }
-}
-
-/// Date Time Picker Dialog
-class _DateTimePicker extends StatefulWidget {
-  final DateTime initialDate;
-  final TimeOfDay initialTime;
-  final bool darkMode;
-  final Function(DateTime, TimeOfDay) onDateTimeChanged;
-
-  const _DateTimePicker({
-    required this.initialDate,
-    required this.initialTime,
-    required this.darkMode,
-    required this.onDateTimeChanged,
-  });
-
-  @override
-  State<_DateTimePicker> createState() => _DateTimePickerState();
-}
-
-class _DateTimePickerState extends State<_DateTimePicker> {
-  late DateTime selectedDate;
-  late int selectedHour;
-  late int selectedMinute;
-
-  // Controllers for the wheel scroll views
-  late FixedExtentScrollController hourController;
-  late FixedExtentScrollController minuteController;
-
-  @override
-  void initState() {
-    super.initState();
-    selectedDate = widget.initialDate;
-    selectedHour = widget.initialTime.hour;
-    selectedMinute = widget.initialTime.minute;
-
-    // Initialize controllers with current time positions
-    hourController = FixedExtentScrollController(initialItem: selectedHour);
-    minuteController = FixedExtentScrollController(initialItem: selectedMinute);
-  }
-
-  @override
-  void dispose() {
-    hourController.dispose();
-    minuteController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: widget.darkMode ? TColors.dark : Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(TSizes.cardRadiusLg),
-      ),
-      child: Container(
-        padding: const EdgeInsets.all(TSizes.defaultSpace),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+      child: SafeArea(
+        child: Row(
           children: [
-            /// Header
-            Text(
-              'Select Date & Time',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: widget.darkMode ? TColors.white : TColors.black,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: TSizes.spaceBtwSections),
-
-            /// Calendar
-            Container(
-              height: 300,
-              child: CalendarDatePicker(
-                initialDate: selectedDate,
-                firstDate: DateTime(2000),
-                lastDate: DateTime.now().toLocal(),
-                onDateChanged: (date) => setState(() => selectedDate = date),
-              ),
-            ),
-
-            SizedBox(height: TSizes.spaceBtwSections),
-
-            /// 24-Hour Time Picker
-            Container(
-              height: 150,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Hour Picker (00-23)
-                  _buildNumberPicker(
-                    minValue: 0,
-                    maxValue: 23,
-                    value: selectedHour,
-                    controller: hourController,
-                    onChanged: (hour) => setState(() => selectedHour = hour),
-                  ),
-                  Text(':',
-                    style: TextStyle(
-                        fontSize: 24,
-                        color: TColors.primary
-                    ),
-                  ),
-                  // Minute Picker (00-59)
-                  _buildNumberPicker(
-                    minValue: 0,
-                    maxValue: 59,
-                    value: selectedMinute,
-                    controller: minuteController,
-                    onChanged: (minute) => setState(() => selectedMinute = minute),
-                    interval: 1, // Allow per-minute selection
-                  ),
-                ],
-              ),
-            ),
-
-            SizedBox(height: TSizes.spaceBtwSections),
-
-            /// Action Buttons
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: Get.back,
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: TColors.primary),
-                    ),
-                    child: Text(
-                      'CANCEL',
-                      style: TextStyle(color: TColors.primary),
-                    ),
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () => Get.back(),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: TSizes.md),
+                  side: BorderSide(
+                    color:
+                    darkMode ? Colors.grey.shade600 : Colors.grey.shade400,
                   ),
                 ),
-                SizedBox(width: TSizes.spaceBtwItems),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      widget.onDateTimeChanged(
-                        selectedDate,
-                        TimeOfDay(hour: selectedHour, minute: selectedMinute),
-                      );
-                      Get.back();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: TColors.primary,
-                    ),
-                    child: Text(
-                      'CONFIRM',
-                      style: TextStyle(color: Colors.white),
-                    ),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(
+                    color: darkMode ? TColors.white : TColors.black,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-              ],
+              ),
+            ),
+            SizedBox(width: TSizes.md),
+            Expanded(
+              child: Obx(() => ElevatedButton(
+                onPressed: controller.isLoading.value
+                    ? null
+                    : () => _handleSave(controller, isEditing),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: TColors.primary,
+                  padding: const EdgeInsets.symmetric(vertical: TSizes.md),
+                ),
+                child: controller.isLoading.value
+                    ? SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor:
+                    AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+                    : Text(
+                  isEditing ? 'Update' : 'Save',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              )),
             ),
           ],
         ),
@@ -702,146 +705,183 @@ class _DateTimePickerState extends State<_DateTimePicker> {
     );
   }
 
-  Widget _buildNumberPicker({
-    required int minValue,
-    required int maxValue,
-    required int value,
-    required FixedExtentScrollController controller,
-    required ValueChanged<int> onChanged,
-    int interval = 1,
-  }) {
-    return SizedBox(
-      width: 80,
-      child: ListWheelScrollView(
-        controller: controller,
-        itemExtent: 50,
-        diameterRatio: 1.5,
-        physics: FixedExtentScrollPhysics(),
-        onSelectedItemChanged: (index) {
-          final newValue = minValue + (index * interval);
-          onChanged(newValue);
+  /// Get Section Icon
+  Widget _getSectionIcon(String section) {
+    IconData iconData;
+    Color iconColor;
+
+    switch (section) {
+      case 'Blood Glucose':
+        iconData = Icons.bloodtype_outlined;
+        iconColor = TColors.glucoseGood;
+        break;
+      case 'Blood Pressure & Pulse':
+        iconData = Icons.favorite_outline;
+        iconColor = TColors.bpNormal;
+        break;
+      case 'Weight & Body Fat':
+        iconData = Icons.monitor_weight_outlined;
+        iconColor = TColors.weightNormal;
+        break;
+      case 'Exercise':
+        iconData = Icons.fitness_center_outlined;
+        iconColor = TColors.success;
+        break;
+      case 'Note':
+        iconData = Icons.note_outlined;
+        iconColor = TColors.info;
+        break;
+      default:
+        iconData = Icons.health_and_safety_outlined;
+        iconColor = TColors.primary;
+    }
+
+    return Icon(
+      iconData,
+      color: iconColor,
+      size: 20,
+    );
+  }
+
+  /// Show Date Time Picker
+  void _showDateTimePicker(BuildContext context, bool darkMode,
+      HealthDataEntryController controller) async {
+    // Show Date Picker first
+    final date = await showDatePicker(
+      context: context,
+      initialDate: controller.selectedDate.value,
+      firstDate: DateTime.now().subtract(Duration(days: 365)),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: darkMode
+                ? ColorScheme.dark(primary: TColors.primary)
+                : ColorScheme.light(primary: TColors.primary),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (date != null) {
+      controller.selectedDate.value = date;
+
+      // Show Time Picker
+      final time = await showTimePicker(
+        context: context,
+        initialTime: controller.selectedTime.value,
+        builder: (context, child) {
+          return Theme(
+            data: Theme.of(context).copyWith(
+              colorScheme: darkMode
+                  ? ColorScheme.dark(primary: TColors.primary)
+                  : ColorScheme.light(primary: TColors.primary),
+            ),
+            child: child!,
+          );
         },
-        children: List.generate(
-          ((maxValue - minValue) ~/ interval) + 1,
-              (index) {
-            final number = minValue + (index * interval);
-            return Center(
-              child: Text(
-                number.toString().padLeft(2, '0'),
-                style: TextStyle(
-                  fontSize: number == value ? 24 : 18,
-                  color: number == value
-                      ? TColors.primary
-                      : widget.darkMode
-                      ? Colors.grey.shade400
-                      : Colors.grey.shade600,
-                  fontWeight: number == value
-                      ? FontWeight.bold
-                      : FontWeight.normal,
+      );
+
+      if (time != null) {
+        controller.selectedTime.value = time;
+      }
+    }
+  }
+
+  /// Show Period Picker
+  void _showPeriodPicker(BuildContext context, bool darkMode,
+      HealthDataEntryController controller) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: darkMode ? TColors.darkerGrey : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius:
+        BorderRadius.vertical(top: Radius.circular(TSizes.cardRadiusLg)),
+      ),
+      isScrollControlled: true,
+      builder: (context) => SafeArea(
+        child: SingleChildScrollView(
+          child: Container(
+            padding: const EdgeInsets.all(TSizes.defaultSpace),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Select Period',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: darkMode ? TColors.white : TColors.black,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-            );
-          },
+                SizedBox(height: TSizes.md),
+                ...PhysiologicalTimePeriod.values
+                    .map((period) => ListTile(
+                  contentPadding: EdgeInsets.symmetric(horizontal: 0),
+                  title: Text(
+                    period.displayName,
+                    style: TextStyle(
+                      color: darkMode ? TColors.white : TColors.black,
+                    ),
+                  ),
+                  onTap: () {
+                    controller.updatePeriod(period);
+                    Get.back();
+                  },
+                  trailing: Obx(() {
+                    return controller.selectedPeriod.value == period
+                        ? Icon(Icons.check, color: TColors.primary)
+                        : const SizedBox.shrink();
+                  }),
+                ))
+                    .toList(),
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
-}
 
-/// Period Picker Bottom Sheet
-class _PeriodPicker extends StatelessWidget {
-  final List<String> periods;
-  final String selectedPeriod;
-  final bool darkMode;
-  final Function(String) onPeriodSelected;
-
-  const _PeriodPicker({
-    required this.periods,
-    required this.selectedPeriod,
-    required this.darkMode,
-    required this.onPeriodSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: darkMode ? TColors.dark : Colors.white,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(TSizes.cardRadiusLg),
-          topRight: Radius.circular(TSizes.cardRadiusLg),
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          /// Header
-          Container(
-            padding: const EdgeInsets.all(TSizes.defaultSpace),
-            decoration: BoxDecoration(
-              color: TColors.primary,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(TSizes.cardRadiusLg),
-                topRight: Radius.circular(TSizes.cardRadiusLg),
-              ),
-            ),
-            child: Row(
-              children: [
-                Text(
-                  'Period',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          /// Period Options
-          Container(
-            constraints: BoxConstraints(maxHeight: 300),
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: periods.length,
-              itemBuilder: (context, index) {
-                final period = periods[index];
-                final isSelected = period == selectedPeriod;
-
-                return Container(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: TSizes.defaultSpace,
-                    vertical: TSizes.xs,
-                  ),
-                  child: ListTile(
-                    title: Text(
-                      period,
-                      style: TextStyle(
-                        color: darkMode ? TColors.white : TColors.black,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      ),
-                    ),
-                    selected: isSelected,
-                    selectedTileColor: TColors.primary.withOpacity(0.1),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(TSizes.cardRadiusMd),
-                    ),
-                    onTap: () {
-                      onPeriodSelected(period);
-                      Get.back();
-                    },
-                    trailing: isSelected
-                        ? Icon(Icons.check, color: TColors.primary)
-                        : null,
-                  ),
-                );
-              },
-            ),
-          ),
-
-          SizedBox(height: TSizes.defaultSpace),
-        ],
-      ),
+  /// Show Delete Dialog
+  void _showDeleteDialog(
+      BuildContext context, HealthDataEntryController controller) {
+    ConfirmationDialog.show(
+      title: 'Delete Record',
+      message:
+      'Are you sure you want to delete this health record? This action cannot be undone.',
+      confirmButtonText: 'Delete',
+      customIcon: Iconsax.trash_bold,
+      iconColor: TColors.error,
+      confirmButtonColor: TColors.error,
+      onConfirm: () => _handleDelete(controller),
     );
+  }
+
+  /// Handle Save
+  void _handleSave(
+      HealthDataEntryController controller, bool isEditing) async {
+    try {
+      if (isEditing) {
+        await controller.updateHealthData();
+      } else {
+        await controller.saveHealthData();
+      }
+    } catch (e) {
+      // Error handling is done in the controller
+    }
+  }
+
+  /// Handle Delete
+  void _handleDelete(HealthDataEntryController controller) async {
+    try {
+      await controller.deleteHealthData();
+      if (Get.context != null) {
+        Navigator.of(Get.context!, rootNavigator: true).pop(true);
+      }
+    } catch (e) {
+      // Error handling is done in the controller
+    }
   }
 }

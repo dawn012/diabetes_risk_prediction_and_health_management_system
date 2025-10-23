@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'dart:math' as math;
 
+import '../../../common/loaders/loaders.dart';
 import '../../../data/repositories/user/user_repository.dart';
-import '../../../utils/constants/colors.dart';
+import '../views/diabetes_input/physical_activity_input_screen.dart';
 
-class BloodGlucoseController extends GetxController {
-  static BloodGlucoseController get instance => Get.find();
+class DiabetesBloodGlucoseController extends GetxController {
+  static DiabetesBloodGlucoseController get instance => Get.find();
 
   // Observable variables
   final Rx<double> currentValue = 100.0.obs;
@@ -127,74 +128,51 @@ class BloodGlucoseController extends GetxController {
     return (percentage * 270 - 135) * math.pi / 180; // -135 to 135 degrees
   }
 
-  /// Get quick select values based on measurement type
-  List<Map<String, dynamic>> getQuickSelectValues() {
-    if (measurementType.value == 'mg/dL') {
-      return [
-        {'value': 80.0, 'label': 'Fasting'},
-        {'value': 100.0, 'label': 'Normal'},
-        {'value': 140.0, 'label': '2h Post-meal'},
-        {'value': 180.0, 'label': 'High'},
-        {'value': 70.0, 'label': 'Low'},
-        {'value': 250.0, 'label': 'Very High'},
-      ];
-    } else {
-      return [
-        {'value': 4.4, 'label': 'Fasting'},
-        {'value': 5.5, 'label': 'Normal'},
-        {'value': 7.8, 'label': '2h Post-meal'},
-        {'value': 10.0, 'label': 'High'},
-        {'value': 3.9, 'label': 'Low'},
-        {'value': 13.9, 'label': 'Very High'},
-      ];
-    }
-  }
-
   /// Get detailed glucose analysis
-  Map<String, dynamic> getGlucoseAnalysis() {
-    final status = getGlucoseStatus();
-    final color = getGlucoseColor();
-
-    String recommendation = '';
-    String riskLevel = '';
-
-    if (measurementType.value == 'mg/dL') {
-      if (currentValue.value < 70) {
-        recommendation = 'Consider eating something sweet immediately';
-        riskLevel = 'Low Blood Sugar';
-      } else if (currentValue.value <= 99) {
-        recommendation = 'Maintain current lifestyle habits';
-        riskLevel = 'Healthy Range';
-      } else if (currentValue.value <= 125) {
-        recommendation = 'Monitor diet and exercise regularly';
-        riskLevel = 'Pre-diabetic Range';
-      } else {
-        recommendation = 'Consult healthcare provider';
-        riskLevel = 'Diabetic Range';
-      }
-    } else {
-      if (currentValue.value < 3.9) {
-        recommendation = 'Consider eating something sweet immediately';
-        riskLevel = 'Low Blood Sugar';
-      } else if (currentValue.value <= 5.5) {
-        recommendation = 'Maintain current lifestyle habits';
-        riskLevel = 'Healthy Range';
-      } else if (currentValue.value <= 6.9) {
-        recommendation = 'Monitor diet and exercise regularly';
-        riskLevel = 'Pre-diabetic Range';
-      } else {
-        recommendation = 'Consult healthcare provider';
-        riskLevel = 'Diabetic Range';
-      }
-    }
-
-    return {
-      'status': status,
-      'color': color,
-      'recommendation': recommendation,
-      'riskLevel': riskLevel,
-    };
-  }
+  // Map<String, dynamic> getGlucoseAnalysis() {
+  //   final status = getGlucoseStatus();
+  //   final color = getGlucoseColor();
+  //
+  //   String recommendation = '';
+  //   String riskLevel = '';
+  //
+  //   if (measurementType.value == 'mg/dL') {
+  //     if (currentValue.value < 70) {
+  //       recommendation = 'Consider eating something sweet immediately';
+  //       riskLevel = 'Low Blood Sugar';
+  //     } else if (currentValue.value <= 99) {
+  //       recommendation = 'Maintain current lifestyle habits';
+  //       riskLevel = 'Healthy Range';
+  //     } else if (currentValue.value <= 125) {
+  //       recommendation = 'Monitor diet and exercise regularly';
+  //       riskLevel = 'Pre-diabetic Range';
+  //     } else {
+  //       recommendation = 'Consult healthcare provider';
+  //       riskLevel = 'Diabetic Range';
+  //     }
+  //   } else {
+  //     if (currentValue.value < 3.9) {
+  //       recommendation = 'Consider eating something sweet immediately';
+  //       riskLevel = 'Low Blood Sugar';
+  //     } else if (currentValue.value <= 5.5) {
+  //       recommendation = 'Maintain current lifestyle habits';
+  //       riskLevel = 'Healthy Range';
+  //     } else if (currentValue.value <= 6.9) {
+  //       recommendation = 'Monitor diet and exercise regularly';
+  //       riskLevel = 'Pre-diabetic Range';
+  //     } else {
+  //       recommendation = 'Consult healthcare provider';
+  //       riskLevel = 'Diabetic Range';
+  //     }
+  //   }
+  //
+  //   return {
+  //     'status': status,
+  //     'color': color,
+  //     'recommendation': recommendation,
+  //     'riskLevel': riskLevel,
+  //   };
+  // }
 
   /// Save data and continue to next screen
   void saveAndContinue() async {
@@ -238,26 +216,14 @@ class BloodGlucoseController extends GetxController {
       // });
 
       // Show success message
-      Get.snackbar(
-        'Success',
-        'Blood glucose level saved successfully!',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: TColors.primary,
-        colorText: Colors.white,
-      );
+      // TLoaders.successSnackBar(title: 'Success', message: 'Blood glucose level saved successfully!');
 
       // Navigate to next screen
-      Get.toNamed('/diabetes-prediction/next-step');
+      Get.to(() => PhysicalActivityInputScreen());
 
     } catch (e) {
       // Handle error
-      Get.snackbar(
-        'Error',
-        'Failed to save data. Please try again.',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
+      TLoaders.errorSnackBar(title: 'Error', message: 'Failed to save data. Please try again.');
       print('Error saving blood glucose: $e');
     } finally {
       isLoading.value = false;
@@ -265,45 +231,45 @@ class BloodGlucoseController extends GetxController {
   }
 
   /// Show detailed analysis
-  void showAnalysis() {
-    final analysis = getGlucoseAnalysis();
-
-    Get.dialog(
-      AlertDialog(
-        backgroundColor: Get.theme.scaffoldBackgroundColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        title: Text(
-          'Glucose Analysis',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: analysis['color'],
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Status: ${analysis['status']}'),
-            const SizedBox(height: 8),
-            Text('Risk Level: ${analysis['riskLevel']}'),
-            const SizedBox(height: 8),
-            Text('Recommendation: ${analysis['recommendation']}'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
+  // void showAnalysis() {
+  //   final analysis = getGlucoseAnalysis();
+  //
+  //   Get.dialog(
+  //     AlertDialog(
+  //       backgroundColor: Get.theme.scaffoldBackgroundColor,
+  //       shape: RoundedRectangleBorder(
+  //         borderRadius: BorderRadius.circular(16),
+  //       ),
+  //       title: Text(
+  //         'Glucose Analysis',
+  //         style: TextStyle(
+  //           fontWeight: FontWeight.bold,
+  //           color: analysis['color'],
+  //         ),
+  //       ),
+  //       content: Column(
+  //         mainAxisSize: MainAxisSize.min,
+  //         crossAxisAlignment: CrossAxisAlignment.start,
+  //         children: [
+  //           Text('Status: ${analysis['status']}'),
+  //           const SizedBox(height: 8),
+  //           Text('Risk Level: ${analysis['riskLevel']}'),
+  //           const SizedBox(height: 8),
+  //           Text('Recommendation: ${analysis['recommendation']}'),
+  //         ],
+  //       ),
+  //       actions: [
+  //         TextButton(
+  //           onPressed: () => Get.back(),
+  //           child: Text('OK'),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   /// Reset values to default
-  void resetValues() {
+  void reset() {
     currentValue.value = measurementType.value == 'mg/dL' ? 100.0 : 5.5;
     update();
   }

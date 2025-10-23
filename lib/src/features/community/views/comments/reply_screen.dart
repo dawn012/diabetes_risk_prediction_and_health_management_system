@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import '../../../../common/loaders/circular_loader.dart';
+import '../../../../common/widgets/appbar/appbar.dart';
+import '../../../../utils/constants/colors.dart';
+import '../../../../utils/constants/sizes.dart';
+import '../../../../utils/helpers/helper_functions.dart';
 import '../../controllers/comment_controller.dart';
 import '../../models/comment_model.dart';
 import 'widgets/comment_text_field.dart';
 import 'widgets/comment_tile.dart';
+import 'widgets/reply_tile.dart';
 
 class ReplyScreen extends StatelessWidget {
   const ReplyScreen({super.key, required this.parentComment});
@@ -15,104 +19,159 @@ class ReplyScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = CommentController.instance;
+    final isDark = THelperFunctions.isDarkMode(context);
 
-    // 进入页面时，自动 fetch replies
+    // Fetch replies when screen loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.fetchReplies(parentComment.commentId);
     });
 
-    return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: Size.fromHeight(kToolbarHeight),
-        child: Obx(() {
-          bool isEditing = controller.editingCommentId.value != null;
-          return Stack(
-            children: [
-              /// **黑色背景**
-              if (isEditing)
-                Container(
-                  color: Colors.black.withValues(alpha: 0.5),
-                  height: kToolbarHeight + MediaQuery.of(context).padding.top,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        controller.handleNavigation(() => Get.back());
+      },
+      child: Scaffold(
+        backgroundColor: isDark ? TColors.dark : TColors.primaryBackground,
+
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(kToolbarHeight),
+          child: Obx(() {
+            final isEditing = controller.isEditing;
+
+            return Stack(
+              children: [
+                // Dark overlay when editing
+                if (isEditing)
+                  Container(
+                    color: Colors.black.withOpacity(0.5),
+                    height: kToolbarHeight + MediaQuery.of(context).padding.top,
+                  ),
+
+                // App bar
+                TAppBar(
+                  title: Text(
+                    "Replies",
+                    style: TextStyle(
+                      color: isEditing ? Colors.white : null,
+                    ),
+                  ),
+                  showBackArrow: true,
+                  backgroundColor: isEditing ? Colors.transparent : null,
+                  iconTheme: IconThemeData(
+                    color: isEditing ? Colors.white : null,
+                  ),
                 ),
-
-              /// **原本的 AppBar**
-              AppBar(
-                title: const Text("Replies"),
-              ),
-            ],
-          );
-        }),
-      ),
-
-      body: Stack(
-        children: [
-          /// 主内容（包含 AppBar、评论列表）
-          Column(
-            children: [
-              /// 原始评论（父级评论）
-              CommentTile(comment: parentComment, isComment: false),
-
-              /// 分割线
-              const Divider(),
-
-              Expanded(
-                child: Obx(() {
-                  // 监听加载状态
-                  if (controller.loadingReplies[parentComment.commentId] == true) {
-                    return const CircularLoader();
-                  }
-
-                  // 获取 Firestore 实时更新的数据
-                  final replies = controller.replies[parentComment.commentId];
-
-                  // 如果还未加载或没有回复
-                  if (replies == null || replies.isEmpty) {
-                    return const Align(
-                      alignment: Alignment.center,
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(vertical: 50),
-                        child: Text("No replies yet"),
-                      ),
-                    );
-                  }
-
-                  return ListView.builder(
-                    itemCount: replies.length,
-                    itemBuilder: (context, index) {
-                      return Padding(
-                        padding: const EdgeInsets.only(left: 50),
-                        child: CommentTile(comment: replies[index], isComment: false),
-                      );
-                    },
-                  );
-                }),
-              ),
-            ],
-          ),
-
-          /// 黑色半透明背景（仅在编辑模式下显示，且不会遮住 TextField）
-          Obx(() {
-            bool isEditing = controller.editingCommentId.value != null;
-            return isEditing
-                ? Positioned.fill(
-              child: GestureDetector(
-                onTap: () async {
-                  await controller.cancelEdit();
-                },
-                child: Container(
-                  color: Colors.black.withValues(alpha: 0.5), // ✅ 透明黑色背景
-                ),
-              ),
-            )
-                : const SizedBox();
+              ],
+            );
           }),
+        ),
 
-          /// 底部 TextField（不被黑色背景遮挡）
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: CommentTextField(parentCommentId: parentComment.commentId),
-          ),
-        ],
+        body: Stack(
+          children: [
+            // Main content
+            Column(
+              children: [
+                // Original comment (parent)
+                Container(
+                  color: isDark ? TColors.darkContainer : TColors.white,
+                  child: Column(
+                    children: [
+                      CommentTile(comment: parentComment),
+                      Divider(
+                        color: isDark
+                            ? TColors.borderPrimary.withOpacity(0.1)
+                            : TColors.borderPrimary.withOpacity(0.3),
+                        thickness: 8,
+                        height: 8,
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Replies list
+                Expanded(
+                  child: Obx(() {
+                    final replies = controller.getReplies(parentComment.commentId);
+                    final isLoading = controller.areRepliesLoading(parentComment.commentId);
+
+                    if (isLoading) {
+                      return const Center(
+                        child: CircularProgressIndicator(),
+                      );
+                    }
+
+                    if (replies.isEmpty) {
+                      return Container(
+                        padding: const EdgeInsets.all(TSizes.xl),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.reply_outlined,
+                              size: 64,
+                              color: isDark ? TColors.darkGrey : TColors.grey,
+                            ),
+                            const SizedBox(height: TSizes.md),
+                            Text(
+                              "No replies yet",
+                              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                color: isDark ? TColors.lightGrey : TColors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: TSizes.xs),
+                            Text(
+                              "Be the first to reply!",
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: isDark ? TColors.darkGrey : TColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    return ListView.separated(
+                      padding: const EdgeInsets.all(TSizes.sm),
+                      itemCount: replies.length,
+                      separatorBuilder: (context, index) => const SizedBox(height: TSizes.sm),
+                      itemBuilder: (context, index) {
+                        final reply = replies[index];
+                        return ReplyTile(
+                          reply: reply,
+                          parentCommentId: parentComment.commentId,
+                        );
+                      },
+                    );
+                  }),
+                ),
+              ],
+            ),
+
+            // Dark overlay when editing (excludes text field area)
+            Obx(() {
+              final isEditing = controller.isEditing;
+              return isEditing
+                  ? Positioned.fill(
+                child: GestureDetector(
+                  onTap: () => controller.cancelEdit(),
+                  child: Container(
+                    color: Colors.black.withOpacity(0.5),
+                    margin: const EdgeInsets.only(bottom: 80),
+                  ),
+                ),
+              )
+                  : const SizedBox.shrink();
+            }),
+
+            // Bottom text field
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: CommentTextField(parentCommentId: parentComment.commentId),
+            ),
+          ],
+        ),
       ),
     );
   }

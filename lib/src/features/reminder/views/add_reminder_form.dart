@@ -1,21 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:icons_plus/icons_plus.dart';
 
+import '../../../common/widgets/dialogs/common_confirmation_dialog.dart';
 import '../../../utils/constants/colors.dart';
+import '../../../utils/constants/enums.dart';
 import '../../../utils/helpers/helper_functions.dart';
 import '../controllers/add_reminder_controller.dart';
+import '../models/reminder_model.dart';
 
 class AddReminderForm extends StatelessWidget {
-  const AddReminderForm({super.key});
+  final ReminderModel? reminderToEdit;
+  final bool isEditing;
+
+  const AddReminderForm({
+    super.key,
+    this.reminderToEdit,
+    this.isEditing = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     final controller = Get.put(AddReminderController());
     final darkMode = THelperFunctions.isDarkMode(context);
 
+    // Initialize with existing reminder data if editing
+    if (isEditing && reminderToEdit != null) {
+      controller.initializeForEditing(reminderToEdit!);
+    } else {
+      controller.clearForm();
+    }
+
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: darkMode ? TColors.dark : Colors.white,
         borderRadius: BorderRadius.circular(16),
       ),
       child: SingleChildScrollView(
@@ -29,55 +47,58 @@ class AddReminderForm extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Title Section
-            const Text(
-              'Add Reminder',
+            Text(
+              isEditing ? 'Edit Reminder' : 'Add Reminder',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
-                color: TColors.black,
+                color: darkMode ? TColors.white : TColors.black,
               ),
             ),
             const SizedBox(height: 24),
 
             // Title Input
             Row(
-              crossAxisAlignment: CrossAxisAlignment.end, // Aligns bottom of text with input line
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                // Title with padding to match TextField's baseline
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 8), // Matches TextField's contentPadding
-                  child: const Text(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
                     'Title',
                     style: TextStyle(
                       fontSize: 16,
-                      color: TColors.black,
+                      color: darkMode ? TColors.white : TColors.black,
                     ),
                   ),
                 ),
-                const SizedBox(width: 8), // Horizontal spacing
-                // Expanded TextField to fill remaining space
+                const SizedBox(width: 8),
                 Expanded(
-                  child: TextField(
+                  child: Obx(() => TextField(
                     controller: controller.titleController,
                     style: TextStyle(
-                      fontSize: 16, // Match title font size
-                      color: TColors.black, // Adapt to theme
+                      fontSize: 16,
+                      color: darkMode ? TColors.white : TColors.black,
                     ),
                     decoration: InputDecoration(
-                      isDense: true, // Reduces vertical padding
-                      contentPadding: const EdgeInsets.only(bottom: 8), // Matches title padding
+                      isDense: true,
+                      contentPadding: const EdgeInsets.only(bottom: 8),
                       border: UnderlineInputBorder(),
-                      enabledBorder: const UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.grey),
+                      enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(
+                          color: darkMode ? TColors.darkGrey : Colors.grey,
+                        ),
                       ),
                       focusedBorder: UnderlineInputBorder(
                         borderSide: BorderSide(color: TColors.primary),
                       ),
-                      // Remove any built-in labels or hints that might affect alignment
-                      labelText: null,
-                      hintText: null,
+                      errorBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: TColors.error),
+                      ),
+                      errorText: controller.validationErrors['title'],
+                      errorStyle: TextStyle(fontSize: 12),
                     ),
-                  ),
+                    onChanged: (_) => controller.validationErrors.remove('title'),
+                  )),
                 ),
               ],
             ),
@@ -87,7 +108,11 @@ class AddReminderForm extends StatelessWidget {
             // Time Section
             Row(
               children: [
-                const Icon(Icons.access_time, color: TColors.black, size: 25),
+                Icon(
+                  Icons.access_time,
+                  color: darkMode ? TColors.white : TColors.black,
+                  size: 25,
+                ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Obx(() => InkWell(
@@ -95,8 +120,11 @@ class AddReminderForm extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
+                        color: darkMode ? TColors.darkerGrey : Colors.grey.shade100,
                         borderRadius: BorderRadius.circular(8),
+                        border: controller.validationErrors.containsKey('baseTime')
+                            ? Border.all(color: TColors.error)
+                            : null,
                       ),
                       child: Row(
                         children: [
@@ -104,15 +132,18 @@ class AddReminderForm extends StatelessWidget {
                             child: Center(
                               child: Text(
                                 _formatTime(controller.selectedTime.value),
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 16,
-                                  color: TColors.black,
+                                  color: darkMode ? TColors.white : TColors.black,
                                 ),
                               ),
                             ),
                           ),
                           const SizedBox(width: 8),
-                          const Icon(Icons.arrow_drop_down),
+                          Icon(
+                            Icons.arrow_drop_down,
+                            color: darkMode ? TColors.white : TColors.black,
+                          ),
                         ],
                       ),
                     ),
@@ -126,13 +157,17 @@ class AddReminderForm extends StatelessWidget {
             // Repeat Section
             Row(
               children: [
-                const Icon(Icons.repeat, color: TColors.black, size: 25),
+                Icon(
+                  Icons.repeat,
+                  color: darkMode ? TColors.white : TColors.black,
+                  size: 25,
+                ),
                 const SizedBox(width: 16),
-                const Text(
+                Text(
                   'Repeat',
                   style: TextStyle(
                     fontSize: 16,
-                    color: TColors.black,
+                    color: darkMode ? TColors.white : TColors.black,
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -140,21 +175,28 @@ class AddReminderForm extends StatelessWidget {
                   child: Obx(() => Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
+                      color: darkMode ? TColors.darkerGrey : Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: DropdownButton<String>(
+                    child: DropdownButton<RepeatType>(
                       value: controller.selectedRepeatType.value,
                       underline: const SizedBox(),
-                      isExpanded: true,  // 让内容填充整个宽度
-                      icon: const Icon(Icons.arrow_drop_down),  // 保持下拉图标在右侧
-                      selectedItemBuilder: (context) {  // 自定义选中项显示
+                      isExpanded: true,
+                      dropdownColor: darkMode ? TColors.darkerGrey : Colors.white,
+                      icon: Icon(
+                        Icons.arrow_drop_down,
+                        color: darkMode ? TColors.white : TColors.black,
+                      ),
+                      selectedItemBuilder: (context) {
                         return controller.repeatTypes.map((type) {
-                          return Align(  // 使用Align实现文字居中
+                          return Align(
                             alignment: Alignment.center,
                             child: Text(
-                              type,
-                              style: const TextStyle(fontSize: 16),
+                              type.displayName,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: darkMode ? TColors.white : TColors.black,
+                              ),
                             ),
                           );
                         }).toList();
@@ -162,7 +204,12 @@ class AddReminderForm extends StatelessWidget {
                       items: controller.repeatTypes.map((type) {
                         return DropdownMenuItem(
                           value: type,
-                          child: Text(type),  // 下拉菜单中的选项保持默认左对齐
+                          child: Text(
+                            type.displayName,
+                            style: TextStyle(
+                              color: darkMode ? TColors.white : TColors.black,
+                            ),
+                          ),
                         );
                       }).toList(),
                       onChanged: (value) {
@@ -178,7 +225,7 @@ class AddReminderForm extends StatelessWidget {
 
             // Custom Days Selection
             Obx(() {
-              if (controller.selectedRepeatType.value == 'Custom') {
+              if (controller.selectedRepeatType.value == RepeatType.customDays) {
                 return Column(
                   children: [
                     const SizedBox(height: 30),
@@ -192,7 +239,9 @@ class AddReminderForm extends StatelessWidget {
                             width: 40,
                             height: 35,
                             decoration: BoxDecoration(
-                              color: isSelected ? TColors.primary : Colors.grey.shade200,
+                              color: isSelected
+                                  ? TColors.primary
+                                  : (darkMode ? TColors.darkerGrey : Colors.grey.shade200),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Center(
@@ -200,7 +249,9 @@ class AddReminderForm extends StatelessWidget {
                                 day.substring(0, 3),
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: isSelected ? Colors.white : TColors.black,
+                                  color: isSelected
+                                      ? Colors.white
+                                      : (darkMode ? TColors.white : TColors.black),
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -209,6 +260,17 @@ class AddReminderForm extends StatelessWidget {
                         );
                       }).toList(),
                     ),
+                    if (controller.validationErrors.containsKey('customDays'))
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          controller.validationErrors['customDays']!,
+                          style: TextStyle(
+                            color: TColors.error,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
                   ],
                 );
               }
@@ -217,31 +279,34 @@ class AddReminderForm extends StatelessWidget {
 
             // Fixed Interval Selection
             Obx(() {
-              if (controller.selectedRepeatType.value == 'Fixed Interval') {
+              if (controller.selectedRepeatType.value == RepeatType.fixedInterval) {
                 return Column(
                   children: [
                     const SizedBox(height: 24),
                     Container(
                       decoration: BoxDecoration(
-                        color: darkMode ? Colors.grey.shade900 : Colors.grey.shade50,
+                        color: darkMode ? TColors.darkerGrey : Colors.grey.shade50,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: darkMode ? Colors.grey.shade700 : Colors.grey.shade200,
+                          color: controller.validationErrors.containsKey('intervalTime')
+                              ? TColors.error
+                              : (darkMode ? TColors.darkGrey : Colors.grey.shade200),
                         ),
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       child: Row(
                         children: [
-                          // Interval Input
                           Expanded(
                             flex: 3,
                             child: TextField(
                               controller: TextEditingController(
                                 text: controller.intervalTime.value.toString(),
+                              )..selection = TextSelection.fromPosition(
+                                TextPosition(offset: controller.intervalTime.value.toString().length),
                               ),
                               style: TextStyle(
                                 fontSize: 16,
-                                color: darkMode ? Colors.white : Colors.black,
+                                color: darkMode ? TColors.white : TColors.black,
                               ),
                               decoration: InputDecoration(
                                 labelText: 'Interval',
@@ -262,16 +327,12 @@ class AddReminderForm extends StatelessWidget {
                               },
                             ),
                           ),
-
-                          // Divider
                           Container(
                             height: 24,
                             width: 1,
                             margin: const EdgeInsets.symmetric(horizontal: 8),
-                            color: darkMode ? Colors.grey.shade700 : Colors.grey.shade500,
+                            color: darkMode ? TColors.darkGrey : Colors.grey.shade500,
                           ),
-
-                          // Unit Selector
                           Expanded(
                             flex: 2,
                             child: DropdownButtonHideUnderline(
@@ -282,12 +343,13 @@ class AddReminderForm extends StatelessWidget {
                                   fontSize: 16,
                                   color: darkMode ? TColors.white : TColors.black,
                                 ),
-                                dropdownColor: darkMode ? Colors.grey.shade800 : TColors.white,
+                                dropdownColor: darkMode ? TColors.darkerGrey : Colors.white,
                                 borderRadius: BorderRadius.circular(8),
-                                icon: Transform.translate(  // 使用Transform精准控制位置
-                                  offset: const Offset(6, 0),  // 向左移动8像素
+                                icon: Transform.translate(
+                                  offset: const Offset(6, 0),
                                   child: Icon(
                                     Icons.arrow_drop_down,
+                                    color: darkMode ? TColors.white : TColors.black,
                                   ),
                                 ),
                                 items: controller.intervalUnits.map((unit) {
@@ -295,7 +357,13 @@ class AddReminderForm extends StatelessWidget {
                                     value: unit,
                                     child: Padding(
                                       padding: const EdgeInsets.only(left: 8),
-                                      child: Text(unit, style: TextStyle(fontSize: 18)),
+                                      child: Text(
+                                        unit,
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          color: darkMode ? TColors.white : TColors.black,
+                                        ),
+                                      ),
                                     ),
                                   );
                                 }).toList(),
@@ -310,6 +378,17 @@ class AddReminderForm extends StatelessWidget {
                         ],
                       ),
                     ),
+                    if (controller.validationErrors.containsKey('intervalTime'))
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          controller.validationErrors['intervalTime']!,
+                          style: TextStyle(
+                            color: TColors.error,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
                   ],
                 );
               }
@@ -321,11 +400,11 @@ class AddReminderForm extends StatelessWidget {
             // Snooze Duration Section
             Row(
               children: [
-                const Text(
+                Text(
                   'Snooze Duration',
                   style: TextStyle(
                     fontSize: 16,
-                    color: TColors.black,
+                    color: darkMode ? TColors.white : TColors.black,
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -333,21 +412,28 @@ class AddReminderForm extends StatelessWidget {
                   child: Obx(() => Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
+                      color: darkMode ? TColors.darkerGrey : Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: DropdownButton<int>(
                       value: controller.snoozeDuration.value,
                       underline: const SizedBox(),
                       isExpanded: true,
-                      icon: const Icon(Icons.arrow_drop_down),
+                      dropdownColor: darkMode ? TColors.darkerGrey : Colors.white,
+                      icon: Icon(
+                        Icons.arrow_drop_down,
+                        color: darkMode ? TColors.white : TColors.black,
+                      ),
                       selectedItemBuilder: (context) {
                         return controller.snoozeDurations.map((duration) {
                           return Align(
                             alignment: Alignment.center,
                             child: Text(
-                              '$duration mins', // 这里添加了 mins 后缀
-                              style: const TextStyle(fontSize: 16),
+                              '$duration mins',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: darkMode ? TColors.white : TColors.black,
+                              ),
                             ),
                           );
                         }).toList();
@@ -355,7 +441,12 @@ class AddReminderForm extends StatelessWidget {
                       items: controller.snoozeDurations.map((duration) {
                         return DropdownMenuItem(
                           value: duration,
-                          child: Text('$duration mins'),
+                          child: Text(
+                            '$duration mins',
+                            style: TextStyle(
+                              color: darkMode ? TColors.white : TColors.black,
+                            ),
+                          ),
                         );
                       }).toList(),
                       onChanged: (value) {
@@ -369,99 +460,203 @@ class AddReminderForm extends StatelessWidget {
               ],
             ),
 
-            const SizedBox(height: 30),
-
             // End Date Section
-            Row(
-              children: [
-                const Text(
-                  'End Date',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: TColors.black,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Obx(() => InkWell(
-                    onTap: () => _showDatePicker(context, controller),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Expanded(
-                            child: Center(
-                              child: Text(
-                                _formatDate(controller.endDate.value),
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  color: TColors.black,
-                                ),
+            Obx(() {
+              if (controller.selectedRepeatType.value != RepeatType.once) {
+                return Column(
+                  children: [
+                    const SizedBox(height: 30),
+                    Row(
+                      children: [
+                        Text(
+                          'End Date',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: darkMode ? TColors.white : TColors.black,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: InkWell(
+                            onTap: controller.hasEndDate.value
+                                ? () => _showDatePicker(context, controller)
+                                : null,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: controller.hasEndDate.value
+                                    ? (darkMode ? TColors.darkerGrey : Colors.grey.shade100)
+                                    : (darkMode ? Colors.grey.shade800 : Colors.grey.shade200),
+                                borderRadius: BorderRadius.circular(8),
+                                border: controller.validationErrors.containsKey('endDate')
+                                    ? Border.all(color: TColors.error)
+                                    : null,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Expanded(
+                                    child: Center(
+                                      child: Text(
+                                        controller.hasEndDate.value
+                                            ? _formatDate(controller.endDate.value)
+                                            : 'No End Date',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          color: controller.hasEndDate.value
+                                              ? (darkMode ? TColors.white : TColors.black)
+                                              : (darkMode ? TColors.darkGrey : Colors.grey.shade500),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Icon(
+                                    Icons.calendar_today,
+                                    color: controller.hasEndDate.value
+                                        ? (darkMode ? TColors.white : TColors.black)
+                                        : (darkMode ? TColors.darkGrey : Colors.grey.shade500),
+                                    size: 18,
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          const Icon(Icons.calendar_today, color: TColors.black, size: 18,),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(width: 12),
+                        Checkbox(
+                          value: controller.hasEndDate.value,
+                          onChanged: (value) {
+                            controller.toggleEndDate(value ?? false);
+                          },
+                          activeColor: TColors.primary,
+                        ),
+                      ],
                     ),
-                  )),
-                ),
-              ],
-            ),
+                  ],
+                );
+              }
+              return const SizedBox();
+            }),
 
             const SizedBox(height: 45),
 
             // Action Buttons
-            Row(
+            Obx(() => Row(
               children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Get.back(),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: TColors.primary),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                if (isEditing) ...[
+                  // Delete Button
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: controller.isLoading.value
+                          ? null
+                          : () => _showDeleteDialog(context, controller),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: TColors.error),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
-                    ),
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(
-                        color: TColors.primary,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => controller.saveReminder(),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: TColors.primary,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: const Text(
-                      'OK',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
+                      child: Text(
+                        'Delete',
+                        style: TextStyle(
+                          color: TColors.error,
+                          fontSize: 16,
+                        ),
                       ),
                     ),
                   ),
-                ),
+                  const SizedBox(width: 16),
+                  // Save Button
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: controller.isLoading.value
+                          ? null
+                          : () => controller.saveReminder(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: TColors.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: controller.isLoading.value
+                          ? SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                          : const Text(
+                        'Save',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+                ] else ...[
+                  // Cancel Button (for add mode)
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: controller.isLoading.value ? null : () => Get.back(),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: TColors.primary),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: TColors.primary,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  // OK Button (for add mode)
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: controller.isLoading.value
+                          ? null
+                          : () => controller.saveReminder(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: TColors.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: controller.isLoading.value
+                          ? SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                          : const Text(
+                        'OK',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ],
-            ),
+            )),
           ],
         ),
       ),
@@ -486,10 +681,9 @@ class AddReminderForm extends StatelessWidget {
     showDatePicker(
       context: context,
       initialDate: controller.endDate.value.isBefore(today) ? today : controller.endDate.value,
-      firstDate: today, // 只能选今天及以后
+      firstDate: today,
       lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
       selectableDayPredicate: (DateTime day) {
-        // 只允许选择今天及以后的日期
         return day.isAfter(today.subtract(const Duration(days: 1)));
       },
     ).then((date) {
@@ -497,6 +691,20 @@ class AddReminderForm extends StatelessWidget {
         controller.updateEndDate(date);
       }
     });
+  }
+
+  void _showDeleteDialog(BuildContext context, AddReminderController controller) {
+    ConfirmationDialog.show(
+      title: 'Delete Reminder',
+      message: 'Are you sure you want to delete this reminder? This action cannot be undone.',
+      confirmButtonText: 'Delete',
+      customIcon: Iconsax.trash_bold,
+      iconColor: TColors.error,
+      confirmButtonColor: TColors.error,
+      onConfirm: () async {
+        await controller.deleteReminder();
+      },
+    );
   }
 
   String _formatTime(TimeOfDay time) {

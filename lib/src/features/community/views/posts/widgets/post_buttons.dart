@@ -1,14 +1,12 @@
-import 'package:diabetes_risk_prediction_and_health_management_system/src/features/community/views/comments/comments_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 
-import '../../../../../common/widgets/buttons/icon_text_button.dart';
 import '../../../../../utils/constants/colors.dart';
-import '../../../../../utils/constants/text_strings.dart';
+import '../../../../../utils/helpers/helper_functions.dart';
 import '../../../../personalization/controllers/user_controller.dart';
 import '../../../controllers/post_controller.dart';
 import '../../../models/post_model.dart';
+import '../../comments/comments_screen.dart';
 
 class PostButtons extends StatelessWidget {
   const PostButtons({super.key, required this.post});
@@ -17,30 +15,86 @@ class PostButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = PostController.instance;
-    final userController = Get.put(UserController());
+    final postController = PostController.instance;
+    final userController = UserController.instance;
+    final isDark = THelperFunctions.isDarkMode(context);
     final isLiked = post.likes.contains(userController.user.value.userId);
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: [
-        IconTextButton(
-          icon: isLiked
-              ? FontAwesomeIcons.solidThumbsUp
-              : FontAwesomeIcons.thumbsUp,
-          color: isLiked ? TColors.primary : TColors.black,
-          label: TTexts.like,
-          onPressed: () => controller.toggleLike(post.postId, post.likes),
+        // Like button
+        _buildActionButton(
+          context: context,
+          icon: isLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
+          label: 'Like',
+          color: isLiked ? TColors.primary : (isDark ? TColors.lightGrey : TColors.textSecondary),
+          onPressed: () => postController.togglePostLike(post.postId, post.likes),
+          isDark: isDark,
         ),
-        IconTextButton(
-          icon: FontAwesomeIcons.solidMessage,
-          label: TTexts.comment,
+
+        // Comment button
+        _buildActionButton(
+          context: context,
+          icon: Icons.chat_bubble_outline,
+          label: 'Comment',
+          color: isDark ? TColors.lightGrey : TColors.textSecondary,
+          onPressed: () => Get.to(() => CommentsScreen(postId: post.postId)),
+          isDark: isDark,
+        ),
+
+        // Share button
+        _buildActionButton(
+          context: context,
+          icon: Icons.share_outlined,
+          label: 'Share',
+          color: isDark ? TColors.lightGrey : TColors.textSecondary,
           onPressed: () {
-            Get.to(() => CommentsScreen(postId: post.postId));
+            // TODO: Implement share functionality
           },
+          isDark: isDark,
         ),
-        const IconTextButton(icon: FontAwesomeIcons.share, label: TTexts.share),
       ],
+    );
+  }
+
+  Widget _buildActionButton({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onPressed,
+    required bool isDark,
+  }) {
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  color: color,
+                  size: 20,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

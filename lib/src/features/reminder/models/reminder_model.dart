@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../../utils/constants/enums.dart';
 import '../../../utils/constants/firebase_field_names.dart';
 import 'reminder_schedule_model.dart';
 
@@ -7,10 +8,10 @@ class ReminderModel {
   final String reminderId;
   final String reminderTitle;
   final DateTime baseTime;
-  final String repeatType;
+  final RepeatType repeatType;
   final List<String> customDays;
   int? intervalTime;
-  final DateTime endDate;
+  DateTime? endDate;
   final DateTime nextTriggerTime;
   final int snoozeDuration;
   final List<ReminderScheduleModel> reminderSchedules;
@@ -23,7 +24,7 @@ class ReminderModel {
     required this.repeatType,
     required this.customDays,
     this.intervalTime,
-    required this.endDate,
+    this.endDate,
     required this.nextTriggerTime,
     required this.snoozeDuration,
     required this.reminderSchedules,
@@ -34,7 +35,7 @@ class ReminderModel {
     String? reminderId,
     String? reminderTitle,
     DateTime? baseTime,
-    String? repeatType,
+    RepeatType? repeatType,
     List<String>? customDays,
     int? intervalTime,
     DateTime? endDate,
@@ -64,7 +65,7 @@ class ReminderModel {
       reminderId: '',
       reminderTitle: '',
       baseTime: DateTime(0),
-      repeatType: '',
+      repeatType: RepeatType.once,
       customDays: [],
       intervalTime: 0,
       endDate: DateTime(0),
@@ -80,11 +81,14 @@ class ReminderModel {
     return {
       FirebaseFieldNames.reminderId: reminderId,
       FirebaseFieldNames.reminderTitle: reminderTitle,
-      FirebaseFieldNames.baseTime: Timestamp.fromDate(baseTime),  // Convert to Timestamp to store in firebase
-      FirebaseFieldNames.repeatType: repeatType,
+      FirebaseFieldNames.baseTime: Timestamp.fromDate(baseTime),
+      // Convert to Timestamp to store in firebase
+      FirebaseFieldNames.repeatType: repeatType.value,
       FirebaseFieldNames.customDays: customDays,
       FirebaseFieldNames.intervalTime: intervalTime,
-      FirebaseFieldNames.endDate: Timestamp.fromDate(endDate),
+      FirebaseFieldNames.endDate: endDate != null
+          ? Timestamp.fromDate(endDate!)
+          : null,
       FirebaseFieldNames.nextTriggerTime: Timestamp.fromDate(nextTriggerTime),
       FirebaseFieldNames.snoozeDuration: snoozeDuration,
       FirebaseFieldNames.isActive: isActive,
@@ -93,24 +97,57 @@ class ReminderModel {
 
   /// Factory method to create a ReminderModel from a Firebase document snapshot
   /// 工厂构造方法允许返回已经存在的实例或根据逻辑创建新的实例
-  factory ReminderModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> document) {
-    if (document.data() != null) {
-      final data = document.data()!;
-      return ReminderModel(
-        reminderId: data[FirebaseFieldNames.reminderId] ?? '',
-        reminderTitle: data[FirebaseFieldNames.reminderTitle] ?? '',
-        baseTime: (data[FirebaseFieldNames.baseTime] as Timestamp).toDate(),  // Convert to DateTime
-        repeatType: data[FirebaseFieldNames.repeatType] ?? '',
-        customDays: List<String>.from(data[FirebaseFieldNames.customDays] ?? []),
-        intervalTime: data[FirebaseFieldNames.intervalTime] ?? 0,
-        endDate: (data[FirebaseFieldNames.endDate] as Timestamp).toDate(),
-        nextTriggerTime: (data[FirebaseFieldNames.nextTriggerTime] as Timestamp).toDate(),
-        snoozeDuration: data[FirebaseFieldNames.snoozeDuration] ?? 0,
-        reminderSchedules: [], // 如果你有子对象可以 map to ReminderScheduleModel
-        isActive: data[FirebaseFieldNames.isActive] ?? false,
-      );
-    } else {
+  factory ReminderModel.fromSnapshot(
+      DocumentSnapshot<Map<String, dynamic>> document) {
+    if (!document.exists || document.data() == null) {
       return ReminderModel.empty();
     }
+
+    final data = document.data()!;
+
+    // 统一处理 Timestamp 到 DateTime 的转换
+    DateTime? _parseTimestamp(dynamic timestamp) {
+      if (timestamp == null) return null;
+      if (timestamp is Timestamp) {
+        return timestamp.toDate();
+      }
+      return null;
+    }
+
+    final baseTime = _parseTimestamp(data[FirebaseFieldNames.baseTime]) ??
+        DateTime.fromMillisecondsSinceEpoch(0);
+
+    final nextTriggerTime = _parseTimestamp(data[FirebaseFieldNames.nextTriggerTime]) ??
+        DateTime.fromMillisecondsSinceEpoch(0);
+
+    print("Base time: $baseTime");
+    print("Next Trigger: $nextTriggerTime");
+
+    // 🔧 修复 endDate 处理
+    DateTime? endDate;
+    final endDateTimestamp = data[FirebaseFieldNames.endDate];
+
+    if (endDateTimestamp != null && endDateTimestamp is Timestamp) {
+      endDate = endDateTimestamp.toDate();
+
+      // 检查是否是占位符（2099年）
+      if (endDate.year == 2099) {
+        endDate = null;
+      }
+    }
+
+    return ReminderModel(
+      reminderId: data[FirebaseFieldNames.reminderId] ?? '',
+      reminderTitle: data[FirebaseFieldNames.reminderTitle] ?? '',
+      baseTime: baseTime,
+      nextTriggerTime: nextTriggerTime,
+      repeatType: RepeatType.fromString(data[FirebaseFieldNames.repeatType] ?? ''),
+      customDays: List<String>.from(data[FirebaseFieldNames.customDays] ?? []),
+      intervalTime: data[FirebaseFieldNames.intervalTime] ?? 0,
+      endDate: endDate,
+      snoozeDuration: data[FirebaseFieldNames.snoozeDuration] ?? 0,
+      reminderSchedules: [],
+      isActive: data[FirebaseFieldNames.isActive] ?? false,
+    );
   }
 }

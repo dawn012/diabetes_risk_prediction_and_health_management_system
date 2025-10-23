@@ -6,7 +6,7 @@ import 'package:icons_plus/icons_plus.dart';
 import '../../../../../utils/constants/colors.dart';
 import '../../../../../utils/constants/sizes.dart';
 import '../../../../../utils/constants/text_strings.dart';
-import '../../../../../utils/validators/validation.dart';
+import '../../../../../utils/validators/user_profile_validator.dart';
 import '../../../controllers/signup_controller.dart';
 import 'terms_conditions_checkbox.dart';
 
@@ -77,7 +77,7 @@ class _SignUpFormState extends State<TSignUpForm> {
               ),
             ),
             validator: (value) =>
-                TValidator.validateEmptyText('username', value),
+                TUserProfileValidator.validateEmptyText('username', value),
           ),
           const SizedBox(height: TSizes.spaceBtwInputFields),
 
@@ -94,7 +94,7 @@ class _SignUpFormState extends State<TSignUpForm> {
                     : null, // 未获得焦点时的颜色
               ),
             ),
-            validator: (value) => TValidator.validateEmail(value),
+            validator: (value) => TUserProfileValidator.validateEmail(value),
           ),
           const SizedBox(height: TSizes.spaceBtwInputFields),
 
@@ -121,7 +121,7 @@ class _SignUpFormState extends State<TSignUpForm> {
                         : null, // 未获得焦点时的颜色
                   ),
                 ),
-                validator: (value) => TValidator.validatePassword(value),
+                validator: (value) => TUserProfileValidator.validateNewPassword(value),
               )),
           const SizedBox(height: TSizes.spaceBtwInputFields),
 
@@ -148,7 +148,7 @@ class _SignUpFormState extends State<TSignUpForm> {
                       : null, // 未获得焦点时的颜色
                 ),
               ),
-              validator: (value) => TValidator.validateConfirmPassword(
+              validator: (value) => TUserProfileValidator.validateConfirmNewPassword(
                   value, controller.password.text),
             ),
           ),

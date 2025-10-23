@@ -26,12 +26,12 @@ class PaymentMethodScreen extends StatelessWidget {
         'icon': 'assets/icons/paypal.png',
         'subtitle': 'Safe & secure payment',
       },
-      {
-        'id': 'razorpay',
-        'name': 'Pay online',
-        'icon': 'assets/icons/razorpay.png',
-        'subtitle': 'Multiple payment options',
-      },
+      // {
+      //   'id': 'razorpay',
+      //   'name': 'Pay online',
+      //   'icon': 'assets/icons/razorpay.png',
+      //   'subtitle': 'Multiple payment options',
+      // },
     ];
 
     return Scaffold(

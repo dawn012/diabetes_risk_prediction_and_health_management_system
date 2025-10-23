@@ -290,6 +290,36 @@ class AuthenticationRepository extends GetxController {
     return credentials.user != null ? true : false;
   }
 
+  /// Update user password
+  Future<void> updatePassword(String currentPassword, String newPassword) async {
+    try {
+      final user = authUser;
+      if (user == null) throw 'No user is currently signed in';
+
+      // Re-authenticate user with current password
+      final credential = EmailAuthProvider.credential(
+        email: user.email!,
+        password: currentPassword,
+      );
+
+      await user.reauthenticateWithCredential(credential);
+
+      // Update password
+      await user.updatePassword(newPassword);
+
+    } on FirebaseAuthException catch (e) {
+      throw TFirebaseAuthException(e.code).message;
+    } on FirebaseException catch (e) {
+      throw TFirebaseException(e.code).message;
+    } on FormatException catch (_) {
+      throw const TFormatException();
+    } on PlatformException catch (e) {
+      throw TPlatformException(e.code).message;
+    } catch (e) {
+      throw TTexts.commonErrorMessage;
+    }
+  }
+
   Future<void> logout() async {
     try {
       await GoogleSignIn().signOut();

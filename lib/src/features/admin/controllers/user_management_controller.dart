@@ -18,6 +18,9 @@ class UserManagementController extends GetxController {
 
   // Observable variables
   final isLoading = false.obs;
+  final currentPage = 1.obs;
+  final itemsPerPage = 10.obs;
+  final totalPages = 1.obs;
   final allUsers = <UserModel>[].obs;
   final filteredUsers = <UserModel>[].obs;
   final selectedUsers = <UserModel>[].obs;
@@ -28,6 +31,9 @@ class UserManagementController extends GetxController {
   final sortAscending = true.obs;
 
   Timer? _searchTimer;
+
+  // Constants
+  final List<int> itemsPerPageOptions = [5, 10, 25, 50];
 
   @override
   void onInit() {
@@ -147,6 +153,15 @@ class UserManagementController extends GetxController {
     });
   }
 
+  void _updatePagination() {
+    final itemCount = filteredUsers.length;
+    totalPages.value = (itemCount / itemsPerPage.value).ceil().clamp(1, double.infinity).toInt();
+
+    if (currentPage.value > totalPages.value) {
+      currentPage.value = totalPages.value;
+    }
+  }
+
   /// Sort users by column
   void sortUsers(int columnIndex, bool ascending) {
     sortColumnIndex.value = columnIndex;
@@ -154,10 +169,23 @@ class UserManagementController extends GetxController {
     filterUsers();
   }
 
+  void changeItemsPerPage(int? items) {
+    if (items != null) {
+      itemsPerPage.value = items;
+      currentPage.value = 1;
+      _updatePagination();
+    }
+  }
+
+  void changePage(int page) {
+    currentPage.value = page;
+  }
+
   /// Show active users
   void showActiveUsers() {
     if (!showingActiveUsers.value) {
       showingActiveUsers.value = true;
+      currentPage.value = 1;
       filterUsers(); // This will automatically update the content
     }
   }
@@ -166,6 +194,7 @@ class UserManagementController extends GetxController {
   void showBannedUsers() {
     if (showingActiveUsers.value) {
       showingActiveUsers.value = false;
+      currentPage.value = 1;
       filterUsers(); // This will automatically update the content
     }
   }
@@ -438,6 +467,7 @@ class UserManagementController extends GetxController {
 
   /// Refresh users list
   Future<void> refreshUsers() async {
+    currentPage.value = 1;
     await loadUsers();
   }
 

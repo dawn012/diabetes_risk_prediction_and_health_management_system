@@ -12,15 +12,12 @@ class UserModel {
   String phoneNumber;
   String profileImg;
   final DateTime joinDate;
-  final int totalScore;
+  int totalScore;
   final bool isVerify;
-  final int loginAttempt;
-  final int lastAttemptTime;
+  int loginAttempt;
+  int lastAttemptTime;
   final bool accountAvailable;
   UserProfileModel profile;
-  // final List<String> friends;
-  // final List<String> sentRequests;
-  // final List<String> receivedRequests;
 
   /// Constructor
   UserModel({
@@ -28,13 +25,13 @@ class UserModel {
     required this.username,
     required this.userType,
     required this.email,
-    required this.phoneNumber,
-    required this.profileImg,
+    this.phoneNumber = '',
+    this.profileImg = '',
     required this.joinDate,
-    required this.totalScore,
+    this.totalScore = 0,
     required this.isVerify,
-    required this.loginAttempt,
-    required this.lastAttemptTime,
+    this.loginAttempt = 5,
+    this.lastAttemptTime = 0,
     required this.accountAvailable,
     UserProfileModel? profile,
   }) : profile = profile ?? UserProfileModel.empty();
@@ -57,6 +54,40 @@ class UserModel {
       loginAttempt: 0,
       lastAttemptTime: 0,
       accountAvailable: true,
+      profile: UserProfileModel.empty(),
+    );
+  }
+
+  /// CopyWith method to create a new instance with updated fields
+  UserModel copyWith({
+    String? userId,
+    String? username,
+    String? userType,
+    String? email,
+    String? phoneNumber,
+    String? profileImg,
+    DateTime? joinDate,
+    int? totalScore,
+    bool? isVerify,
+    int? loginAttempt,
+    int? lastAttemptTime,
+    bool? accountAvailable,
+    UserProfileModel? profile,
+  }) {
+    return UserModel(
+      userId: userId ?? this.userId,
+      username: username ?? this.username,
+      userType: userType ?? this.userType,
+      email: email ?? this.email,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      profileImg: profileImg ?? this.profileImg,
+      joinDate: joinDate ?? this.joinDate,
+      totalScore: totalScore ?? this.totalScore,
+      isVerify: isVerify ?? this.isVerify,
+      loginAttempt: loginAttempt ?? this.loginAttempt,
+      lastAttemptTime: lastAttemptTime ?? this.lastAttemptTime,
+      accountAvailable: accountAvailable ?? this.accountAvailable,
+      profile: profile ?? this.profile,
     );
   }
 
@@ -75,6 +106,7 @@ class UserModel {
       FirebaseFieldNames.loginAttempt: loginAttempt,
       FirebaseFieldNames.lastAttemptTime: lastAttemptTime,
       FirebaseFieldNames.accountAvailable: accountAvailable,
+      FirebaseFieldNames.profile: profile.toJson(),
     };
   }
 
@@ -84,12 +116,22 @@ class UserModel {
     final data = document.data();
     if (data == null) return UserModel.empty();
 
+    // 处理 profile 数据
+    UserProfileModel profile;
+    if (data[FirebaseFieldNames.profile] != null) {
+      // 如果 profile 是 Map 类型（包含对象）
+      final profileData = data[FirebaseFieldNames.profile] as Map<String, dynamic>;
+      profile = UserProfileModel.fromMap(profileData);
+    } else {
+      profile = UserProfileModel.empty();
+    }
+
     return UserModel(
       userId: data[FirebaseFieldNames.userId] ?? '',
       username: data[FirebaseFieldNames.username] ?? '',
       userType: data[FirebaseFieldNames.userType] ?? '',
       email: data[FirebaseFieldNames.email] ?? '',
-      phoneNumber: data[FirebaseFieldNames.phoneNumber] ?? 0,
+      phoneNumber: data[FirebaseFieldNames.phoneNumber] ?? '',
       profileImg: data[FirebaseFieldNames.profileImg] ?? '',
       joinDate: data[FirebaseFieldNames.joinDate] != null
           ? DateTime.fromMillisecondsSinceEpoch(data[FirebaseFieldNames.joinDate])
@@ -99,6 +141,7 @@ class UserModel {
       loginAttempt: data[FirebaseFieldNames.loginAttempt] ?? 0,
       lastAttemptTime: data[FirebaseFieldNames.lastAttemptTime] ?? 0,
       accountAvailable: data[FirebaseFieldNames.accountAvailable] ?? true,
+      profile: profile,
     );
   }
 }

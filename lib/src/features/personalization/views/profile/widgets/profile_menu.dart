@@ -9,12 +9,12 @@ class TProfileMenu extends StatelessWidget {
     required this.onTap,
     required this.title,
     required this.value,
-    this.icon = Iconsax.arrow_right_3_outline,
+    this.icon,
   });
 
   final VoidCallback onTap;
   final String title, value;
-  final IconData icon;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
@@ -24,8 +24,8 @@ class TProfileMenu extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: TSizes.spaceBtwItems / 1.5),
         child: Row(
           children: [
-            Expanded(flex: 3, child: Text(title, style: Theme.of(context).textTheme.bodySmall, overflow: TextOverflow.ellipsis)),
-            Expanded(flex: 5, child: Text(value, style: Theme.of(context).textTheme.bodyMedium, overflow: TextOverflow.ellipsis)),
+            Expanded(flex: 3, child: Text(title, style: Theme.of(context).textTheme.bodySmall, overflow: TextOverflow.visible)),
+            Expanded(flex: 5, child: Text(value, style: Theme.of(context).textTheme.bodyMedium, overflow: TextOverflow.visible)),
             Expanded(child: Icon(icon, size: 18)),
           ],
         ),

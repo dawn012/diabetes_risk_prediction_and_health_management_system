@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:icons_plus/icons_plus.dart';
 import '../../../../common/widgets/dialogs/common_confirmation_dialog.dart';
+import '../../../../common/widgets/pagination/pagination_widget.dart';
 import '../../../../common/widgets/table/reusable_data_table.dart';
 import '../../../../utils/constants/admin_colors.dart';
 import '../../../../utils/helpers/helper_functions.dart';
 import '../../../authentication/models/user_model.dart';
 import '../../controllers/user_management_controller.dart';
 import 'user_detail_dialog.dart';
-import 'widgets/batch_action_bar.dart';
+import 'widgets/user_batch_action_bar.dart';
 import 'widgets/user_management_header.dart';
 
 class UserManagementScreen extends StatelessWidget {
@@ -23,6 +24,14 @@ class UserManagementScreen extends StatelessWidget {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
+            // Calculate available space for table
+            final headerHeight = 200.0;
+            final batchActionsHeight = 60.0;
+            final paginationHeight = 80.0;
+            final padding = 48.0;
+            final availableTableHeight = constraints.maxHeight -
+                headerHeight - batchActionsHeight - paginationHeight - padding;
+
             return SingleChildScrollView(
               child: Container(
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
@@ -34,21 +43,17 @@ class UserManagementScreen extends StatelessWidget {
                     UserManagementHeader(controller: controller),
                     const SizedBox(height: 24),
 
-                    // User Type Tabs
-                    _buildUserTypeTabs(controller, darkMode),
-                    const SizedBox(height: 16),
-
                     // Batch Actions Bar
                     Obx(() {
                       return controller.selectedUsers.isNotEmpty
-                          ? BatchActionsBar(controller: controller)
+                          ? UserBatchActionsBar(controller: controller)
                           : const SizedBox.shrink();
                     }),
                     const SizedBox(height: 16),
 
                     // Data Table Container
                     Container(
-                      height: constraints.maxHeight - 320,
+                      height: availableTableHeight.clamp(400.0, double.infinity),
                       decoration: BoxDecoration(
                         color: TAdminColors.getSurfaceColor(darkMode),
                         borderRadius: BorderRadius.circular(16),
@@ -60,85 +65,47 @@ class UserManagementScreen extends StatelessWidget {
                           ),
                         ],
                       ),
-                      child: Obx(() {
-                        print('Obx rebuilding - filteredUsers length: ${controller.filteredUsers.length}');
+                      child: Column(
+                        children: [
+                          Expanded(
+                            child: Obx(() {
+                              print('Obx rebuilding - filteredUsers length: ${controller.filteredUsers.length}');
 
-                        return ReusableDataTable<UserModel>(
-                          data: controller.filteredUsers,
-                          columns: _getUserTableColumns(controller, darkMode),
-                          isLoading: controller.isLoading.value,
-                          onSelectAll: (selected) => controller.toggleSelectAll(selected),
-                          selectedItems: controller.selectedUsers,
-                          onItemSelect: (user, selected) => controller.toggleUserSelection(user, selected),
-                          searchQuery: controller.searchController.text,
-                          sortColumnIndex: controller.sortColumnIndex.value,
-                          sortAscending: controller.sortAscending.value,
-                          onSort: (columnIndex, ascending) => controller.sortUsers(columnIndex, ascending),
-                        );
-                      }),
+                              return ReusableDataTable<UserModel>(
+                                data: controller.filteredUsers,
+                                columns: _getUserTableColumns(controller, darkMode),
+                                isLoading: controller.isLoading.value,
+                                onSelectAll: (selected) => controller.toggleSelectAll(selected),
+                                selectedItems: controller.selectedUsers,
+                                onItemSelect: (user, selected) => controller.toggleUserSelection(user, selected),
+                                searchQuery: controller.searchController.text,
+                                sortColumnIndex: controller.sortColumnIndex.value,
+                                sortAscending: controller.sortAscending.value,
+                                onSort: (columnIndex, ascending) => controller.sortUsers(columnIndex, ascending),
+                              );
+                            }),
+                          ),
+
+                          // Pagination
+                          Obx(() => PaginationWidget(
+                            currentPage: controller.currentPage.value,
+                            totalPages: controller.totalPages.value,
+                            onPageChanged: controller.changePage,
+                            totalItems: controller.allUsers.length,
+                            itemsPerPage: controller.itemsPerPage.value,
+                            startIndex: ((controller.currentPage.value - 1) *
+                                controller.itemsPerPage.value) + 1,
+                            endIndex: (controller.currentPage.value *
+                                controller.itemsPerPage.value).clamp(0, controller.allUsers.length),
+                          )),
+                        ]
+                      ),
                     ),
                   ],
                 ),
               ),
             );
           },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildUserTypeTabs(UserManagementController controller, bool isDark) {
-    return Container(
-      decoration: BoxDecoration(
-        color: TAdminColors.getSurfaceVariantColor(isDark),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      padding: const EdgeInsets.all(4),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Obx(() => _buildTabButton(
-            'Active Users',
-            controller.showingActiveUsers.value,
-                () => controller.showActiveUsers(),
-            isDark,
-          )),
-          const SizedBox(width: 4),
-          Obx(() => _buildTabButton(
-            'Banned Users',
-            !controller.showingActiveUsers.value,
-                () => controller.showBannedUsers(),
-            isDark,
-          )),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTabButton(String text, bool isSelected, VoidCallback onTap, bool isDark) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? TAdminColors.getSurfaceColor(isDark) : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: isSelected ? [
-            BoxShadow(
-              color: isDark ? Colors.black26 : Colors.grey.withOpacity(0.1),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ] : null,
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-            color: isSelected
-                ? TAdminColors.getOnSurfaceColor(isDark)
-                : TAdminColors.getOnSurfaceVariantColor(isDark),
-          ),
         ),
       ),
     );
@@ -342,7 +309,7 @@ class UserManagementScreen extends StatelessWidget {
   Widget _buildActionButtons(UserModel user, UserManagementController controller, bool isDark) {
     return Row(
       mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
+      mainAxisAlignment: (user.accountAvailable == true) ? MainAxisAlignment.spaceAround : MainAxisAlignment.start,
       children: [
         // Detail Button
         IconButton(

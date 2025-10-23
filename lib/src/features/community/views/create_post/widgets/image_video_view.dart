@@ -25,4 +25,3 @@ class ImageVideoView extends StatelessWidget {
     }
   }
 }
-

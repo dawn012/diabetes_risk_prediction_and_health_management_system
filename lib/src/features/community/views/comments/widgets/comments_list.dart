@@ -3,55 +3,78 @@ import 'package:get/get.dart';
 
 import '../../../../../common/loaders/circular_loader.dart';
 import '../../../../../common/widgets/error_screen/error_retry_screen.dart';
+import '../../../../../utils/constants/colors.dart';
 import '../../../../../utils/constants/sizes.dart';
+import '../../../../../utils/helpers/helper_functions.dart';
 import '../../../controllers/comment_controller.dart';
 import 'comment_tile.dart';
 
 class CommentsList extends StatelessWidget {
-  const CommentsList({super.key, required this.postId});
-
-  final String postId;
+  const CommentsList({super.key});
 
   @override
   Widget build(BuildContext context) {
     final controller = CommentController.instance;
+    final isDark = THelperFunctions.isDarkMode(context);
 
-    return Expanded(
-      child: Obx(() {
-        if (controller.isFetching.value) {
-          return const Center(child: CircularLoader());
+    return Obx(() {
+      if (controller.isLoadingComments.value && controller.comments.isEmpty) {
+        return const Center(child: CircularLoader());
+      }
 
-        } else if (controller.errorMessage.isNotEmpty) {
-          return SliverToBoxAdapter(
-            child: ErrorRetryScreen(
-                message: controller.errorMessage.value,
-                onRetry: controller.fetchComments),
-          );
+      if (controller.commentsError.isNotEmpty && controller.comments.isEmpty) {
+        return ErrorRetryScreen(
+          message: controller.commentsError.value,
+          onRetry: () => controller.fetchComments(refresh: true),
+        );
+      }
 
-        } else if (controller.comments.isEmpty) {
-          return const Align(
-              alignment: Alignment.center,
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 50),
-                child: Text("No comments available"),
-              ),
-            );
+      if (controller.comments.isEmpty) {
+        return Align(
+          alignment: Alignment.center,
+          child: Container(
+            padding: const EdgeInsets.all(TSizes.xl),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.chat_bubble_outline,
+                  size: 64,
+                  color: isDark ? TColors.darkGrey : TColors.grey,
+                ),
+                const SizedBox(height: TSizes.md),
+                Text(
+                  "No comments yet",
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: isDark ? TColors.lightGrey : TColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: TSizes.xs),
+                Text(
+                  "Be the first to comment!",
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: isDark ? TColors.darkGrey : TColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
 
-        } else {
-          return ListView.builder(
-            itemCount: controller.comments.length,
-            itemBuilder: (context, index) {
-              final comment = controller.comments[index];
-              return Column(
-                children: [
-                  CommentTile(comment: comment),
-                  const SizedBox(height: TSizes.spaceBtwItems),
-                ],
-              );
-            },
-          );
-        }
-      }),
-    );
+      return RefreshIndicator(
+        onRefresh: () => controller.fetchComments(refresh: true),
+        color: TColors.primary,
+        child: ListView.separated(
+          padding: const EdgeInsets.symmetric(vertical: TSizes.sm),
+          itemCount: controller.comments.length,
+          separatorBuilder: (context, index) => const SizedBox(height: TSizes.sm),
+          itemBuilder: (context, index) {
+            final comment = controller.comments[index];
+            return CommentTile(comment: comment);
+          },
+        ),
+      );
+    });
   }
 }

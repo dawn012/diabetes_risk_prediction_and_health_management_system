@@ -1,66 +1,105 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart' show immutable;
-
 import '../../../utils/constants/firebase_field_names.dart';
+import 'reply_model.dart';
 
-@immutable
 class CommentModel {
   final String commentId;
   final String authorId;
-  final String? postId;
   final String content;
-  final DateTime createdAt;
   final List<String> likes;
+  final List<ReplyModel>? replies; // Nested replies
   final int replyCount;
-  final String? parentCommentId; // ✅ reply 需要记录 parent commentId
-  final List<String>? mentions; // 只有 reply 才有
+  final DateTime createdAt;
+  final DateTime updatedAt;
 
   const CommentModel({
     required this.commentId,
     required this.authorId,
-    this.postId,
     required this.content,
-    required this.createdAt,
     required this.likes,
+    this.replies,
     this.replyCount = 0,
-    this.parentCommentId,
-    this.mentions,
+    required this.createdAt,
+    required this.updatedAt,
   });
 
-  // bool get isReply => parentCommentId != null;
+  /// Empty constructor
+  factory CommentModel.empty() => CommentModel(
+    commentId: '',
+    authorId: '',
+    content: '',
+    likes: const [],
+    replies: const [],
+    replyCount: 0,
+    createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+    updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
+  );
 
+  /// Create a copy with updated fields
+  CommentModel copyWith({
+    String? commentId,
+    String? authorId,
+    String? content,
+    List<String>? likes,
+    List<ReplyModel>? replies,
+    int? replyCount,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return CommentModel(
+      commentId: commentId ?? this.commentId,
+      authorId: authorId ?? this.authorId,
+      content: content ?? this.content,
+      likes: likes ?? this.likes,
+      replies: replies ?? this.replies,
+      replyCount: replyCount ?? this.replyCount,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  /// Convert to JSON
   Map<String, dynamic> toJson() {
     return {
       FirebaseFieldNames.commentId: commentId,
       FirebaseFieldNames.authorId: authorId,
-      if (postId != null) FirebaseFieldNames.postId: postId,  // ✅ 只有 comment 存
       FirebaseFieldNames.content: content,
-      FirebaseFieldNames.createdAt: createdAt.millisecondsSinceEpoch,
       FirebaseFieldNames.likes: likes,
       FirebaseFieldNames.replyCount: replyCount,
-      if (parentCommentId != null) FirebaseFieldNames.parentCommentId: parentCommentId,  // ✅ 只有 reply 存
-      if (mentions != null) FirebaseFieldNames.mentions: mentions,  // ✅ 只有 reply 存
+      FirebaseFieldNames.createdAt: createdAt.millisecondsSinceEpoch,
+      FirebaseFieldNames.updatedAt: updatedAt.millisecondsSinceEpoch,
+      // Replies stored as subcollection
     };
   }
 
+  /// Create from Firestore document
   factory CommentModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> document) {
     final data = document.data() ?? {};
     return CommentModel(
-      commentId: data[FirebaseFieldNames.commentId] ?? '',
+      commentId: data[FirebaseFieldNames.commentId] ?? document.id, // Use document ID if commentId not stored
       authorId: data[FirebaseFieldNames.authorId] ?? '',
-      postId: data[FirebaseFieldNames.postId],
       content: data[FirebaseFieldNames.content] ?? '',
+      likes: List<String>.from(data[FirebaseFieldNames.likes] ?? []),
+      replyCount: data[FirebaseFieldNames.replyCount] ?? 0,
+      replies: null, // Loaded separately from subcollection
       createdAt: DateTime.fromMillisecondsSinceEpoch(
-        data[FirebaseFieldNames.createdAt] ?? 0,
-      ),
-      likes: List<String>.from(
-        (data[FirebaseFieldNames.likes] ?? []),
-      ),
-      replyCount: (data[FirebaseFieldNames.replyCount] ?? 0) as int,
-      parentCommentId: data[FirebaseFieldNames.parentCommentId],
-      mentions: data.containsKey(FirebaseFieldNames.mentions)
-          ? List<String>.from(data[FirebaseFieldNames.mentions])
-          : null,
+          data[FirebaseFieldNames.createdAt] ?? 0),
+      updatedAt: DateTime.fromMillisecondsSinceEpoch(
+          data[FirebaseFieldNames.updatedAt] ?? 0),
     );
   }
+
+  @override
+  String toString() {
+    return 'CommentModel{commentId: $commentId, authorId: $authorId, replyCount: $replyCount}';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is CommentModel && other.commentId == commentId;
+  }
+
+  @override
+  int get hashCode => commentId.hashCode;
 }

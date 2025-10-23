@@ -1,23 +1,121 @@
 import 'dart:io';
+
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
 import 'package:image_picker/image_picker.dart';
 
 class ImageHelper {
   ImageHelper._();
 
+  // File size limits
+  static const int maxImageSize = 5 * 1024 * 1024; // 5MB
+
+  /// Pick single image from gallery
   static Future<File?> pickImage() async {
-    File? image;
-    final picker = ImagePicker();
-    final file = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxHeight: 720,
-      maxWidth: 720,
-    );
+    try {
+      final picker = ImagePicker();
+      final file = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxHeight: 1920,
+        maxWidth: 1920,
+        imageQuality: 85,
+      );
 
-    if (file != null) {
-      image = File(file.path);
+      if (file != null) {
+        return File(file.path);
+      }
+      return null;
+    } catch (e) {
+      print('Error picking image: $e');
+      return null;
     }
+  }
 
-    return image;
+  /// Take photo with camera
+  static Future<File?> takePhoto() async {
+    try {
+      final picker = ImagePicker();
+      final file = await picker.pickImage(
+        source: ImageSource.camera,
+        maxHeight: 1920,
+        maxWidth: 1920,
+        imageQuality: 85,
+      );
+
+      if (file != null) {
+        return File(file.path);
+      }
+      return null;
+    } catch (e) {
+      print('Error taking photo: $e');
+      return null;
+    }
+  }
+
+  /// Pick multiple media from gallery (images and videos)
+  static Future<List<File>> pickMultipleMedia({int limit = 10}) async {
+    try {
+      final picker = ImagePicker();
+      final files = await picker.pickMultipleMedia(limit: limit);
+
+      return files.map((file) => File(file.path)).toList();
+    } catch (e) {
+      print('Error picking multiple media: $e');
+      return [];
+    }
+  }
+
+  /// Check if file is an image
+  static bool isImageFile(String filePath) {
+    final extension = path.extension(filePath).toLowerCase();
+    return ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'].contains(extension);
+  }
+
+  /// Check image file size
+  static bool isImageSizeValid(File file) {
+    final fileSize = file.lengthSync();
+    return fileSize <= maxImageSize;
+  }
+
+  /// Compress and convert image to WebP
+  static Future<File?> compressImageToWebP(File imageFile) async {
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final targetPath = path.join(
+        tempDir.path,
+        '${DateTime.now().millisecondsSinceEpoch}.webp',
+      );
+
+      final compressedFile = await FlutterImageCompress.compressAndGetFile(
+        imageFile.absolute.path,
+        targetPath,
+        quality: 85,
+        format: CompressFormat.webp,
+        minWidth: 1080,
+        minHeight: 1080,
+      );
+
+      if (compressedFile != null) {
+        return File(compressedFile.path);
+      }
+      return null;
+    } catch (e) {
+      print('Error compressing image: $e');
+      return null;
+    }
+  }
+
+  /// Get file size in MB
+  static double getFileSizeInMB(File file) {
+    final bytes = file.lengthSync();
+    return bytes / (1024 * 1024);
+  }
+
+  /// Format file size for display
+  static String formatFileSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 }
-

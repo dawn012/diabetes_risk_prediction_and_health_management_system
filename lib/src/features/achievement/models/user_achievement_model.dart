@@ -10,7 +10,7 @@ class UserAchievementModel {
   final int currentCount;
   final String status;
   final DateTime startedAt;
-  final DateTime completedAt;
+  final DateTime? completedAt;
 
   UserAchievementModel({
     required this.userAchievementId,
@@ -19,7 +19,7 @@ class UserAchievementModel {
     required this.currentCount,
     required this.status,
     required this.startedAt,
-    required this.completedAt
+    this.completedAt
   });
 
   /// Static function to create an empty user achievement model
@@ -44,7 +44,7 @@ class UserAchievementModel {
       FirebaseFieldNames.currentCount: currentCount,
       FirebaseFieldNames.status: status,
       FirebaseFieldNames.startedAt: Timestamp.fromDate(startedAt),
-      FirebaseFieldNames.completedAt: Timestamp.fromDate(completedAt),
+      FirebaseFieldNames.completedAt: Timestamp.fromDate(completedAt!),
     };
   }
 

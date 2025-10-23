@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:uuid/uuid.dart';
@@ -18,9 +17,9 @@ class CommentRepository extends GetxController {
 
   final _db = FirebaseFirestore.instance;
   final _auth = FirebaseAuth.instance;
-  final _storage = FirebaseStorage.instance;
 
-  Future<String?> makeComment({
+  /// Create a new comment
+  Future<String?> createComment({
     required String content,
     required String postId,
   }) async {
@@ -32,18 +31,21 @@ class CommentRepository extends GetxController {
       CommentModel comment = CommentModel(
         commentId: commentId,
         authorId: authorId,
-        postId: postId,
         content: content,
-        createdAt: now,
         likes: const [],
-        parentCommentId: null, // 这里不需要 parentCommentId
+        replyCount: 0,
+        createdAt: now,
+        updatedAt: now,
       );
 
-      // 存入 `comments` 集合
+      // Store in comments collection with postId
       await _db
           .collection(FirebaseCollectionNames.comments)
           .doc(commentId)
-          .set(comment.toJson());
+          .set({
+        ...comment.toJson(),
+        FirebaseFieldNames.postId: postId, // Add postId for Firestore querying
+      });
 
       return null;
     } on FirebaseException catch (e) {
@@ -57,108 +59,64 @@ class CommentRepository extends GetxController {
     }
   }
 
-  Future<String?> makeReply({
-    required String content,
-    required String parentCommentId,
-  }) async {
-    try {
-      final replyId = const Uuid().v1();
-      final authorId = _auth.currentUser!.uid;
-      final now = DateTime.now();
-
-      CommentModel reply = CommentModel(
-        commentId: replyId,
-        authorId: authorId,
-        postId: null, // 回复不存 postId
-        content: content,
-        createdAt: now,
-        likes: const [],
-        parentCommentId: parentCommentId, // 标识属于哪个父评论
-      );
-
-      // 存入 `replies` 子集合
-      await _db
-          .collection(FirebaseCollectionNames.comments)
-          .doc(parentCommentId)
-          .collection(FirebaseCollectionNames.replies)
-          .doc(replyId)
-          .set(reply.toJson());
-
-      return null;
-    } on FirebaseException catch (e) {
-      throw TFirebaseException(e.code).message;
-    } on FormatException catch (_) {
-      throw const TFormatException();
-    } on PlatformException catch (e) {
-      throw TPlatformException(e.code).message;
-    } catch (e) {
-      throw TTexts.commonErrorMessage;
-    }
-  }
-
-  /// Fetch comments
-  Stream<List<CommentModel>> fetchComments(String postId) {
-    return _db
+  /// Fetch comments for a post with pagination
+  Stream<List<CommentModel>> fetchComments({
+    required String postId,
+    int limit = 20,
+    DocumentSnapshot<Map<String, dynamic>>? startAfter,
+  }) {
+    Query<Map<String, dynamic>> query = _db
         .collection(FirebaseCollectionNames.comments)
         .where(FirebaseFieldNames.postId, isEqualTo: postId)
         .orderBy(FirebaseFieldNames.createdAt, descending: true)
-    // 监听这个集合的所有更改，并返回一个 Stream<QuerySnapshot>
-        .snapshots() // 如果没有 .snapshots(): 那 .get() 只会获取一次数据，不会监听实时变化。
-        .map((snapshot) {
-      return snapshot.docs // 获取所有文档
-          .map((doc) => CommentModel.fromSnapshot(doc)) // 将每个文档转换为 PostModel
-          .toList();
-    });
-  }
+        .limit(limit);
 
-  /// Fetch replies
-  Stream<List<CommentModel>> fetchReplies(String parentCommentId) {
-    return _db
-        .collection(FirebaseCollectionNames.comments)
-        .doc(parentCommentId) // 定位到父评论
-        .collection(FirebaseCollectionNames.replies) // 进入 `replies` 子集合
-        .orderBy(FirebaseFieldNames.createdAt, descending: true)
-        .snapshots()
-        .map((snapshot) {
+    if (startAfter != null) {
+      query = query.startAfterDocument(startAfter);
+    }
+
+    return query.snapshots().map((snapshot) {
       return snapshot.docs
           .map((doc) => CommentModel.fromSnapshot(doc))
           .toList();
     });
   }
 
-  /// Like a comment
-  Future<String?> likeDislikeComment({
+  /// Get comment count for a post
+  Future<int> getCommentCount(String postId) async {
+    try {
+      final snapshot = await _db
+          .collection(FirebaseCollectionNames.comments)
+          .where(FirebaseFieldNames.postId, isEqualTo: postId)
+          .count()
+          .get();
+
+      return snapshot.count ?? 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  /// Like/unlike a comment
+  Future<String?> toggleCommentLike({
     required String commentId,
-    required List<String> likes,
-    String? parentCommentId, // ✅ 用于区分评论还是回复
+    required List<String> currentLikes,
   }) async {
     try {
-      final authorId = _auth.currentUser!.uid;
+      final userId = _auth.currentUser!.uid;
+      final commentRef = _db.collection(FirebaseCollectionNames.comments).doc(commentId);
 
-      // 确定 Firestore 路径
-      DocumentReference commentRef;
-      if (parentCommentId == null) {
-        // 顶级评论（直接在 comments 集合）
-        commentRef = _db.collection(FirebaseCollectionNames.comments).doc(commentId);
-      } else {
-        // 回复（在某个评论的 replies 子集合）
-        commentRef = _db
-            .collection(FirebaseCollectionNames.comments)
-            .doc(parentCommentId)
-            .collection(FirebaseCollectionNames.replies)
-            .doc(commentId);
-      }
-
-      // 点赞或取消点赞
-      if (likes.contains(authorId)) {
-        // 取消点赞
+      if (currentLikes.contains(userId)) {
+        // Remove like
         await commentRef.update({
-          FirebaseFieldNames.likes: FieldValue.arrayRemove([authorId]),
+          FirebaseFieldNames.likes: FieldValue.arrayRemove([userId]),
+          FirebaseFieldNames.updatedAt: DateTime.now().millisecondsSinceEpoch,
         });
       } else {
-        // 点赞
+        // Add like
         await commentRef.update({
-          FirebaseFieldNames.likes: FieldValue.arrayUnion([authorId]),
+          FirebaseFieldNames.likes: FieldValue.arrayUnion([userId]),
+          FirebaseFieldNames.updatedAt: DateTime.now().millisecondsSinceEpoch,
         });
       }
 
@@ -174,22 +132,21 @@ class CommentRepository extends GetxController {
     }
   }
 
-  Future<int> getReplyCount(String commentId) async {
-    final snapshot = await _db
-        .collection('comments')
-        .doc(commentId)
-        .collection('replies')
-        .get();
-
-    return snapshot.docs.length;
-  }
-
-  Future<void> updateCommentDetails(CommentModel updatedComment) async {
+  /// Update comment content
+  Future<String?> updateComment({
+    required String commentId,
+    required String content,
+  }) async {
     try {
       await _db
           .collection(FirebaseCollectionNames.comments)
-          .doc(updatedComment.commentId)
-          .update(updatedComment.toJson());
+          .doc(commentId)
+          .update({
+        FirebaseFieldNames.content: content,
+        FirebaseFieldNames.updatedAt: DateTime.now().millisecondsSinceEpoch,
+      });
+
+      return null;
     } on FirebaseException catch (e) {
       throw TFirebaseException(e.code).message;
     } on FormatException catch (_) {
@@ -201,42 +158,13 @@ class CommentRepository extends GetxController {
     }
   }
 
-  Future<void> updateSingleField({required String commentId, required Map<String, dynamic> json}) async {
+  /// Delete comment
+  Future<String?> deleteComment(String commentId) async {
     try {
-      await _db.collection(FirebaseCollectionNames.comments).doc(commentId).update(json);
-    } on FirebaseException catch (e) {
-      throw TFirebaseException(e.code).message;
-    } on FormatException catch (_) {
-      throw const TFormatException();
-    } on PlatformException catch (e) {
-      throw TPlatformException(e.code).message;
-    } catch (e) {
-      throw TTexts.commonErrorMessage;
-    }
-  }
-
-  Future<void> updateReplySingleField({required String replyId, required String parentCommentId, required Map<String, dynamic> json}) async {
-    try {
-      await _db
-          .collection(FirebaseCollectionNames.comments)
-          .doc(parentCommentId)
-          .collection(FirebaseCollectionNames.replies)
-          .doc(replyId).update(json);
-    } on FirebaseException catch (e) {
-      throw TFirebaseException(e.code).message;
-    } on FormatException catch (_) {
-      throw const TFormatException();
-    } on PlatformException catch (e) {
-      throw TPlatformException(e.code).message;
-    } catch (e) {
-      throw TTexts.commonErrorMessage;
-    }
-  }
-
-  /// Function to remove comment and reply (if any) from Firestore
-  Future<void> removeComment(String commentId) async {
-    try {
+      // Delete the comment document
       await _db.collection(FirebaseCollectionNames.comments).doc(commentId).delete();
+
+      return null;
     } on FirebaseException catch (e) {
       throw TFirebaseException(e.code).message;
     } on FormatException catch (_) {
@@ -248,22 +176,36 @@ class CommentRepository extends GetxController {
     }
   }
 
-  /// Function to remove comment and reply (if any) from Firestore
-  Future<void> removeReply({required String parentCommentId, required String replyId}) async {
+  /// Get comments sorted by likes (top comments)
+  Stream<List<CommentModel>> fetchTopComments({
+    required String postId,
+    int limit = 20,
+  }) {
+    return _db
+        .collection(FirebaseCollectionNames.comments)
+        .where(FirebaseFieldNames.postId, isEqualTo: postId)
+        .snapshots()
+        .map((snapshot) {
+      final comments = snapshot.docs
+          .map((doc) => CommentModel.fromSnapshot(doc))
+          .toList();
+
+      // Sort by likes count in descending order
+      comments.sort((a, b) => b.likes.length.compareTo(a.likes.length));
+
+      return comments.take(limit).toList();
+    });
+  }
+
+  /// Update reply count for a comment
+  Future<void> updateReplyCount(String commentId, int increment) async {
     try {
-      await _db
-          .collection(FirebaseCollectionNames.comments)
-          .doc(parentCommentId)
-          .collection(FirebaseCollectionNames.replies)
-          .doc(replyId).delete();
-    } on FirebaseException catch (e) {
-      throw TFirebaseException(e.code).message;
-    } on FormatException catch (_) {
-      throw const TFormatException();
-    } on PlatformException catch (e) {
-      throw TPlatformException(e.code).message;
+      await _db.collection(FirebaseCollectionNames.comments).doc(commentId).update({
+        FirebaseFieldNames.replyCount: FieldValue.increment(increment),
+        FirebaseFieldNames.updatedAt: DateTime.now().millisecondsSinceEpoch,
+      });
     } catch (e) {
-      throw TTexts.commonErrorMessage;
+      // Silently handle error to avoid UI disruption
     }
   }
 }

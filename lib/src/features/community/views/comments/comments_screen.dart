@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../../common/widgets/appbar/appbar.dart';
+import '../../../../utils/constants/colors.dart';
 import '../../../../utils/constants/text_strings.dart';
+import '../../../../utils/helpers/helper_functions.dart';
 import '../../controllers/comment_controller.dart';
 import 'widgets/comment_text_field.dart';
 import 'widgets/comments_list.dart';
@@ -15,121 +17,154 @@ class CommentsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = Get.put(CommentController(postId: postId));
+    final isDark = THelperFunctions.isDarkMode(context);
 
-    return Scaffold(
-      /// **自定义 AppBar（带黑色背景）**
-      appBar: PreferredSize(
-        preferredSize: Size.fromHeight(kToolbarHeight),
-        child: Obx(() {
-          bool isEditing = controller.editingCommentId.value != null;
-          return Stack(
-            children: [
-              /// **黑色背景**
-              if (isEditing)
-                Container(
-                  color: Colors.black.withValues(alpha: 0.5),
-                  height: kToolbarHeight + MediaQuery.of(context).padding.top,
-                ),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        controller.handleNavigation(() => Get.back());
+      },
+      child: Scaffold(
+        backgroundColor: isDark ? TColors.dark : TColors.primaryBackground,
 
-              /// **原本的 AppBar**
-              TAppBar(
-                title: const Text("${TTexts.comment}s"),
-                showBackArrow: true,
-                actions: [
-                  PopupMenuButton<String>(
-                    icon: const Icon(Icons.sort),
-                    offset: const Offset(-15, 40), // 调整位置
-                    onSelected: (String value) {
-                      controller.sortCommentsBy(value);
-                    },
-                    itemBuilder: (BuildContext context) => [
-                      PopupMenuItem(
-                        value: 'top',
-                        child: Container(
-                          color: controller.currentSort.value == 'top' ? Colors.grey[800] : Colors.black,
-                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  'Top Comments',
-                                  style: TextStyle(
-                                    color: controller.currentSort.value == 'top' ? Colors.white : Colors.grey[300],
-                                    fontWeight: controller.currentSort.value == 'top' ? FontWeight.bold : FontWeight.normal,
-                                  ),
-                                ),
-                              ),
-                              if (controller.currentSort.value == 'top')
-                                const Icon(Icons.check, color: Colors.white, size: 18),
-                            ],
-                          ),
-                        ),
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(kToolbarHeight),
+          child: Obx(() {
+            final isEditing = controller.isEditing;
+
+            return Stack(
+              children: [
+                // Dark overlay when editing
+                if (isEditing)
+                  Container(
+                    color: Colors.black.withOpacity(0.5),
+                    height: kToolbarHeight + MediaQuery.of(context).padding.top,
+                  ),
+
+                // App bar
+                TAppBar(
+                  title: Text(
+                    "${TTexts.comment}s",
+                    style: TextStyle(
+                      color: isEditing ? Colors.white : null,
+                    ),
+                  ),
+                  showBackArrow: true,
+                  backgroundColor: isEditing ? Colors.transparent : null,
+                  iconTheme: IconThemeData(
+                    color: isEditing ? Colors.white : null,
+                  ),
+                  actions: [
+                    // Sort menu
+                    PopupMenuButton<String>(
+                      icon: Icon(
+                        Icons.sort,
+                        color: isEditing ? Colors.white : (isDark ? TColors.lightGrey : TColors.textPrimary),
                       ),
-                      PopupMenuItem(
-                        value: 'newest',
-                        child: Container(
-                          color: controller.currentSort.value == 'newest' ? Colors.grey[800] : Colors.black,
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  'Newest First',
-                                  style: TextStyle(
-                                    color: controller.currentSort.value == 'newest' ? Colors.white : Colors.grey[300],
-                                    fontWeight: controller.currentSort.value == 'newest' ? FontWeight.bold : FontWeight.normal,
-                                  ),
-                                ),
-                              ),
-                              if (controller.currentSort.value == 'newest')
-                                const Icon(Icons.check, color: Colors.white, size: 18),
-                            ],
-                          ),
+                      offset: const Offset(-15, 40),
+                      onSelected: (String value) {
+                        controller.sortComments(value);
+                      },
+                      itemBuilder: (BuildContext context) => [
+                        _buildSortMenuItem(
+                          context: context,
+                          value: 'newest',
+                          label: 'Newest First',
+                          isSelected: controller.currentSort.value == 'newest',
+                          isDark: isDark,
                         ),
-                      ),
-                    ],
-                  )
-                ],
-              ),
-            ],
-          );
-        }),
-      ),
-
-      /// **主内容**
-      body: Stack(
-        children: [
-          /// **评论列表**
-          Column(
-            children: [
-              CommentsList(postId: postId),
-            ],
-          ),
-
-          /// **黑色背景（覆盖 ListView）**
-          Obx(() {
-            bool isEditing = controller.editingCommentId.value != null;
-            return isEditing
-                ? Positioned.fill(
-              child: GestureDetector(
-                onTap: () async {
-                  await controller.cancelEdit();
-                },
-                child: Container(
-                  color: Colors.black.withValues(alpha: 0.5), // ✅ 透明黑色背景
+                        _buildSortMenuItem(
+                          context: context,
+                          value: 'top',
+                          label: 'Top Comments',
+                          isSelected: controller.currentSort.value == 'top',
+                          isDark: isDark,
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-              ),
-            )
-                : const SizedBox();
+              ],
+            );
           }),
+        ),
 
-          /// **底部输入框**
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: CommentTextField(postId: postId),
-          ),
-        ],
+        body: Stack(
+          children: [
+            // Main content
+            Column(
+              children: [
+                const Expanded(child: CommentsList()),
+              ],
+            ),
+
+            // Dark overlay when editing (excludes text field area)
+            Obx(() {
+              final isEditing = controller.isEditing;
+              return isEditing
+                  ? Positioned.fill(
+                child: GestureDetector(
+                  onTap: () => controller.cancelEdit(),
+                  child: Container(
+                    color: Colors.black.withOpacity(0.5),
+                    margin: const EdgeInsets.only(bottom: 80), // Leave space for text field
+                  ),
+                ),
+              )
+                  : const SizedBox.shrink();
+            }),
+
+            // Bottom text field
+            const Align(
+              alignment: Alignment.bottomCenter,
+              child: CommentTextField(),
+            ),
+          ],
+        ),
       ),
     );
+  }
 
+  PopupMenuItem<String> _buildSortMenuItem({
+    required BuildContext context,
+    required String value,
+    required String label,
+    required bool isSelected,
+    required bool isDark,
+  }) {
+    return PopupMenuItem(
+      value: value,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (isDark ? TColors.primary.withOpacity(0.2) : TColors.primary.withOpacity(0.1))
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: isSelected
+                      ? TColors.primary
+                      : (isDark ? TColors.lightGrey : TColors.textPrimary),
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+            ),
+            if (isSelected)
+              Icon(
+                Icons.check,
+                color: TColors.primary,
+                size: 18,
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }

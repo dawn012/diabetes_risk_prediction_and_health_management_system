@@ -44,7 +44,6 @@ class LoginController extends GetxController {
   // Email and Password Login
   Future<void> emailAndPasswordSignIn() async {
     try {
-      print('Hello1');
       // Start Loading
       // TFullScreenLoader.openLoadingDialog('Logging you in...', TImages.loadingAnimation);
 
@@ -55,7 +54,6 @@ class LoginController extends GetxController {
       //   TFullScreenLoader.stopLoading();
       //   return;
       // }
-      print('Hello2');
 
       // Form Validation
       if (!loginFormKey.currentState!.validate()) {
@@ -64,7 +62,6 @@ class LoginController extends GetxController {
         return;
       }
 
-      print('Hello3');
       // Save data if Remember Me is selected
       // if (_rememberMe.value) {
       //   localStorage.write('REMEMBER_ME_EMAIL', email.text.trim());
@@ -74,11 +71,9 @@ class LoginController extends GetxController {
       // Login user using Email & Password Authentication
       final userCredentials = await AuthenticationRepository.instance.loginWithEmailAndPassword(email.text.trim(), password.text.trim());
 
-      print('Hello4');
       // Remove Loader
       // TFullScreenLoader.stopLoading();
 
-      print('Hello5');
       // Redirect
       AuthenticationRepository.instance.screenRedirect();
     } catch (e) {

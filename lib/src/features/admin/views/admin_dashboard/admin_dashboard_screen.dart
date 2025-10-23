@@ -5,6 +5,10 @@ import 'package:icons_plus/icons_plus.dart';
 import '../../../../utils/constants/admin_colors.dart';
 import '../../../../utils/helpers/helper_functions.dart';
 import '../../controllers/admin_dashboard_controller.dart';
+import '../achievement_management/achievement_management_screen.dart';
+import '../community_management/community_management_screen.dart';
+import '../profile/admin_profile_screen.dart';
+import '../report/transaction_report_screen.dart';
 import '../user_management/user_management_screen.dart';
 import 'widgets/admin_header.dart';
 import 'widgets/admin_sidebar.dart';
@@ -50,14 +54,19 @@ class AdminDashboardScreen extends StatelessWidget {
         return _buildDashboardContent(darkMode);
       case 1: // User Management
         return UserManagementScreen();
-      case 2: // Community Management
-        return _buildPlaceholder('Community Management', darkMode);
-      case 3: // Achievement Management
-        return _buildPlaceholder('Achievement Management', darkMode);
-      case 4: // Analytics
+      case 2: // User Management
+        return UserManagementScreen();
+      case 3: // Community Management
+        return CommunityManagementScreen();
+      case 4: // Achievement Management
+        return AchievementManagementScreen();
+      case 5: // Analytics
         return _buildPlaceholder('Analytics', darkMode);
-      case 5: // Settings
-        return _buildPlaceholder('Settings', darkMode);
+      case 51: return TransactionReportScreen();
+      case 52: return _buildPlaceholder('User Reports', darkMode);
+      case 53: return _buildPlaceholder('Performance Reports', darkMode);
+      case 6: // Settings
+        return AdminProfileScreen();
       default:
         return _buildDashboardContent(darkMode);
     }

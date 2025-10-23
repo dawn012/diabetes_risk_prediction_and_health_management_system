@@ -7,10 +7,10 @@ import '../../../../../utils/constants/admin_colors.dart';
 import '../../../../../utils/helpers/helper_functions.dart';
 import '../../../controllers/user_management_controller.dart';
 
-class BatchActionsBar extends StatelessWidget {
+class UserBatchActionsBar extends StatelessWidget {
   final UserManagementController controller;
 
-  const BatchActionsBar({
+  const UserBatchActionsBar({
     super.key,
     required this.controller,
   });

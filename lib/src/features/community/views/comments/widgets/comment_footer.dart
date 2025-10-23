@@ -24,8 +24,7 @@ class CommentFooter extends StatelessWidget {
 
         /// Like Button
         IconButton(
-          onPressed: () => controller.toggleLike(
-              comment.commentId, comment.likes, comment.parentCommentId),
+          onPressed: () => controller.toggleCommentLike(comment),
           icon: Icon(
             isLiked ? Icons.thumb_up : Icons.thumb_up_alt_outlined,
             color: isLiked ? TColors.primary : TColors.darkGrey,

@@ -15,6 +15,7 @@ class FirebaseFieldNames {
   static const String loginAttempt = 'loginAttempt';
   static const String lastAttemptTime = 'lastAttemptTime';
   static const String accountAvailable = 'accountAvailable';
+  static const String profile = 'profile';
 
   ///-- Users Profile
   static const String gender = "gender";
@@ -28,19 +29,51 @@ class FirebaseFieldNames {
   static const String sleepDuration = "sleepDuration";
   static const String stressLevel = "stressLevel";
   static const String waterIntake = "waterIntake";
+  static const String dailyStepsGoal = "dailyStepsGoal";
+  static const String weeklyExerciseTime = "weeklyExerciseTime";
   static const String updatedAt = "updatedAt";
 
   static const String friends = 'friends';
   static const String sentRequests = 'sentRequests';
   static const String receivedRequests = 'receivedRequests';
 
+  ///-- Health Data
+  static const String logId = 'logId';
+  static const String logDateTime = 'logDateTime';
+  static const String physiologicalTimePeriod = 'physiologicalTimePeriod';
+  static const String steps = 'steps';
+
+  // Nested objects
+  static const String bloodPressure = 'bloodPressure';
+  static const String bloodGlucose = 'bloodGlucose';
+  static const String bodyComposition = 'bodyComposition';
+  static const String physicalActivity = 'physicalActivity';
+
+  // blood pressure
+  static const systolic = 'systolic';
+  static const diastolic = 'diastolic';
+  static const pulse = 'pulse';
+
+  // blood glucose
+  static const glucoseLevel = 'glucoseLevel';
+
+  // body composition
+  // static const weight = 'weight';
+  static const bodyFat = 'bodyFat';
+
+  // physical activity
+  static const activityType = 'activityType';
+  static const duration = 'duration';
+  static const intensityLevel = 'intensityLevel';
+
   ///-- Posts
   static const String postId = 'postId';
   static const String posterId = 'posterId';
   static const String postType = 'postType';
   static const String postContent = 'postContent';
-  static const String mediaFiles = 'mediaFiles';
+  static const String mediaUrls = 'mediaUrls';
   static const String likes = 'likes';
+  static const String commentCount = 'commentCount';
   static const String createdAt = 'createdAt';
   static const String isDisable = 'isDisable';
 
@@ -51,6 +84,7 @@ class FirebaseFieldNames {
   static const String content = 'content';
 
   ///-- Replies
+  static const String replyId = 'replyId';
   static const String parentCommentId = 'parentCommentId';
   static const String mentions = 'mentions';
   static const String replyCount = 'replyCount';
@@ -120,7 +154,7 @@ class FirebaseFieldNames {
   static const String snoozeCount = 'snoozeCount';
   // static const String status = 'status';
 
-  // User Subscription
+  ///-- User Subscription
   static const String subscriptionId = "subscriptionId";
   // static const String userId = "userId";
   static const String subscriptionPlan = "subscriptionPlan";
@@ -130,7 +164,7 @@ class FirebaseFieldNames {
   static const String autoRenew = "autoRenew";
   // static const String status = "status";
 
-  // Subscription Plan
+  ///-- Subscription Plan
   static const String subscriptionPlanId = "subscriptionPlanId";
   static const String planName = "planName";
   static const String price = "price";
@@ -138,10 +172,17 @@ class FirebaseFieldNames {
   static const String features = "features";
   // static const String isActive = "isActive";
 
-  // Payment Transaction
+  ///-- Payment Transaction
   static const String transactionId = "transactionId";
   static const String amount = "amount";
   static const String currency = "currency";
   static const String paymentMethod = "paymentMethod";
   static const String transactionDateTime = "transactionDateTime";
+
+  ///-- Notification fields
+  static const String notificationId = 'notificationId';
+  static const String notificationTitle = 'notificationTitle';
+  static const String notificationType = 'notificationType';
+  static const String title = 'title';
+  static const String isRead = 'isRead';
 }

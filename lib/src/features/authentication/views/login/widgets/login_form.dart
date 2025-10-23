@@ -4,7 +4,7 @@ import 'package:get/get.dart';
 import '../../../../../utils/constants/colors.dart';
 import '../../../../../utils/constants/sizes.dart';
 import '../../../../../utils/constants/text_strings.dart';
-import '../../../../../utils/validators/validation.dart';
+import '../../../../../utils/validators/user_profile_validator.dart';
 import '../../../controllers/login_controller.dart';
 import '../../forget_password/forget_password_options/forget_password_bottom_sheet.dart';
 import '../../signup/signup_screen.dart';
@@ -55,7 +55,7 @@ class _LoginFormState extends State<TLoginForm> {
             /// Email
             TextFormField(
               controller: controller.email,
-              validator: (value) => TValidator.validateEmail(value),
+              validator: (value) => TUserProfileValidator.validateEmail(value),
               focusNode: emailFocusNode, // 将FocusNode关联到TextFormField
               decoration: InputDecoration(
                 prefixIcon: const Icon(Icons.person_outline_outlined),
@@ -74,7 +74,7 @@ class _LoginFormState extends State<TLoginForm> {
               () => TextFormField(
                 controller: controller.password,
                 validator: (value) =>
-                    TValidator.validateEmptyText('password', value),
+                    TUserProfileValidator.validateEmptyText('password', value),
                 obscureText: controller.hidePassword,
                 focusNode: passwordFocusNode,
                 // 将FocusNode关联到TextFormField

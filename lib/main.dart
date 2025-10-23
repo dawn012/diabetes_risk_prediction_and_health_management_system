@@ -8,6 +8,7 @@ import 'package:get_storage/get_storage.dart';
 import 'app.dart';
 import 'firebase_options.dart';
 import 'src/data/repositories/authentication/authentication_repository.dart';
+import 'src/services/fcm_service.dart';
 
 void main() async {
   /// Widgets Binding
@@ -40,6 +41,10 @@ void main() async {
   // await FirebaseAppCheck.instance.activate(
   //   androidProvider: AndroidProvider.debug,
   // );
+
+  /// -- Initialize FCM
+  final fcmService = FCMService();
+  await fcmService.initialize();
 
   /// -- 启动角色监听
   final authRepo = Get.find<AuthenticationRepository>();

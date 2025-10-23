@@ -1,13 +1,14 @@
 import 'package:diabetes_risk_prediction_and_health_management_system/src/features/achievement/views/user_achievement_screen.dart';
-import 'package:diabetes_risk_prediction_and_health_management_system/src/features/health_data_entry/views/dashboard.dart';
 import 'package:diabetes_risk_prediction_and_health_management_system/src/features/health_data_entry/views/health_data_entry/health_data_entry_screen.dart';
+import 'package:diabetes_risk_prediction_and_health_management_system/src/features/health_data_entry/views/dashboard.dart';
 import 'package:diabetes_risk_prediction_and_health_management_system/src/features/reminder/views/reminder_screen.dart' hide THelperFunctions, TColors;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:icons_plus/icons_plus.dart';
 
 import 'src/features/community/views/community_menu.dart';
-import 'src/features/diabetes_prediction/views/diabetes_input/height_weight_input_screen.dart';
+import 'src/features/diabetes_prediction/views/diabetes_input/diabetes_assessment_start_screen.dart';
+import 'src/features/meal_recommendation/views/meal_recommendation_form.dart';
 import 'src/features/personalization/views/settings/settings.dart';
 import 'src/utils/constants/colors.dart';
 import 'src/utils/helpers/helper_functions.dart';
@@ -22,6 +23,7 @@ class NavigationMenu extends StatelessWidget {
 
     return Scaffold(
       floatingActionButton: FloatingActionButton(
+        heroTag: 'navigation_fab',
         onPressed: () {
           showModalBottomSheet(
             context: context,
@@ -115,8 +117,9 @@ class NavigationController extends GetxController {
 
   final screens = [
     const Dashboard(),
-    Container(color: Colors.purple),
+    const MealRecommendationForm(),
     const CommunityMenu(),
+    // const MealRecommendationForm(),
     const SettingsScreen(),
   ];
 }
@@ -169,15 +172,15 @@ class _AddMenu extends StatelessWidget {
             children: [
               _buildMenuButton("Glucose", Icons.monitor_heart_outlined, () {
                 Get.back();
-                Get.to(() => const HealthDataEntryScreen());
+                Get.to(() => const HealthDataEntryScreen(initialSections: ['Blood Glucose']));
               }),
               _buildMenuButton("Pressure", Icons.favorite_border, () {
                 Get.back();
-                Get.to(() => const HealthDataEntryScreen());
+                Get.to(() => const HealthDataEntryScreen(initialSections: ['Blood Pressure & Pulse']));
               }),
               _buildMenuButton("Weight", Icons.monitor_weight_outlined, () {
                 Get.back();
-                Get.to(() => const HealthDataEntryScreen());
+                Get.to(() => const HealthDataEntryScreen(initialSections: ['Weight & Body Fat']));
               }),
             ],
           ),
@@ -189,11 +192,11 @@ class _AddMenu extends StatelessWidget {
             children: [
               _buildMenuButton("Exercise", Icons.directions_run_outlined, () {
                 Get.back();
-                Get.to(() => const HealthDataEntryScreen());
+                Get.to(() => const HealthDataEntryScreen(initialSections: ['Exercise'],));
               }),
               _buildMenuButton("Note", Icons.note, () {
                 Get.back();
-                Get.to(() => const HealthDataEntryScreen());
+                Get.to(() => const HealthDataEntryScreen(initialSections: ['Note'],));
               }),
               // _buildMenuButton("Diet", Icons.restaurant_outlined),
             ],
@@ -216,7 +219,7 @@ class _AddMenu extends StatelessWidget {
             children: [
               _buildShortcutButton("Predict Risk", Icons.analytics_outlined, () {
                 Get.back();
-                Get.to(() => const HeightWeightInputScreen());
+                Get.to(() => const DiabetesAssessmentStartScreen());
               }),
               _buildShortcutButton("Reminder", Icons.notifications_outlined, () {
                 Get.back();

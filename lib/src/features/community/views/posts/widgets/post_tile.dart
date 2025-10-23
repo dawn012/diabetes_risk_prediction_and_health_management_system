@@ -2,62 +2,77 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../../../utils/constants/colors.dart';
-import '../../../controllers/post_controller.dart';
+import '../../../../../utils/constants/sizes.dart';
+import '../../../../../utils/helpers/helper_functions.dart';
+import '../../../models/post_model.dart';
 import 'post_buttons.dart';
-import 'post_image_video_view.dart';
-import 'post_info_tile.dart';
+import 'post_header.dart';
+import 'post_media_view.dart';
 import 'post_stats.dart';
 
 class PostTile extends StatelessWidget {
-  const PostTile({super.key, required this.postId});
+  const PostTile({super.key, required this.post});
 
-  final String postId;
+  final PostModel post;
 
   @override
   Widget build(BuildContext context) {
-    final controller = PostController.instance;
-    final post = controller.posts.firstWhereOrNull(
-        (p) => p.postId == postId); // 查找第一个符合条件的元素，如果找不到，返回 null
-
-    if (post == null) {
-      return const SizedBox.shrink(); // 什么都不显示
-    }
+    final isDark = THelperFunctions.isDarkMode(context);
 
     return Container(
-      color: TColors.white,
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        color: isDark ? TColors.darkContainer : TColors.white,
+        borderRadius: BorderRadius.circular(TSizes.borderRadiusLg),
+        border: Border.all(
+          color: isDark
+              ? TColors.borderPrimary.withOpacity(0.1)
+              : TColors.borderPrimary.withOpacity(0.3),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark ? Colors.black26 : Colors.grey.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          /// Post Header
-          PostInfoTile(datePublished: post.createdAt, userId: post.posterId),
+          // Post Header
+          PostHeader(post: post),
 
-          /// Post Text
+          // Post Content
+          if (post.postContent.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: TSizes.md, vertical: TSizes.sm),
+              child: Text(
+                post.postContent,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: isDark ? TColors.lightGrey : TColors.textPrimary,
+                  height: 1.4,
+                ),
+              ),
+            ),
+
+          // Post Media
+          if (post.mediaUrls.isNotEmpty)
+            PostMediaView(mediaUrls: post.mediaUrls),
+
+          // Post Stats and Buttons
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-            child: Text(post.postContent),
-          ),
-
-          /// Post Image / Video
-          PostImageVideoView(
-            fileUrl: post.mediaFiles,
-            fileType: post.postType,
-          ),
-
-          /// Post Stats and Buttons
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+            padding: const EdgeInsets.all(TSizes.md),
             child: Column(
               children: [
-                PostStats(
-                  likes: post.likes,
-                ),
-                const Divider(),
-
-                /// Post Buttons
+                PostStats(post: post),
+                const SizedBox(height: TSizes.sm),
+                const Divider(height: 1),
+                const SizedBox(height: TSizes.sm),
                 PostButtons(post: post),
               ],
             ),
-          )
+          ),
         ],
       ),
     );

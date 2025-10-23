@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../../utils/constants/enums.dart';
 import '../../../utils/constants/firebase_field_names.dart';
 
 class ReminderScheduleModel {
@@ -7,14 +8,14 @@ class ReminderScheduleModel {
   final DateTime triggerTime;
   final DateTime originalTime;
   final int snoozeCount;
-  final String status;
+  final ScheduleStatus status;
 
   ReminderScheduleModel({
     required this.scheduleId,
     required this.triggerTime,
     required this.originalTime,
     required this.snoozeCount,
-    required this.status
+    required this.status,
   });
 
   /// Static function to create an empty reminder schedule model
@@ -24,7 +25,7 @@ class ReminderScheduleModel {
       triggerTime: DateTime(0),
       originalTime: DateTime(0),
       snoozeCount: 0,
-      status: '',
+      status: ScheduleStatus.pending,
     );
   }
 
@@ -35,7 +36,7 @@ class ReminderScheduleModel {
       FirebaseFieldNames.triggerTime: Timestamp.fromDate(triggerTime),
       FirebaseFieldNames.originalTime: Timestamp.fromDate(originalTime),
       FirebaseFieldNames.snoozeCount: snoozeCount,
-      FirebaseFieldNames.status: status,
+      FirebaseFieldNames.status: status.value,
     };
   }
 
@@ -48,10 +49,27 @@ class ReminderScheduleModel {
         triggerTime: (data[FirebaseFieldNames.triggerTime] as Timestamp).toDate(),
         originalTime: (data[FirebaseFieldNames.originalTime] as Timestamp).toDate(),
         snoozeCount: data[FirebaseFieldNames.snoozeCount] ?? 0,
-        status: data[FirebaseFieldNames.status] ?? '',
+        status: ScheduleStatus.fromString(data[FirebaseFieldNames.status] ?? ''), // 从字符串转换回枚举
       );
     } else {
       return ReminderScheduleModel.empty();
     }
+  }
+
+  /// Copy with method for immutability
+  ReminderScheduleModel copyWith({
+    String? scheduleId,
+    DateTime? triggerTime,
+    DateTime? originalTime,
+    int? snoozeCount,
+    ScheduleStatus? status,
+  }) {
+    return ReminderScheduleModel(
+      scheduleId: scheduleId ?? this.scheduleId,
+      triggerTime: triggerTime ?? this.triggerTime,
+      originalTime: originalTime ?? this.originalTime,
+      snoozeCount: snoozeCount ?? this.snoozeCount,
+      status: status ?? this.status,
+    );
   }
 }

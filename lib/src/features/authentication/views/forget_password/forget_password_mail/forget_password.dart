@@ -3,7 +3,7 @@ import 'package:get/get.dart';
 
 import '../../../../../utils/constants/sizes.dart';
 import '../../../../../utils/constants/text_strings.dart';
-import '../../../../../utils/validators/validation.dart';
+import '../../../../../utils/validators/user_profile_validator.dart';
 import '../../../controllers/forget_password_controller.dart';
 
 class ForgetPasswordMailScreen extends StatelessWidget {
@@ -38,7 +38,7 @@ class ForgetPasswordMailScreen extends StatelessWidget {
               key: controller.forgetPasswordFormKey,
               child: TextFormField(
                 controller: controller.email,
-                validator: (value) => TValidator.validateEmail(value),
+                validator: (value) => TUserProfileValidator.validateEmail(value),
                 decoration: const InputDecoration(
                   labelText: TTexts.email,
                   prefixIcon: Icon(Icons.email_outlined),

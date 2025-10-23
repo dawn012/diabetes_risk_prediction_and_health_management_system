@@ -43,14 +43,14 @@ class CommentBottomSheet extends StatelessWidget {
                   ? Row(
                 mainAxisSize: MainAxisSize.min, // 避免占满整行
                 children: [
-                  Icon(option.icon, color: option.iconColor, size: 34),
+                  Icon(option.icon, color: option.iconColor, size: 30),
                   const SizedBox(width: 12), // 这里调整 icon 和文字之间的宽度
                 ],
               ) : null,
               title: Text(
                 option.text,
                 style: TextStyle(
-                  fontSize: 22,
+                  fontSize: 20,
                   color: dark ? TColors.white : TColors.black,
                 ),
               ),

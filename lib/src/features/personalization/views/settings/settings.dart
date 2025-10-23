@@ -42,7 +42,7 @@ class SettingsScreen extends StatelessWidget {
                     onPressed: () => Get.to(() => const ProfileScreen()),
                   ),
                   const SizedBox(
-                    height: TSizes.spaceBtwSections,
+                    height: 30,
                   ),
                 ],
               ),

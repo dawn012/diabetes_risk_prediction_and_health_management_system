@@ -1,8 +1,7 @@
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../common/loaders/loaders.dart';
 import '../../../data/repositories/user/user_repository.dart';
-import '../../../utils/constants/colors.dart';
 import '../../personalization/models/user_profile_model.dart';
 import '../views/diabetes_input/blood_glucose_input_screen.dart';
 
@@ -126,25 +125,19 @@ class HeightWeightController extends GetxController {
       // await _userRepository.updateUserProfile(updatedProfile);
 
       // Show success message
-      Get.snackbar(
-        'Success',
-        'Height and weight saved successfully!',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Get.theme.primaryColor,
-        colorText: TColors.white,
-      );
+      // Get.snackbar(
+      //   'Success',
+      //   'Height and weight saved successfully!',
+      //   snackPosition: SnackPosition.BOTTOM,
+      //   backgroundColor: Get.theme.primaryColor,
+      //   colorText: TColors.white,
+      // );
 
       Get.to(() => BloodGlucoseInputScreen());
 
     } catch (e) {
       // Handle error
-      Get.snackbar(
-        'Error',
-        'Failed to save data. Please try again.',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red,
-        colorText: TColors.white,
-      );
+      TLoaders.errorSnackBar(title: 'Error', message: 'Failed to save data. Please try again.');
       print('Error saving height/weight: $e');
     } finally {
       isLoading.value = false;
@@ -152,7 +145,7 @@ class HeightWeightController extends GetxController {
   }
 
   /// Reset values to default
-  void resetValues() {
+  void reset() {
     height.value = 170.0;
     weight.value = 70.0;
     update();

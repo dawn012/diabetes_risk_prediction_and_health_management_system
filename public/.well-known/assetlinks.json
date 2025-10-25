@@ -1,0 +1,10 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.example.diabetes_risk_prediction_and_health_management_system",
+    "sha256_cert_fingerprints": [
+      "FD:60:84:A0:8E:E8:0E:99:DA:26:94:57:F7:23:0F:2E:A1:F1:16:D1:EE:EA:EF:89:7B:D9:10:D2:B5:23:11:99"
+    ]
+  }
+}]

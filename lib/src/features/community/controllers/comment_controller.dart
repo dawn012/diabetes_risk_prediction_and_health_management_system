@@ -8,6 +8,7 @@ import '../../../data/repositories/community/comment_repository.dart';
 import '../../../data/repositories/community/reply_repository.dart';
 import '../../../utils/constants/text_strings.dart';
 import '../../../utils/helpers/network_manager.dart';
+import '../../../utils/validators/community_validator.dart';
 import '../../personalization/controllers/user_controller.dart';
 import '../models/comment_model.dart';
 import '../models/reply_model.dart';
@@ -91,9 +92,17 @@ class CommentController extends GetxController {
 
   /// Create new comment
   Future<void> createComment() async {
-    final content = commentText.text.trim();
-    if (content.isEmpty) return;
+    // Validate comment content
+    final contentError = CommunityValidator.validateCommentContent(commentText.text);
+    if (contentError != null) {
+      TLoaders.warningSnackBar(
+        title: 'Invalid Comment',
+        message: contentError,
+      );
+      return;
+    }
 
+    final content = commentText.text.trim();
     if (!await _checkConnection()) return;
 
     try {
@@ -122,12 +131,22 @@ class CommentController extends GetxController {
 
   /// Update comment
   Future<void> updateComment() async {
+    // Validate comment content
+    final contentError = CommunityValidator.validateCommentContent(commentText.text);
+    if (contentError != null) {
+      TLoaders.warningSnackBar(
+        title: 'Invalid Comment',
+        message: contentError,
+      );
+      return;
+    }
+
     final content = commentText.text.trim();
     if (editingCommentId.value == null || content.isEmpty || content == originalText.value) return;
 
     try {
       await commentRepo.updateComment(commentId: editingCommentId.value!, content: content);
-      _clearEditingState();
+      clearEditingState();
       TLoaders.successSnackBar(title: 'Success', message: 'Comment updated');
     } catch (e) {
       _showError('Failed to update comment');
@@ -191,9 +210,17 @@ class CommentController extends GetxController {
 
   /// Create new reply
   Future<void> createReply(String parentCommentId) async {
-    final content = commentText.text.trim();
-    if (content.isEmpty) return;
+    // Validate reply content
+    final contentError = CommunityValidator.validateReplyContent(commentText.text);
+    if (contentError != null) {
+      TLoaders.warningSnackBar(
+        title: 'Invalid Reply',
+        message: contentError,
+      );
+      return;
+    }
 
+    final content = commentText.text.trim();
     if (!await _checkConnection()) return;
 
     try {
@@ -225,6 +252,16 @@ class CommentController extends GetxController {
 
   /// Update reply
   Future<void> updateReply() async {
+    // Validate reply content
+    final contentError = CommunityValidator.validateReplyContent(commentText.text);
+    if (contentError != null) {
+      TLoaders.warningSnackBar(
+        title: 'Invalid Reply',
+        message: contentError,
+      );
+      return;
+    }
+
     final content = commentText.text.trim();
     if (editingReplyId.value == null || editingParentCommentId.value == null ||
         content.isEmpty || content == originalText.value) return;
@@ -235,7 +272,7 @@ class CommentController extends GetxController {
         parentCommentId: editingParentCommentId.value!,
         content: content,
       );
-      _clearEditingState();
+      clearEditingState();
       TLoaders.successSnackBar(title: 'Success', message: 'Reply updated');
     } catch (e) {
       _showError('Failed to update reply');
@@ -296,7 +333,7 @@ class CommentController extends GetxController {
       final shouldDiscard = await _showDiscardDialog();
       if (!shouldDiscard) return;
     }
-    _clearEditingState();
+    clearEditingState();
   }
 
   /// Sort comments
@@ -305,17 +342,6 @@ class CommentController extends GetxController {
 
     currentSort.value = sortType;
     fetchComments(refresh: true);
-  }
-
-  /// Handle back navigation with unsaved changes
-  Future<void> handleNavigation(VoidCallback onNavigate) async {
-    if (_hasUnsavedChanges()) {
-      final shouldDiscard = await _showDiscardDialog();
-      if (!shouldDiscard) return;
-    }
-
-    _clearEditingState();
-    onNavigate();
   }
 
   /// =================== HELPER METHODS =================== ///
@@ -347,7 +373,8 @@ class CommentController extends GetxController {
     });
   }
 
-  void _clearEditingState() {
+  /// Public method to clear editing state (used by screens)
+  void clearEditingState() {
     editingCommentId.value = null;
     editingReplyId.value = null;
     editingParentCommentId.value = null;

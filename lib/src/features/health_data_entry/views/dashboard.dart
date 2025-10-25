@@ -322,12 +322,12 @@ class _DashboardState extends State<Dashboard> {
         const SizedBox(height: TSizes.lg),
 
         // Exercise Card
-        Obx(() => _buildExerciseCard(context, darkMode, exerciseController)),
+        _buildExerciseCard(context, darkMode, exerciseController),
 
         const SizedBox(height: TSizes.lg),
 
         // Steps Card (placeholder - you can implement StepsController similarly)
-        _buildStepsCard(context, darkMode),
+        _buildStepsCard(context, darkMode, exerciseController),
       ],
     );
   }
@@ -831,8 +831,7 @@ class _DashboardState extends State<Dashboard> {
     );
   }
 
-  Widget _buildExerciseCard(
-      BuildContext context, bool darkMode, ExerciseController controller) {
+  Widget _buildExerciseCard(BuildContext context, bool darkMode, ExerciseController controller) {
     return GestureDetector(
       onTap: () => Get.to(() => const ExerciseScreen()),
       child: Container(
@@ -883,8 +882,7 @@ class _DashboardState extends State<Dashboard> {
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color:
-                              darkMode ? Colors.white : const Color(0xFF2D3748),
+                          color: darkMode ? Colors.white : const Color(0xFF2D3748),
                         ),
                       ),
                       Text(
@@ -907,23 +905,22 @@ class _DashboardState extends State<Dashboard> {
               ],
             ),
             const SizedBox(height: 20),
-            Row(children: [
+
+            Obx(() => Row(children: [
               Text(
                 controller.weeklyExerciseMinutes.value > 0
                     ? '${controller.weeklyExerciseMinutes.value}'
                     : 'No Data',
                 style: TextStyle(
-                  fontSize:
-                      controller.weeklyExerciseMinutes.value > 0 ? 32 : 24,
+                  fontSize: controller.weeklyExerciseMinutes.value > 0 ? 32 : 24,
                   fontWeight: FontWeight.bold,
                   color: controller.weeklyExerciseMinutes.value > 0
                       ? const Color(0xFF4A90E2)
                       : (darkMode
-                          ? Colors.grey.shade500
-                          : Colors.grey.shade400),
+                      ? Colors.grey.shade500
+                      : Colors.grey.shade400),
                 ),
               ),
-
               const SizedBox(width: 8),
               Text(
                 'min',
@@ -934,30 +931,26 @@ class _DashboardState extends State<Dashboard> {
                       : Colors.grey.shade600,
                 ),
               ),
-            ]),
+            ])),
+
             const SizedBox(height: 20),
-            Text(
-              'Weekly Goal: 150 min',
+
+            Obx(() => Text(
+              'Weekly Goal: ${controller.weeklyExerciseGoal} min',
               style: TextStyle(
                 fontSize: 14,
                 color: darkMode ? Colors.grey.shade400 : Colors.grey.shade600,
               ),
-            ),
+            )),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildStepsCard(BuildContext context, bool darkMode) {
-    // This is a placeholder - you can implement a StepsController similarly
-    const todaySteps = 0; // Replace with actual data
-    const isConnected = false; // Replace with actual connection status
-
+  Widget _buildStepsCard(BuildContext context, bool darkMode, ExerciseController controller) {
     return GestureDetector(
-      onTap: () {
-        // TODO: Navigate to steps screen
-      },
+      onTap: () => Get.to(() => const ExerciseScreen()),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(24),
@@ -1006,8 +999,7 @@ class _DashboardState extends State<Dashboard> {
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color:
-                              darkMode ? Colors.white : const Color(0xFF2D3748),
+                          color: darkMode ? Colors.white : const Color(0xFF2D3748),
                         ),
                       ),
                       Text(
@@ -1030,24 +1022,32 @@ class _DashboardState extends State<Dashboard> {
               ],
             ),
             const SizedBox(height: 20),
-            Text(
-              isConnected ? '$todaySteps steps' : 'Not Connected',
-              style: TextStyle(
-                fontSize: isConnected ? 32 : 24,
-                fontWeight: FontWeight.bold,
-                color: isConnected
-                    ? const Color(0xFF4A90E2)
-                    : (darkMode ? Colors.grey.shade500 : Colors.grey.shade400),
-              ),
-            ),
+
+            Obx(() {
+              final isConnected = controller.isConnected.value;
+              final todaySteps = controller.todaySteps.value;
+
+              return Text(
+                isConnected ? '$todaySteps steps' : 'Not Connected',
+                style: TextStyle(
+                  fontSize: isConnected ? 32 : 24,
+                  fontWeight: FontWeight.bold,
+                  color: isConnected
+                      ? const Color(0xFF4A90E2)
+                      : (darkMode ? Colors.grey.shade500 : Colors.grey.shade400),
+                ),
+              );
+            }),
+
             const SizedBox(height: 20),
-            Text(
-              'Daily Goal: 7,500 steps',
+
+            Obx(() => Text(
+              'Daily Goal: ${controller.dailyStepsGoal} steps',
               style: TextStyle(
                 fontSize: 14,
                 color: darkMode ? Colors.grey.shade400 : Colors.grey.shade600,
               ),
-            ),
+            )),
           ],
         ),
       ),
@@ -1400,7 +1400,7 @@ class _DashboardState extends State<Dashboard> {
   }
 
   Widget _buildNoDataWidget(bool darkMode, String message) {
-    return Container(
+    return SizedBox(
       height: 100,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,

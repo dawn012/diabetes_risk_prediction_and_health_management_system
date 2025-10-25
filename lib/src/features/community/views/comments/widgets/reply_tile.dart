@@ -84,6 +84,7 @@ class ReplyTile extends StatelessWidget {
               height: 28,
               padding: 0,
               backgroundColor: isDark ? TColors.darkGrey : TColors.lightGrey,
+              isNetworkImage: user.profileImg.isNotEmpty,
             ),
             const SizedBox(width: TSizes.sm),
             Expanded(

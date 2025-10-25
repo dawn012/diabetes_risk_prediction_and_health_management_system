@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:icons_plus/icons_plus.dart';
 
-import '../../../common/widgets/dialogs/common_confirmation_dialog.dart';
+import '../../../common/widgets/dialogs/dialog.dart';
 import '../../../utils/constants/colors.dart';
 import '../../../utils/constants/enums.dart';
 import '../../../utils/helpers/helper_functions.dart';
@@ -694,13 +693,9 @@ class AddReminderForm extends StatelessWidget {
   }
 
   void _showDeleteDialog(BuildContext context, AddReminderController controller) {
-    ConfirmationDialog.show(
+    TDialog.deleteDialog(
       title: 'Delete Reminder',
       message: 'Are you sure you want to delete this reminder? This action cannot be undone.',
-      confirmButtonText: 'Delete',
-      customIcon: Iconsax.trash_bold,
-      iconColor: TColors.error,
-      confirmButtonColor: TColors.error,
       onConfirm: () async {
         await controller.deleteReminder();
       },

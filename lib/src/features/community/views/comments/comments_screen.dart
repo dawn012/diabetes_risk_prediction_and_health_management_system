@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../../common/widgets/appbar/appbar.dart';
+import '../../../../common/widgets/dialogs/dialog.dart';
 import '../../../../utils/constants/colors.dart';
 import '../../../../utils/constants/text_strings.dart';
 import '../../../../utils/helpers/helper_functions.dart';
@@ -23,11 +24,26 @@ class CommentsScreen extends StatelessWidget {
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
-        controller.handleNavigation(() => Get.back());
+
+        // Check if there are unsaved changes
+        if (controller.commentText.text.trim().isNotEmpty) {
+          final shouldDiscard = await TDialog.keepWriting(
+            title: 'Discard Changes?',
+            message:
+                'You have unsaved text. Are you sure you want to leave? Your text will be lost.',
+          );
+
+          if (shouldDiscard) {
+            controller.clearEditingState();
+            Get.back();
+          }
+        } else {
+          controller.clearEditingState();
+          Get.back();
+        }
       },
       child: Scaffold(
         backgroundColor: isDark ? TColors.dark : TColors.primaryBackground,
-
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(kToolbarHeight),
           child: Obx(() {
@@ -60,7 +76,11 @@ class CommentsScreen extends StatelessWidget {
                     PopupMenuButton<String>(
                       icon: Icon(
                         Icons.sort,
-                        color: isEditing ? Colors.white : (isDark ? TColors.lightGrey : TColors.textPrimary),
+                        color: isEditing
+                            ? Colors.white
+                            : (isDark
+                                ? TColors.lightGrey
+                                : TColors.textPrimary),
                       ),
                       offset: const Offset(-15, 40),
                       onSelected: (String value) {
@@ -89,7 +109,6 @@ class CommentsScreen extends StatelessWidget {
             );
           }),
         ),
-
         body: Stack(
           children: [
             // Main content
@@ -104,14 +123,15 @@ class CommentsScreen extends StatelessWidget {
               final isEditing = controller.isEditing;
               return isEditing
                   ? Positioned.fill(
-                child: GestureDetector(
-                  onTap: () => controller.cancelEdit(),
-                  child: Container(
-                    color: Colors.black.withOpacity(0.5),
-                    margin: const EdgeInsets.only(bottom: 80), // Leave space for text field
-                  ),
-                ),
-              )
+                      child: GestureDetector(
+                        onTap: () => controller.cancelEdit(),
+                        child: Container(
+                          color: Colors.black.withOpacity(0.5),
+                          margin: const EdgeInsets.only(
+                              bottom: 80), // Leave space for text field
+                        ),
+                      ),
+                    )
                   : const SizedBox.shrink();
             }),
 
@@ -139,7 +159,9 @@ class CommentsScreen extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
         decoration: BoxDecoration(
           color: isSelected
-              ? (isDark ? TColors.primary.withOpacity(0.2) : TColors.primary.withOpacity(0.1))
+              ? (isDark
+                  ? TColors.primary.withOpacity(0.2)
+                  : TColors.primary.withOpacity(0.1))
               : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
         ),

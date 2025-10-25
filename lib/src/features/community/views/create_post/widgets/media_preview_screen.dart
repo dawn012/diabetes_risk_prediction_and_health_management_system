@@ -98,13 +98,42 @@ class MediaPreviewScreen extends StatelessWidget {
         maxScale: 4.0,
         child: Hero(
           tag: 'media_${mediaItem.id}',
-          child: Image.file(
-            mediaItem.file,
-            fit: BoxFit.contain,
-            errorBuilder: (context, error, stackTrace) => _buildErrorView(),
-          ),
+          child: mediaItem.isExisting && mediaItem.existingUrl != null
+              ? _buildNetworkImage(mediaItem) // 网络图片
+              : _buildLocalImage(mediaItem),  // 本地图片
         ),
       ),
+    );
+  }
+
+  Widget _buildNetworkImage(PostMediaItem mediaItem) {
+    return Image.network(
+      mediaItem.existingUrl!,
+      fit: BoxFit.contain,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Center(
+          child: CircularProgressIndicator(
+            value: loadingProgress.expectedTotalBytes != null
+                ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                : null,
+            color: TColors.primary,
+          ),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) => _buildErrorView(),
+    );
+  }
+
+  Widget _buildLocalImage(PostMediaItem mediaItem) {
+    if (mediaItem.file == null || !mediaItem.file!.existsSync()) {
+      return _buildErrorView();
+    }
+
+    return Image.file(
+      mediaItem.file!,
+      fit: BoxFit.contain,
+      errorBuilder: (context, error, stackTrace) => _buildErrorView(),
     );
   }
 
@@ -112,23 +141,36 @@ class MediaPreviewScreen extends StatelessWidget {
     return Obx(() {
       // Only observe if this is the current video
       if (controller.currentIndex.value != index) {
-        return Container(color: Colors.black);
+        return Container(
+          color: Colors.black,
+          child: Center(
+            child: Icon(
+              Icons.play_circle_outline,
+              color: Colors.white54,
+              size: 64,
+            ),
+          ),
+        );
       }
 
-      if (controller.videoController == null || !controller.isVideoInitialized.value) {
+      // 检查视频控制器是否初始化
+      final isInitialized = controller.isVideoInitialized.value;
+      final videoController = controller.videoController;
+
+      if (videoController == null || !isInitialized) {
         return _buildVideoLoadingView();
       }
 
       return Center(
         child: AspectRatio(
-          aspectRatio: controller.videoController!.value.aspectRatio,
+          aspectRatio: videoController.value.aspectRatio,
           child: Stack(
             children: [
-              Hero(
-                tag: 'media_${mediaItem.id}',
-                child: VideoPlayer(controller.videoController!),
-              ),
-              _buildVideoControls(controller),
+              // Video player
+              VideoPlayer(videoController),
+
+              // Controls
+              _buildVideoControls(controller, videoController),
             ],
           ),
         ),
@@ -158,29 +200,112 @@ class MediaPreviewScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildVideoControls(MediaPreviewController controller) {
-    return Obx(() => AnimatedOpacity(
-      opacity: controller.showControls.value ? 1.0 : 0.0,
-      duration: Duration(milliseconds: 300),
-      child: Center(
-        child: GestureDetector(
-          onTap: controller.toggleVideoPlayback,
-          child: Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: Colors.black54,
-              shape: BoxShape.circle,
+  Widget _buildVideoControls(MediaPreviewController controller, VideoPlayerController videoController) {
+    return Obx(() => GestureDetector(
+      onTap: controller.toggleControlsVisibility,
+      child: AnimatedOpacity(
+        opacity: controller.showControls.value ? 1.0 : 0.0,
+        duration: Duration(milliseconds: 300),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.transparent,
+                Colors.black.withOpacity(0.7),
+              ],
             ),
-            child: Icon(
-              controller.isVideoPlaying.value ? Icons.pause : Icons.play_arrow,
-              color: Colors.white,
-              size: 40,
-            ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              // Play/Pause button (center)
+              Expanded(
+                child: Center(
+                  child: GestureDetector(
+                    onTap: controller.toggleVideoPlayback,
+                    child: Container(
+                      padding: EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.5),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        controller.isVideoPlaying.value ? Icons.pause : Icons.play_arrow,
+                        color: Colors.white,
+                        size: 56,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // Progress bar
+              _buildVideoProgressBar(controller, videoController),
+            ],
           ),
         ),
       ),
     ));
+  }
+
+  Widget _buildVideoProgressBar(MediaPreviewController controller, VideoPlayerController videoController) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Column(
+        children: [
+          // Slider
+          VideoProgressIndicator(
+            videoController,
+            allowScrubbing: true,
+            colors: VideoProgressColors(
+              playedColor: TColors.primary,
+              bufferedColor: Colors.white.withOpacity(0.3),
+              backgroundColor: Colors.white.withOpacity(0.2),
+            ),
+            padding: EdgeInsets.symmetric(vertical: 8),
+          ),
+
+          // Time display
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  _formatDuration(videoController.value.position),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  _formatDuration(videoController.value.duration),
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+    final seconds = duration.inSeconds.remainder(60);
+
+    if (hours > 0) {
+      return '$hours:${twoDigits(minutes)}:${twoDigits(seconds)}';
+    }
+    return '${twoDigits(minutes)}:${twoDigits(seconds)}';
   }
 
   Widget _buildTopAppBar(MediaPreviewController controller, List<PostMediaItem> items) {
@@ -331,7 +456,6 @@ class MediaPreviewScreen extends StatelessWidget {
   }
 
   Widget _buildMediaInfo(MediaPreviewController controller, List<PostMediaItem> items) {
-    // Access currentIndex once to establish dependency
     final currentIdx = controller.currentIndex.value;
 
     if (items.isEmpty || currentIdx >= items.length) {
@@ -339,6 +463,11 @@ class MediaPreviewScreen extends StatelessWidget {
     }
 
     final currentMedia = items[currentIdx];
+
+    String mediaSource = 'Local';
+    if (currentMedia.isExisting && currentMedia.existingUrl != null) {
+      mediaSource = 'Network';
+    }
 
     return Row(
       children: [
@@ -364,7 +493,7 @@ class MediaPreviewScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                currentMedia.isImage ? 'Image' : 'Video',
+                '${currentMedia.isImage ? 'Image' : 'Video'} • $mediaSource',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w600,

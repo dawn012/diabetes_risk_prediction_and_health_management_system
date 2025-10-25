@@ -1,9 +1,12 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:path/path.dart' as path;
 import 'package:uuid/uuid.dart';
 
 import '../../../utils/constants/enums.dart';
+import '../../../utils/helpers/media_helper.dart';
+import '../../../utils/validators/community_validator.dart';
 import '../models/post_media_item.dart';
 import '../../../common/loaders/loaders.dart';
 import '../../../common/widgets/dialogs/dialog.dart';
@@ -14,6 +17,7 @@ import '../../../utils/helpers/video_helper.dart';
 import '../../../data/repositories/community/post_repository.dart';
 import '../models/post_model.dart';
 import '../views/create_post/widgets/media_preview_screen.dart';
+import 'post_controller.dart';
 
 class PostCreateController extends GetxController {
   static PostCreateController get instance => Get.find();
@@ -30,6 +34,9 @@ class PostCreateController extends GetxController {
   // Editing state
   final isEditingMode = false.obs;
   String? editingPostId;
+
+  // Add this for real-time validation
+  final canSubmit = false.obs;
 
   // Constants
   static const int maxMediaCount = 10;
@@ -61,13 +68,28 @@ class PostCreateController extends GetxController {
   bool _hasUnsavedChanges = false;
 
   void _onContentChanged() {
-    _hasUnsavedChanges = contentController.text
-        .trim()
-        .isNotEmpty || mediaItems.isNotEmpty;
+    _hasUnsavedChanges = contentController.text.trim().isNotEmpty || mediaItems.isNotEmpty;
+
+    // Update canSubmit in real-time
+    _updateCanSubmit();
+  }
+
+  // Add this method for real-time validation
+  void _updateCanSubmit() {
+    final hasContent = contentController.text.trim().isNotEmpty;
+    final hasProcessingMedia = mediaItems.any((item) => item.isProcessing);
+    final hasFailedDownloads = isEditingMode.value &&
+        mediaItems.any((item) => item.isExisting && item.isDownloadFailed);
+    final isUploading = isCreatingPost.value;
+
+    canSubmit.value = hasContent &&
+        !hasProcessingMedia &&
+        !hasFailedDownloads &&
+        !isUploading;
   }
 
   /// Initialize controller for editing existing post
-  void initializeForEditing(PostModel post) {
+  void initializeForEditing(PostModel post) async {
     isEditingMode.value = true;
     editingPostId = post.postId;
 
@@ -77,27 +99,60 @@ class PostCreateController extends GetxController {
     // Set post type
     selectedPostType.value = post.postType.displayName;
 
-    // Load existing media (create PostMediaItem from URLs)
-    for (String url in post.mediaUrls) {
-      final mediaId = const Uuid().v4();
-      final mediaType = url.toLowerCase().contains('videos') ? 'video' : 'image';
+    // Clear any existing media
+    mediaItems.clear();
 
-      // Create a media item with the URL
-      // Note: We don't have the actual file, so we'll use the URL
-      mediaItems.add(PostMediaItem(
-        id: mediaId,
-        file: File(''), // Empty file as placeholder
-        type: mediaType,
-        isProcessing: false,
-        existingUrl: url, // Store the existing URL
-      ));
+    // Load existing media
+    if (post.mediaUrls.isNotEmpty) {
+      _loadExistingMediaFromPost(post);
     }
 
     _hasUnsavedChanges = false;
+    _updateCanSubmit();
+  }
+
+  /// Load existing media from post
+  void _loadExistingMediaFromPost(PostModel post) {
+    try {
+      for (int i = 0; i < post.mediaUrls.length; i++) {
+        final url = post.mediaUrls[i];
+        final mediaId = const Uuid().v4();
+
+        final isVideo = url.toLowerCase().contains('/videos/') ||
+            url.toLowerCase().contains('.mp4') ||
+            url.toLowerCase().contains('.mov');
+        final mediaType = isVideo ? 'video' : 'image';
+
+        final mediaItem = PostMediaItem(
+          id: mediaId,
+          file: null,
+          type: mediaType,
+          isProcessing: false,
+          existingUrl: url,
+          isDownloaded: true,
+        );
+
+        mediaItems.add(mediaItem);
+      }
+
+      _updateCanSubmit();
+    } catch (e) {
+      TLoaders.errorSnackBar(
+        title: 'Error Loading Media',
+        message: 'Failed to load existing media files.',
+      );
+    }
+  }
+
+  void _checkAllMediaProcessed() {
+    final allProcessed = mediaItems.every((item) => !item.isProcessing);
+    if (allProcessed) {
+      isProcessingMedia.value = false;
+    }
+    _updateCanSubmit();
   }
 
   void _cleanupTempFiles() {
-    // Clean up any temporary files
     for (final item in mediaItems) {
       try {
         item.thumbnail?.deleteSync();
@@ -131,7 +186,6 @@ class PostCreateController extends GetxController {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Handle bar
             Center(
               child: Container(
                 width: 40,
@@ -143,8 +197,6 @@ class PostCreateController extends GetxController {
                 ),
               ),
             ),
-
-            // Title
             Text(
               'Select Post Type',
               style: Get.textTheme.headlineSmall?.copyWith(
@@ -152,36 +204,31 @@ class PostCreateController extends GetxController {
               ),
             ),
             SizedBox(height: 16),
-
-            // Post type options
-            ...postTypes.map((type) =>
-                Obx(() =>
-                    ListTile(
-                      title: Text(
-                        type,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: selectedPostType.value == type
-                              ? FontWeight.w600
-                              : FontWeight.normal,
-                        ),
-                      ),
-                      leading: Radio<String>(
-                        value: type,
-                        groupValue: selectedPostType.value,
-                        onChanged: (value) {
-                          if (value != null) {
-                            selectedPostType.value = value;
-                            Get.back();
-                          }
-                        },
-                      ),
-                      onTap: () {
-                        selectedPostType.value = type;
-                        Get.back();
-                      },
-                    ))).toList(),
-
+            ...postTypes.map((type) => Obx(() => ListTile(
+              title: Text(
+                type,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: selectedPostType.value == type
+                      ? FontWeight.w600
+                      : FontWeight.normal,
+                ),
+              ),
+              leading: Radio<String>(
+                value: type,
+                groupValue: selectedPostType.value,
+                onChanged: (value) {
+                  if (value != null) {
+                    selectedPostType.value = value;
+                    Get.back();
+                  }
+                },
+              ),
+              onTap: () {
+                selectedPostType.value = type;
+                Get.back();
+              },
+            ))).toList(),
             SizedBox(height: 20),
           ],
         ),
@@ -210,14 +257,27 @@ class PostCreateController extends GetxController {
       }
 
       if (file != null) {
+        final validationError = await MediaUtils.validateMediaFile(file);
+        if (validationError != null) {
+          TLoaders.errorSnackBar(
+            title: 'File Error',
+            message: validationError,
+          );
+
+          try {
+            await file.delete();
+          } catch (e) {
+            // Ignore cleanup error
+          }
+          return;
+        }
+
         await _processMediaFile(file);
       }
     } catch (e) {
       TLoaders.errorSnackBar(
         title: 'Error',
-        message: 'Failed to capture ${isVideo
-            ? 'video'
-            : 'image'}. Please try again.',
+        message: 'Failed to capture ${isVideo ? 'video' : 'image'}. Please try again.',
       );
     }
   }
@@ -233,15 +293,50 @@ class PostCreateController extends GetxController {
     }
 
     try {
+      final availableSlots = maxMediaCount - mediaItems.length;
+
       final List<File> files = await ImageHelper.pickMultipleMedia(
-        limit: maxMediaCount - mediaItems.length,
+        limit: availableSlots,
       );
 
-      if (files.isNotEmpty) {
-        for (final file in files) {
+      if (files.isEmpty) return;
+
+      int successCount = 0;
+      int invalidCount = 0;
+      int skippedDueToLimit = 0;
+      List<String> invalidFileNames = [];
+
+      for (final file in files) {
+        if (mediaItems.length >= maxMediaCount) {
+          skippedDueToLimit = files.length - files.indexOf(file);
+          break;
+        }
+
+        final validationError = await MediaUtils.validateMediaFile(file);
+
+        if (validationError != null) {
+          invalidCount++;
+          final fileName = path.basename(file.path);
+          invalidFileNames.add(fileName);
+          continue;
+        }
+
+        try {
           await _processMediaFile(file);
+          successCount++;
+        } catch (e) {
+          invalidCount++;
+          invalidFileNames.add(path.basename(file.path));
         }
       }
+
+      _showMediaAdditionResult(
+        successCount: successCount,
+        invalidCount: invalidCount,
+        skippedDueToLimit: skippedDueToLimit,
+        invalidFileNames: invalidFileNames,
+      );
+
     } catch (e) {
       TLoaders.errorSnackBar(
         title: 'Error',
@@ -250,10 +345,92 @@ class PostCreateController extends GetxController {
     }
   }
 
+  void _showMediaAdditionResult({
+    required int successCount,
+    required int invalidCount,
+    required int skippedDueToLimit,
+    required List<String> invalidFileNames,
+  }) {
+    if (successCount == 0 && invalidCount == 0 && skippedDueToLimit == 0) {
+      return;
+    }
+
+    if (successCount == 0 && invalidCount > 0 && skippedDueToLimit == 0) {
+      String message;
+      if (invalidCount == 1) {
+        message = 'The selected file has an invalid format: ${invalidFileNames.first}';
+      } else if (invalidCount <= 3) {
+        message = 'Invalid files: ${invalidFileNames.join(', ')}';
+      } else {
+        message = '$invalidCount files have invalid formats. Only images (max 5MB) and videos (max 20MB) are allowed.';
+      }
+
+      TLoaders.warningSnackBar(
+        title: 'Invalid Files',
+        message: message,
+      );
+      return;
+    }
+
+    if (successCount > 0 && (invalidCount > 0 || skippedDueToLimit > 0)) {
+      List<String> messageParts = [];
+      messageParts.add('$successCount file(s) added');
+
+      if (invalidCount > 0) {
+        if (invalidCount == 1) {
+          messageParts.add('1 file skipped (invalid format)');
+        } else {
+          messageParts.add('$invalidCount files skipped (invalid format)');
+        }
+      }
+
+      if (skippedDueToLimit > 0) {
+        messageParts.add('$skippedDueToLimit file(s) skipped (limit reached)');
+      }
+
+      TLoaders.warningSnackBar(
+        title: 'Partial Success',
+        message: messageParts.join(', ') + '.',
+      );
+      return;
+    }
+
+    if (successCount > 0 && skippedDueToLimit > 0 && invalidCount == 0) {
+      TLoaders.warningSnackBar(
+        title: 'Media Limit',
+        message: '$successCount file(s) added. $skippedDueToLimit file(s) skipped due to $maxMediaCount files limit.',
+      );
+      return;
+    }
+
+    if (successCount > 0 && invalidCount == 0 && skippedDueToLimit == 0) {
+      TLoaders.successSnackBar(
+        title: 'Success',
+        message: '$successCount file(s) added successfully.',
+      );
+      return;
+    }
+
+    if (successCount == 0 && skippedDueToLimit > 0) {
+      TLoaders.warningSnackBar(
+        title: 'Media Limit Reached',
+        message: 'Cannot add more files. Maximum $maxMediaCount files per post.',
+      );
+    }
+  }
+
   /// Process media file
   Future<void> _processMediaFile(File file) async {
+    if (mediaItems.length >= maxMediaCount) {
+      TLoaders.warningSnackBar(
+        title: 'Media Limit Reached',
+        message: 'Maximum $maxMediaCount files allowed.',
+      );
+      return;
+    }
+
     final mediaId = Uuid().v4();
-    final mediaType = _getMediaType(file.path);
+    final mediaType = MediaUtils.getMediaType(file.path);
 
     if (mediaType == 'unknown') {
       TLoaders.errorSnackBar(
@@ -263,8 +440,7 @@ class PostCreateController extends GetxController {
       return;
     }
 
-    // Validate file
-    final validationError = await _validateMediaFile(file);
+    final validationError = await MediaUtils.validateMediaFile(file);
     if (validationError != null) {
       TLoaders.errorSnackBar(
         title: 'File Error',
@@ -273,7 +449,6 @@ class PostCreateController extends GetxController {
       return;
     }
 
-    // Add processing item
     final processingItem = PostMediaItem(
       id: mediaId,
       file: file,
@@ -282,6 +457,7 @@ class PostCreateController extends GetxController {
     );
     mediaItems.add(processingItem);
     _hasUnsavedChanges = true;
+    _updateCanSubmit();
 
     try {
       isProcessingMedia.value = true;
@@ -293,15 +469,22 @@ class PostCreateController extends GetxController {
       if (mediaType == 'image') {
         processedFile = await ImageHelper.compressImageToWebP(file);
       } else if (mediaType == 'video') {
+        // 对于视频，先压缩再生成缩略图
         processedFile = await VideoHelper.compressVideoToMP4(file);
         if (processedFile != null) {
-          thumbnail = await VideoHelper.getVideoThumbnail(processedFile);
+          // 使用新的缩略图生成方法
+          thumbnail = await VideoHelper.getVideoThumbnailFile(processedFile);
           duration = await VideoHelper.getVideoDuration(processedFile);
+
+          // 如果缩略图生成失败，使用备用方案
+          if (thumbnail == null) {
+            print('Primary thumbnail generation failed, trying alternative method');
+            // 可以在这里添加备用缩略图生成逻辑
+          }
         }
       }
 
       if (processedFile != null) {
-        // Update with processed file
         final index = mediaItems.indexWhere((item) => item.id == mediaId);
         if (index != -1) {
           mediaItems[index] = processingItem.copyWith(
@@ -315,63 +498,15 @@ class PostCreateController extends GetxController {
         throw Exception('Failed to process $mediaType');
       }
     } catch (e) {
-      // Update with error
       final index = mediaItems.indexWhere((item) => item.id == mediaId);
       if (index != -1) {
         mediaItems[index] = processingItem.copyWith(
           isProcessing: false,
-          error: 'Failed to process $mediaType',
+          error: 'Failed to process $mediaType: ${e.toString()}',
         );
       }
     } finally {
-      isProcessingMedia.value = false;
-    }
-  }
-
-  /// Get media type from file path
-  String _getMediaType(String path) {
-    final extension = path
-        .toLowerCase()
-        .split('.')
-        .last;
-
-    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'];
-    const videoExtensions = ['mp4', 'mov', 'avi', 'mkv', 'wmv', 'flv', '3gp'];
-
-    if (imageExtensions.contains(extension)) {
-      return 'image';
-    } else if (videoExtensions.contains(extension)) {
-      return 'video';
-    }
-
-    return 'unknown';
-  }
-
-  /// Validate media file
-  Future<String?> _validateMediaFile(File file) async {
-    try {
-      final fileSizeBytes = await file.length();
-      final fileSizeMB = fileSizeBytes / (1024 * 1024);
-
-      final fileType = _getMediaType(file.path);
-
-      // Check file size limits
-      if (fileType == 'image' && fileSizeMB > 10) {
-        return 'Image file size must be less than 10MB';
-      }
-
-      if (fileType == 'video' && fileSizeMB > 100) {
-        return 'Video file size must be less than 100MB';
-      }
-
-      // Check if file exists and is readable
-      if (!await file.exists()) {
-        return 'File does not exist';
-      }
-
-      return null; // No errors
-    } catch (e) {
-      return 'Failed to validate file: ${e.toString()}';
+      _checkAllMediaProcessed();
     }
   }
 
@@ -380,7 +515,6 @@ class PostCreateController extends GetxController {
     final index = mediaItems.indexWhere((item) => item.id == mediaId);
     if (index != -1) {
       final item = mediaItems[index];
-      // Clean up thumbnail file if it exists
       try {
         item.thumbnail?.deleteSync();
       } catch (e) {
@@ -388,26 +522,23 @@ class PostCreateController extends GetxController {
       }
 
       mediaItems.removeAt(index);
-      _hasUnsavedChanges = contentController.text
-          .trim()
-          .isNotEmpty || mediaItems.isNotEmpty;
+      _hasUnsavedChanges = contentController.text.trim().isNotEmpty || mediaItems.isNotEmpty;
+      _updateCanSubmit();
     }
   }
 
   /// Open media preview
   void openMediaPreview(int initialIndex) {
-    if (mediaItems.isEmpty || initialIndex < 0 ||
-        initialIndex >= mediaItems.length) {
+    if (mediaItems.isEmpty || initialIndex < 0 || initialIndex >= mediaItems.length) {
       return;
     }
 
     Get.to(
-          () =>
-          MediaPreviewScreen(
-            mediaItems: mediaItems.toList(),
-            initialIndex: initialIndex,
-            onDeleteMedia: removeMediaItem,
-          ),
+          () => MediaPreviewScreen(
+        mediaItems: mediaItems.toList(),
+        initialIndex: initialIndex,
+        onDeleteMedia: removeMediaItem,
+      ),
       transition: Transition.fadeIn,
       duration: Duration(milliseconds: 300),
     );
@@ -425,7 +556,6 @@ class PostCreateController extends GetxController {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Handle bar
             Container(
               width: 40,
               height: 4,
@@ -435,8 +565,6 @@ class PostCreateController extends GetxController {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-
-            // Title
             Text(
               'Add Media',
               style: Get.textTheme.headlineSmall?.copyWith(
@@ -444,8 +572,6 @@ class PostCreateController extends GetxController {
               ),
             ),
             SizedBox(height: 20),
-
-            // Options
             _buildMediaOption(
               icon: Icons.photo_library,
               title: 'From Gallery',
@@ -455,7 +581,6 @@ class PostCreateController extends GetxController {
                 addMediaFromGallery();
               },
             ),
-
             _buildMediaOption(
               icon: Icons.camera_alt,
               title: 'Take Photo',
@@ -465,7 +590,6 @@ class PostCreateController extends GetxController {
                 addMediaFromCamera(isVideo: false);
               },
             ),
-
             _buildMediaOption(
               icon: Icons.videocam,
               title: 'Record Video',
@@ -475,7 +599,6 @@ class PostCreateController extends GetxController {
                 addMediaFromCamera(isVideo: true);
               },
             ),
-
             SizedBox(height: 10),
           ],
         ),
@@ -510,12 +633,30 @@ class PostCreateController extends GetxController {
 
   /// Create post
   Future<void> createPost() async {
+    final contentError = CommunityValidator.validatePostContent(contentController.text);
+    if (contentError != null) {
+      TLoaders.errorSnackBar(
+        title: 'Invalid Content',
+        message: contentError,
+      );
+      return;
+    }
+
+    final typeError = CommunityValidator.validatePostType(selectedPostType.value);
+    if (typeError != null) {
+      TLoaders.errorSnackBar(
+        title: 'Invalid Post Type',
+        message: typeError,
+      );
+      return;
+    }
+
     final content = contentController.text.trim();
 
-    if (content.isEmpty) {
-      TLoaders.warningSnackBar(
-        title: 'Content Required',
-        message: 'Please enter some content for your post.',
+    if (mediaItems.length > maxMediaCount) {
+      TLoaders.errorSnackBar(
+        title: 'Too Many Media Files',
+        message: 'Maximum $maxMediaCount files allowed. Please remove ${mediaItems.length - maxMediaCount} file(s).',
       );
       return;
     }
@@ -547,14 +688,14 @@ class PostCreateController extends GetxController {
 
     try {
       isCreatingPost.value = true;
+      _updateCanSubmit();
 
-      // Convert display post type to internal type
       final postType = PostType.fromDisplayName(selectedPostType.value);
 
-      // Get ready media files
       final mediaFiles = mediaItems
-          .where((item) => item.isReady)
-          .map((item) => item.file)
+          .where((item) => item.isReady && item.file != null)
+          .take(maxMediaCount)
+          .map((item) => item.file!)
           .toList();
 
       await _postRepo.createPost(
@@ -563,7 +704,6 @@ class PostCreateController extends GetxController {
         mediaFiles: mediaFiles.isNotEmpty ? mediaFiles : null,
       );
 
-      // Clear form
       contentController.clear();
       mediaItems.clear();
       selectedPostType.value = 'General Discussion';
@@ -574,7 +714,13 @@ class PostCreateController extends GetxController {
         message: 'Post created successfully!',
       );
 
-      Get.back(); // Return to previous screen
+      if (Get.isRegistered<PostController>()) {
+        await PostController.instance.refreshPosts();
+      }
+
+      if (Get.context != null) {
+        Navigator.of(Get.context!, rootNavigator: true).pop(true);
+      }
     } catch (e) {
       TLoaders.errorSnackBar(
         title: TTexts.error,
@@ -582,8 +728,141 @@ class PostCreateController extends GetxController {
       );
     } finally {
       isCreatingPost.value = false;
+      _updateCanSubmit();
     }
   }
+
+  /// Update existing post
+  Future<void> updatePost() async {
+    final contentError = CommunityValidator.validatePostContent(contentController.text);
+    if (contentError != null) {
+      TLoaders.errorSnackBar(
+        title: 'Invalid Content',
+        message: contentError,
+      );
+      return;
+    }
+
+    final typeError = CommunityValidator.validatePostType(selectedPostType.value);
+    if (typeError != null) {
+      TLoaders.errorSnackBar(
+        title: 'Invalid Post Type',
+        message: typeError,
+      );
+      return;
+    }
+
+    final content = contentController.text.trim();
+
+    if (mediaItems.length > maxMediaCount) {
+      TLoaders.errorSnackBar(
+        title: 'Too Many Media Files',
+        message: 'Maximum $maxMediaCount files allowed. Please remove ${mediaItems.length - maxMediaCount} file(s).',
+      );
+      return;
+    }
+
+    if (editingPostId == null) {
+      TLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Post ID is missing for editing.',
+      );
+      return;
+    }
+
+    if (mediaItems.any((item) => item.isProcessing)) {
+      TLoaders.warningSnackBar(
+        title: 'Processing Media',
+        message: 'Please wait for media processing to complete.',
+      );
+      return;
+    }
+
+    if (mediaItems.any((item) => item.hasError)) {
+      TLoaders.warningSnackBar(
+        title: 'Media Error',
+        message: 'Please remove media files with errors before updating.',
+      );
+      return;
+    }
+
+    final isConnected = await NetworkManager.instance.isConnected();
+    if (!isConnected) {
+      TLoaders.errorSnackBar(
+        title: TTexts.error,
+        message: TTexts.networkErrorMessage,
+      );
+      return;
+    }
+
+    try {
+      isCreatingPost.value = true;
+      _updateCanSubmit();
+
+      final postType = PostType.fromDisplayName(selectedPostType.value);
+
+      final existingMediaUrls = mediaItems
+          .where((item) => item.existingUrl != null)
+          .map((item) => item.existingUrl!)
+          .toList();
+
+      final newMediaFiles = mediaItems
+          .where((item) => item.existingUrl == null && item.isReady && item.file != null)
+          .map((item) => item.file!)
+          .toList();
+
+      await _postRepo.updatePostWithMedia(
+        postId: editingPostId!,
+        content: content,
+        postType: postType.name,
+        newMediaFiles: newMediaFiles.isNotEmpty ? newMediaFiles : null,
+        existingMediaUrls: existingMediaUrls,
+      );
+
+      contentController.clear();
+      mediaItems.clear();
+      selectedPostType.value = 'General Discussion';
+      _hasUnsavedChanges = false;
+      isEditingMode.value = false;
+      editingPostId = null;
+
+      TLoaders.successSnackBar(
+        title: 'Success',
+        message: 'Post updated successfully!',
+      );
+
+      if (Get.isRegistered<PostController>()) {
+        await PostController.instance.refreshPosts();
+      }
+
+      if (Get.context != null) {
+        Navigator.of(Get.context!, rootNavigator: true).pop(true);
+      }
+    } catch (e) {
+      TLoaders.errorSnackBar(
+        title: TTexts.error,
+        message: e.toString(),
+      );
+    } finally {
+      isCreatingPost.value = false;
+      _updateCanSubmit();
+    }
+  }
+
+  /// Submit post (create or update based on mode)
+  Future<void> submitPost() async {
+    if (isEditingMode.value) {
+      await updatePost();
+    } else {
+      await createPost();
+    }
+  }
+
+  /// Check if form is valid for submission (kept for backward compatibility)
+  bool get canSubmitPost => canSubmit.value;
+
+  /// Check if user is currently uploading/processing
+  bool get isUploading => isCreatingPost.value;
 
   /// Get remaining media slots
   int get remainingMediaSlots => maxMediaCount - mediaItems.length;
@@ -592,30 +871,11 @@ class PostCreateController extends GetxController {
   bool get canAddMoreMedia => remainingMediaSlots > 0;
 
   /// Get ready media items count
-  int get readyMediaCount =>
-      mediaItems
-          .where((item) => item.isReady)
-          .length;
+  int get readyMediaCount => mediaItems.where((item) => item.isReady).length;
 
   /// Get processing media items count
-  int get processingMediaCount =>
-      mediaItems
-          .where((item) => item.isProcessing)
-          .length;
+  int get processingMediaCount => mediaItems.where((item) => item.isProcessing).length;
 
   /// Get error media items count
-  int get errorMediaCount =>
-      mediaItems
-          .where((item) => item.hasError)
-          .length;
-
-  /// Check if form is valid for submission
-  bool get canSubmitPost {
-    return contentController.text
-        .trim()
-        .isNotEmpty &&
-        !mediaItems.any((item) => item.isProcessing) &&
-        !mediaItems.any((item) => item.hasError) &&
-        !isCreatingPost.value;
-  }
+  int get errorMediaCount => mediaItems.where((item) => item.hasError).length;
 }

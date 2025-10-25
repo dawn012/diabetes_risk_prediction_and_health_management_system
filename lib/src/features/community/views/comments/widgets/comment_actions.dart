@@ -10,9 +10,11 @@ import '../../../models/comment_model.dart';
 import '../reply_screen.dart';
 
 class CommentActions extends StatelessWidget {
-  const CommentActions({super.key, required this.comment});
+  const CommentActions(
+      {super.key, required this.comment, this.showReplyAction = true});
 
   final CommentModel comment;
+  final bool showReplyAction; // 控制是否显示回复按钮
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +37,9 @@ class CommentActions extends StatelessWidget {
                 children: [
                   Icon(
                     isLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
-                    color: isLiked ? TColors.primary : (isDark ? TColors.darkGrey : TColors.textSecondary),
+                    color: isLiked
+                        ? TColors.primary
+                        : (isDark ? TColors.darkGrey : TColors.textSecondary),
                     size: 16,
                   ),
                   if (comment.likes.isNotEmpty) ...[
@@ -43,9 +47,13 @@ class CommentActions extends StatelessWidget {
                     Text(
                       comment.likes.length.toString(),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: isLiked ? TColors.primary : (isDark ? TColors.darkGrey : TColors.textSecondary),
-                        fontWeight: FontWeight.w500,
-                      ),
+                            color: isLiked
+                                ? TColors.primary
+                                : (isDark
+                                    ? TColors.darkGrey
+                                    : TColors.textSecondary),
+                            fontWeight: FontWeight.w500,
+                          ),
                     ),
                   ],
                 ],
@@ -53,35 +61,34 @@ class CommentActions extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(width: TSizes.sm),
-
-          // Reply button
-          GestureDetector(
-            onTap: () => controller.handleNavigation(
-                  () => Get.to(() => ReplyScreen(parentComment: comment)),
-            ),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.reply_outlined,
-                    color: isDark ? TColors.darkGrey : TColors.textSecondary,
-                    size: 16,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Reply',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          // Reply button - 只在需要时显示
+          if (showReplyAction) ...[
+            const SizedBox(width: TSizes.sm),
+            GestureDetector(
+              onTap: () => Get.to(() => ReplyScreen(parentComment: comment)),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.reply_outlined,
                       color: isDark ? TColors.darkGrey : TColors.textSecondary,
-                      fontWeight: FontWeight.w500,
+                      size: 16,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 4),
+                    Text(
+                      'Reply',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: isDark ? TColors.darkGrey : TColors.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );

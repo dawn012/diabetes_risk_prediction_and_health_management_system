@@ -208,4 +208,67 @@ class CommentRepository extends GetxController {
       // Silently handle error to avoid UI disruption
     }
   }
+
+  /// Delete all comments for a post
+  Future<void> deleteCommentsByPostId(String postId) async {
+    try {
+      // Get all comments for this post
+      final commentsSnapshot = await _db
+          .collection(FirebaseCollectionNames.comments)
+          .where(FirebaseFieldNames.postId, isEqualTo: postId)
+          .get();
+
+      // Delete all comments in batch
+      final batch = _db.batch();
+      for (final doc in commentsSnapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+
+      print('Deleted ${commentsSnapshot.docs.length} comments for post $postId');
+    } catch (e) {
+      print('Error deleting comments for post $postId: $e');
+      // Don't throw here to allow caller to handle gracefully
+    }
+  }
+
+  /// Delete all comments for a post (recursive batch version for large datasets)
+  Future<void> deleteCommentsByPostIdRecursive(String postId) async {
+    try {
+      await _deleteCommentsBatch(postId);
+    } catch (e) {
+      print('Error deleting comments for post $postId: $e');
+    }
+  }
+
+  /// Recursively delete comments in batches
+  Future<void> _deleteCommentsBatch(String postId, {DocumentSnapshot? startAfter}) async {
+    Query<Map<String, dynamic>> query = _db
+        .collection(FirebaseCollectionNames.comments)
+        .where(FirebaseFieldNames.postId, isEqualTo: postId)
+        .limit(500); // Firestore batch limit
+
+    if (startAfter != null) {
+      query = query.startAfterDocument(startAfter);
+    }
+
+    final snapshot = await query.get();
+
+    if (snapshot.docs.isEmpty) return;
+
+    // Delete this batch
+    final batch = _db.batch();
+    for (final doc in snapshot.docs) {
+      batch.delete(doc.reference);
+    }
+    await batch.commit();
+
+    print('Deleted batch of ${snapshot.docs.length} comments for post $postId');
+
+    // If there are more comments, delete next batch
+    if (snapshot.docs.length == 500) {
+      final lastDoc = snapshot.docs.last;
+      await _deleteCommentsBatch(postId, startAfter: lastDoc);
+    }
+  }
 }

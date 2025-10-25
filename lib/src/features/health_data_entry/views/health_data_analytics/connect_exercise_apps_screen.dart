@@ -6,7 +6,6 @@ import '../../../../services/step_tracking_service.dart';
 import '../../../../utils/constants/colors.dart';
 import '../../../../utils/constants/sizes.dart';
 import '../../../../utils/helpers/helper_functions.dart';
-import '../../controllers/exercise_controller.dart';
 
 class ConnectExerciseAppsScreen extends StatelessWidget {
   const ConnectExerciseAppsScreen({super.key});
@@ -14,7 +13,7 @@ class ConnectExerciseAppsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final darkMode = THelperFunctions.isDarkMode(context);
-    final exerciseController = Get.find<ExerciseController>();
+    final stepTrackingService = StepTrackingService.instance;
 
     return Scaffold(
       backgroundColor: darkMode ? TColors.dark : TColors.light,
@@ -46,21 +45,10 @@ class ConnectExerciseAppsScreen extends StatelessWidget {
 
             const SizedBox(height: TSizes.spaceBtwItems),
 
-            // Fitbit
-            // _buildAppCard(
-            //   darkMode: darkMode,
-            //   iconPath: 'assets/icons/fitbit.png', // Placeholder
-            //   appName: 'Fitbit',
-            //   isConnected: false,
-            //   onTap: () => _connectApp('Fitbit'),
-            // ),
-
-            const SizedBox(height: TSizes.md),
-
             // Google Fit
             _buildAppCard(
               darkMode: darkMode,
-              iconPath: 'assets/icons/google_fit.png', // Placeholder
+              iconPath: 'assets/icons/google_fit.png',
               appName: 'Google Fit',
               isConnected: false,
               onTap: () => _connectApp('Google Fit'),
@@ -69,7 +57,7 @@ class ConnectExerciseAppsScreen extends StatelessWidget {
             const SizedBox(height: TSizes.md),
 
             // This Phone
-            _buildAppCard(
+            Obx(() => _buildAppCard(
               darkMode: darkMode,
               iconWidget: Icon(
                 Icons.phone_android,
@@ -77,42 +65,12 @@ class ConnectExerciseAppsScreen extends StatelessWidget {
                 size: 40,
               ),
               appName: 'This Phone',
-              isConnected: exerciseController.isConnected.value,
+              isConnected: stepTrackingService.isConnected.value,
               onTap: () async {
                 final result = await Get.to(() => const ThisPhoneScreen());
-                if (result == true) {
-                  // Reconnected
-                  exerciseController.connectApp();
-                }
+                // No need to handle result, service handles it
               },
-            ),
-
-            const SizedBox(height: TSizes.spaceBtwSections),
-            //
-            // // Health Data Section
-            // Text(
-            //   'Health Data',
-            //   style: TextStyle(
-            //     color: TColors.textSecondary,
-            //     fontSize: TSizes.fontSizeMd,
-            //     fontWeight: FontWeight.w500,
-            //   ),
-            // ),
-            //
-            // const SizedBox(height: TSizes.spaceBtwItems),
-            //
-            // // Health Connect
-            // _buildAppCard(
-            //   darkMode: darkMode,
-            //   iconWidget: Icon(
-            //     Icons.health_and_safety,
-            //     color: TColors.primary,
-            //     size: 40,
-            //   ),
-            //   appName: 'Health Connect',
-            //   isConnected: false,
-            //   onTap: () => _connectApp('Health Connect'),
-            // ),
+            )),
           ],
         ),
       ),
@@ -154,8 +112,7 @@ class ConnectExerciseAppsScreen extends StatelessWidget {
           child: iconWidget ??
               (iconPath != null
                   ? Image.asset(iconPath, width: 32, height: 32)
-                  : Icon(Icons.apps, color: TColors.primary, size: 32)
-              ),
+                  : Icon(Icons.apps, color: TColors.primary, size: 32)),
         ),
         title: Text(
           appName,
@@ -172,7 +129,7 @@ class ConnectExerciseAppsScreen extends StatelessWidget {
               Text(
                 'Connected',
                 style: TextStyle(
-                  color: TColors.primary,
+                  color: TColors.success,
                   fontSize: TSizes.fontSizeMd,
                   fontWeight: FontWeight.bold,
                 ),
@@ -191,11 +148,12 @@ class ConnectExerciseAppsScreen extends StatelessWidget {
   }
 
   void _connectApp(String appName) {
-    TLoaders.modernSnackBar(title: 'Connecting...', message: 'Attempting to connect to $appName');
+    TLoaders.modernSnackBar(
+        title: 'Connecting...', message: 'Attempting to connect to $appName');
 
-    // Simulate connection delay
     Future.delayed(const Duration(seconds: 2), () {
-      TLoaders.successSnackBar(title: 'Connected!', message: '$appName connected successfully');
+      TLoaders.successSnackBar(
+          title: 'Connected!', message: '$appName connected successfully');
     });
   }
 }
@@ -209,18 +167,18 @@ class ThisPhoneScreen extends StatelessWidget {
     final stepTrackingService = StepTrackingService.instance;
 
     return Scaffold(
-      backgroundColor: darkMode ? TColors.dark : TColors.light,
-      appBar: AppBar(
-        backgroundColor: TColors.primary,
-        title: const Text(
-          'This Phone',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        backgroundColor: darkMode ? TColors.dark : TColors.light,
+        appBar: AppBar(
+          backgroundColor: TColors.primary,
+          title: const Text(
+            'This Phone',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () => Get.back(),
+          ),
         ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Get.back(),
-        ),
-      ),
       body: Padding(
         padding: const EdgeInsets.all(TSizes.defaultSpace),
         child: Column(
@@ -236,17 +194,19 @@ class ThisPhoneScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(TSizes.cardRadiusLg),
                   ),
                   child: Icon(
-                    Icons.water_drop,
+                    Icons.directions_walk,
                     color: TColors.primary,
                     size: 40,
                   ),
                 ),
                 const SizedBox(width: TSizes.lg),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: TSizes.md, vertical: TSizes.sm),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: TSizes.md, vertical: TSizes.sm),
                   child: Row(
                     children: [
-                      Icon(Icons.sync_alt, color: darkMode ? TColors.white : TColors.textPrimary),
+                      Icon(Icons.sync_alt,
+                          color: darkMode ? TColors.white : TColors.textPrimary),
                     ],
                   ),
                 ),
@@ -268,9 +228,52 @@ class ThisPhoneScreen extends StatelessWidget {
 
             const SizedBox(height: TSizes.spaceBtwSections),
 
+            // Connection Status
+            Obx(() => Container(
+              padding: const EdgeInsets.all(TSizes.md),
+              decoration: BoxDecoration(
+                color: stepTrackingService.isConnected.value
+                    ? TColors.success.withOpacity(0.1)
+                    : TColors.warning.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(TSizes.cardRadiusMd),
+                border: Border.all(
+                  color: stepTrackingService.isConnected.value
+                      ? TColors.success
+                      : TColors.warning,
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    stepTrackingService.isConnected.value
+                        ? Icons.check_circle
+                        : Icons.info_outline,
+                    color: stepTrackingService.isConnected.value
+                        ? TColors.success
+                        : TColors.warning,
+                  ),
+                  const SizedBox(width: TSizes.md),
+                  Expanded(
+                    child: Text(
+                      stepTrackingService.isConnected.value
+                          ? 'Currently tracking your steps'
+                          : 'Step tracking is disconnected',
+                      style: TextStyle(
+                        color: darkMode ? TColors.white : TColors.textPrimary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            )),
+
+            const SizedBox(height: TSizes.spaceBtwItems),
+
             // Description
             Text(
-              'You can also use your mobile phone to help track your daily steps. Just enable Health2Sync to access your "Physical Activity", then Health2Sync can automatically retrieve your phone\'s steps data.',
+              'You can use your mobile phone to track your daily steps. Enable step tracking to automatically retrieve your phone\'s steps data.',
               style: TextStyle(
                 color: darkMode ? TColors.white : TColors.textPrimary,
                 fontSize: TSizes.fontSizeMd,
@@ -282,7 +285,7 @@ class ThisPhoneScreen extends StatelessWidget {
             const SizedBox(height: TSizes.spaceBtwItems),
 
             Text(
-              'After you connect your phone, Health2Sync can analyze your steps data and display steps-related statistics and charts.',
+              'After you connect your phone, the app can analyze your steps data and display steps-related statistics and charts.',
               style: TextStyle(
                 color: darkMode ? TColors.white : TColors.textPrimary,
                 fontSize: TSizes.fontSizeMd,
@@ -293,40 +296,90 @@ class ThisPhoneScreen extends StatelessWidget {
 
             const Spacer(),
 
-            // Disconnect button
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: () => _showDisconnectDialog(context, stepTrackingService),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: TSizes.md),
-                  side: BorderSide(color: TColors.primary),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(TSizes.borderRadiusLg),
+            // Connect/Disconnect button - 修改这里
+            Obx(() {
+              final isConnected = stepTrackingService.isConnected.value;
+
+              return SizedBox(
+                width: double.infinity,
+                child: isConnected
+                    ? OutlinedButton(
+                  onPressed: () => _showDisconnectDialog(
+                      context, stepTrackingService),
+                  style: OutlinedButton.styleFrom(
+                    padding:
+                    const EdgeInsets.symmetric(vertical: TSizes.md),
+                    side: BorderSide(color: TColors.error),
+                    shape: RoundedRectangleBorder(
+                      borderRadius:
+                      BorderRadius.circular(TSizes.borderRadiusLg),
+                    ),
+                  ),
+                  child: Text(
+                    'Disconnect This Phone',
+                    style: TextStyle(
+                      color: TColors.error,
+                      fontSize: TSizes.fontSizeMd,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                )
+                    : ElevatedButton(
+                  onPressed: () =>
+                      _connectPhone(context, stepTrackingService),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: TColors.primary,
+                    padding:
+                    const EdgeInsets.symmetric(vertical: TSizes.md),
+                    shape: RoundedRectangleBorder(
+                      borderRadius:
+                      BorderRadius.circular(TSizes.borderRadiusLg),
+                    ),
+                  ),
+                  child: Text(
+                    'Connect This Phone',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: TSizes.fontSizeMd,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
-                child: Text(
-                  'Disconnect This Phone',
-                  style: TextStyle(
-                    color: TColors.primary,
-                    fontSize: TSizes.fontSizeMd,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
+              );
+            }),
           ],
         ),
       ),
     );
   }
 
-  void _showDisconnectDialog(BuildContext context, StepTrackingService stepTrackingService) {
+  void _connectPhone(
+      BuildContext context, StepTrackingService stepTrackingService) async {
+    // 显示加载提示
+    TLoaders.modernSnackBar(
+      title: 'Connecting...',
+      message: 'Setting up step tracking',
+    );
+
+    // 调用 startTracking
+    await stepTrackingService.startTracking();
+
+    // 检查是否成功连接
+    if (stepTrackingService.isConnected.value) {
+      TLoaders.successSnackBar(
+        title: 'Connected!',
+        message: 'Step tracking is now active',
+      );
+    }
+  }
+
+  void _showDisconnectDialog(
+      BuildContext context, StepTrackingService stepTrackingService) {
     final darkMode = THelperFunctions.isDarkMode(context);
 
     showDialog(
       context: context,
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
           backgroundColor: darkMode ? TColors.darkContainer : Colors.white,
           shape: RoundedRectangleBorder(
@@ -347,7 +400,7 @@ class ThisPhoneScreen extends StatelessWidget {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () => Navigator.of(dialogContext).pop(),
               child: Text(
                 'Cancel',
                 style: TextStyle(color: TColors.textSecondary),
@@ -355,10 +408,13 @@ class ThisPhoneScreen extends StatelessWidget {
             ),
             ElevatedButton(
               onPressed: () {
-                Navigator.of(context).pop();
-                Get.back(result: false); // Return false to indicate disconnection
+                Navigator.of(dialogContext).pop();
                 stepTrackingService.stopTracking();
-                TLoaders.successSnackBar(title: 'Disconnected', message: 'Phone disconnected successfully');
+                TLoaders.successSnackBar(
+                  title: 'Disconnected',
+                  message:
+                  'Phone disconnected successfully. Step tracking has been stopped.',
+                );
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: TColors.error,

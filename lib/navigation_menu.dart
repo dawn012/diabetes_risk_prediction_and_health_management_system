@@ -1,7 +1,7 @@
 import 'package:diabetes_risk_prediction_and_health_management_system/src/features/achievement/views/user_achievement_screen.dart';
 import 'package:diabetes_risk_prediction_and_health_management_system/src/features/health_data_entry/views/health_data_entry/health_data_entry_screen.dart';
 import 'package:diabetes_risk_prediction_and_health_management_system/src/features/health_data_entry/views/dashboard.dart';
-import 'package:diabetes_risk_prediction_and_health_management_system/src/features/reminder/views/reminder_screen.dart' hide THelperFunctions, TColors;
+import 'package:diabetes_risk_prediction_and_health_management_system/src/features/reminder/views/reminder_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:icons_plus/icons_plus.dart';

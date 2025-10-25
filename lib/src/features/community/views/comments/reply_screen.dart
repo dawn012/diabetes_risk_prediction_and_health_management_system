@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../../common/widgets/appbar/appbar.dart';
+import '../../../../common/widgets/dialogs/dialog.dart';
 import '../../../../utils/constants/colors.dart';
 import '../../../../utils/constants/sizes.dart';
 import '../../../../utils/helpers/helper_functions.dart';
@@ -28,9 +29,24 @@ class ReplyScreen extends StatelessWidget {
 
     return PopScope(
       canPop: false,
-      onPopInvokedWithResult: (didPop, result) async {
+      onPopInvoked: (didPop) async {
         if (didPop) return;
-        controller.handleNavigation(() => Get.back());
+
+        // Check if there are unsaved changes
+        if (controller.commentText.text.trim().isNotEmpty) {
+          final shouldDiscard = await TDialog.keepWriting(
+            title: 'Discard Changes?',
+            message: 'You have unsaved text. Are you sure you want to leave? Your text will be lost.',
+          );
+
+          if (shouldDiscard) {
+            controller.clearEditingState();
+            Get.back();
+          }
+        } else {
+          controller.clearEditingState();
+          Get.back();
+        }
       },
       child: Scaffold(
         backgroundColor: isDark ? TColors.dark : TColors.primaryBackground,
@@ -78,7 +94,7 @@ class ReplyScreen extends StatelessWidget {
                   color: isDark ? TColors.darkContainer : TColors.white,
                   child: Column(
                     children: [
-                      CommentTile(comment: parentComment),
+                      CommentTile(comment: parentComment, showReplyActions: false,),
                       Divider(
                         color: isDark
                             ? TColors.borderPrimary.withOpacity(0.1)

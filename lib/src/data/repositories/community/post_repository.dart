@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -5,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:path/path.dart' as path;
 import 'package:uuid/uuid.dart';
 
 import '../../../features/community/models/post_model.dart';
@@ -15,6 +17,9 @@ import '../../../utils/constants/text_strings.dart';
 import '../../../utils/exceptions/firebase_exceptions.dart';
 import '../../../utils/exceptions/format_exceptions.dart';
 import '../../../utils/exceptions/platform_exceptions.dart';
+import '../../../utils/helpers/image_helper.dart';
+import '../../../utils/helpers/video_helper.dart';
+import 'comment_repository.dart';
 
 class PostRepository extends GetxController {
   static PostRepository get instance => Get.find();
@@ -23,27 +28,130 @@ class PostRepository extends GetxController {
   final _auth = FirebaseAuth.instance;
   final _storage = FirebaseStorage.instance;
 
-  /// Upload multiple media files to Firebase Storage
+  /// Upload multiple media files to Firebase Storage with thumbnails for videos
   Future<List<String>> _uploadMediaFiles(List<File> mediaFiles) async {
     List<String> downloadUrls = [];
 
     for (File file in mediaFiles) {
-      final fileExtension = file.path.split('.').last.toLowerCase();
-      final isVideo = ['mp4', 'mov', 'avi', 'mkv', 'webm'].contains(fileExtension);
-      final isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(fileExtension);
+      try {
+        final filePath = file.path;
+        final fileExtension = path.extension(filePath).toLowerCase();
+        final isVideo = VideoHelper.isVideoFile(filePath);
+        final isImage = ImageHelper.isImageFile(filePath);
 
-      if (!isVideo && !isImage) continue;
+        if (!isVideo && !isImage) {
+          continue;
+        }
 
-      final fileName = const Uuid().v1();
-      final folderPath = isVideo ? 'community/videos' : 'community/images';
-      final storageRef = _storage.ref().child('$folderPath/$fileName.$fileExtension');
+        final fileName = const Uuid().v4();
 
-      final uploadTask = await storageRef.putFile(file);
-      final downloadUrl = await uploadTask.ref.getDownloadURL();
-      downloadUrls.add(downloadUrl);
+        if (isVideo) {
+          try {
+            final thumbnail = await VideoHelper.getVideoThumbnailFile(file);
+            if (thumbnail != null && thumbnail.existsSync()) {
+              final thumbPath = 'community/thumbnails/$fileName.webp';
+              final thumbRef = _storage.ref().child(thumbPath);
+              await thumbRef.putFile(thumbnail);
+
+              print('Thumbnail uploaded successfully: $thumbPath');
+
+              // 清理临时缩略图文件
+              try {
+                await thumbnail.delete();
+              } catch (e) {
+                print('Failed to delete temp thumbnail: $e');
+              }
+            } else {
+              print('Thumbnail generation failed for video');
+            }
+          } catch (e) {
+            print('Failed to upload thumbnail: $e');
+            // 不要因为缩略图失败而中断视频上传
+          }
+
+          // 上传视频
+          final videoPath = 'community/videos/$fileName$fileExtension';
+          final videoRef = _storage.ref().child(videoPath);
+          final videoUpload = await videoRef.putFile(file);
+          final videoUrl = await videoUpload.ref.getDownloadURL();
+          downloadUrls.add(videoUrl);
+        } else {
+          // 上传图片
+          final imagePath = 'community/images/$fileName$fileExtension';
+          final imageRef = _storage.ref().child(imagePath);
+          final imageUpload = await imageRef.putFile(file);
+          final imageUrl = await imageUpload.ref.getDownloadURL();
+          downloadUrls.add(imageUrl);
+        }
+      } catch (e) {
+        print('Failed to upload file: $e');
+        // 继续处理其他文件
+      }
     }
 
     return downloadUrls;
+  }
+
+  /// Helper method to delete multiple media files from storage (including thumbnails)
+  Future<void> _deleteMediaFiles(List<String> mediaUrls) async {
+    try {
+      for (String mediaUrl in mediaUrls) {
+        try {
+          // 删除主文件
+          final ref = _storage.refFromURL(mediaUrl);
+          await ref.delete();
+
+          // 如果是视频，同时删除缩略图
+          if (mediaUrl.contains('/videos/')) {
+            try {
+              // 从视频URL提取文件名（不含扩展名）
+              final fileName = _extractFileNameFromUrl(mediaUrl);
+              if (fileName != null) {
+                final thumbPath = 'community/thumbnails/$fileName.webp';
+
+                final thumbRef = _storage.ref().child(thumbPath);
+                await thumbRef.delete();
+              }
+            } catch (e) {
+              print('Failed to delete thumbnail (might not exist): $e');
+              // 缩略图可能不存在，不影响主流程
+            }
+          }
+        } catch (e) {
+          print('Failed to delete media file: $mediaUrl, error: $e');
+        }
+      }
+    } catch (e) {
+      print('Error in _deleteMediaFiles: $e');
+    }
+  }
+
+  /// Extract filename (without extension) from Firebase Storage URL
+  String? _extractFileNameFromUrl(String url) {
+    try {
+      // Firebase Storage URL 格式:
+      // https://firebasestorage.googleapis.com/v0/b/.../o/community%2Fvideos%2Ffilename.mp4?alt=...
+
+      final uri = Uri.parse(url);
+      final pathSegments = uri.pathSegments;
+
+      // 找到 'o' 后面的路径
+      final oIndex = pathSegments.indexOf('o');
+      if (oIndex != -1 && oIndex + 1 < pathSegments.length) {
+        // 获取编码的路径 (e.g., "community%2Fvideos%2Ffilename.mp4")
+        final encodedPath = pathSegments[oIndex + 1];
+        // 解码
+        final decodedPath = Uri.decodeComponent(encodedPath);
+        // 提取文件名（不含扩展名）
+        final fileName = path.basenameWithoutExtension(decodedPath);
+        return fileName;
+      }
+
+      return null;
+    } catch (e) {
+      print('Error extracting filename: $e');
+      return null;
+    }
   }
 
   /// Create a new post with multiple media files
@@ -96,20 +204,20 @@ class PostRepository extends GetxController {
   /// Fetch posts with pagination and filtering
   Stream<List<PostModel>> fetchPosts({
     String? postType,
+    bool isDisable = false,
     int limit = 10,
     DocumentSnapshot<Map<String, dynamic>>? startAfter,
   }) {
     Query<Map<String, dynamic>> query = _db
         .collection(FirebaseCollectionNames.posts)
+        .where(FirebaseFieldNames.isDisable, isEqualTo: isDisable)
         .orderBy(FirebaseFieldNames.createdAt, descending: true)
         .limit(limit);
 
-    // Filter by post type if specified
     if (postType != null && postType != 'all') {
       query = query.where(FirebaseFieldNames.postType, isEqualTo: postType);
     }
 
-    // Add pagination if startAfter is provided
     if (startAfter != null) {
       query = query.startAfterDocument(startAfter);
     }
@@ -119,6 +227,31 @@ class PostRepository extends GetxController {
           .map((doc) => PostModel.fromSnapshot(doc))
           .toList();
     });
+  }
+
+  /// 获取新帖子数量
+  Future<int> getNewPostsCount(String afterPostId) async {
+    try {
+      final postDoc = await _db
+          .collection(FirebaseCollectionNames.posts)
+          .doc(afterPostId)
+          .get();
+
+      if (!postDoc.exists) return 0;
+
+      final timestamp = postDoc.data()?[FirebaseFieldNames.createdAt] ?? 0;
+
+      final snapshot = await _db
+          .collection(FirebaseCollectionNames.posts)
+          .where(FirebaseFieldNames.isDisable, isEqualTo: false)
+          .where(FirebaseFieldNames.createdAt, isGreaterThan: timestamp)
+          .count()
+          .get();
+
+      return snapshot.count ?? 0;
+    } catch (e) {
+      return 0;
+    }
   }
 
   /// Fetch posts by type (for video tab)
@@ -136,25 +269,6 @@ class PostRepository extends GetxController {
     });
   }
 
-  /// Get posts that contain videos (new method - check mediaUrls)
-  Stream<List<PostModel>> fetchVideoPosts({int limit = 10}) {
-    return _db
-        .collection(FirebaseCollectionNames.posts)
-        .where(FirebaseFieldNames.mediaUrls, isNotEqualTo: [])
-        .orderBy(FirebaseFieldNames.createdAt, descending: true)
-        .limit(limit)
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs
-          .map((doc) => PostModel.fromSnapshot(doc))
-          .where((post) => post.mediaUrls.any((url) =>
-      url.contains('community/videos') ||
-          url.toLowerCase().contains('.mp4') ||
-          url.toLowerCase().contains('.mov')))
-          .toList();
-    });
-  }
-
   /// Toggle like on a post
   Future<String?> togglePostLike({
     required String postId,
@@ -165,13 +279,11 @@ class PostRepository extends GetxController {
       final postRef = _db.collection(FirebaseCollectionNames.posts).doc(postId);
 
       if (currentLikes.contains(userId)) {
-        // Remove like
         await postRef.update({
           FirebaseFieldNames.likes: FieldValue.arrayRemove([userId]),
           FirebaseFieldNames.updatedAt: DateTime.now().millisecondsSinceEpoch,
         });
       } else {
-        // Add like
         await postRef.update({
           FirebaseFieldNames.likes: FieldValue.arrayUnion([userId]),
           FirebaseFieldNames.updatedAt: DateTime.now().millisecondsSinceEpoch,
@@ -198,7 +310,7 @@ class PostRepository extends GetxController {
         FirebaseFieldNames.updatedAt: DateTime.now().millisecondsSinceEpoch,
       });
     } catch (e) {
-      // Silently handle error to avoid UI disruption
+      // Silently handle error
     }
   }
 
@@ -237,18 +349,49 @@ class PostRepository extends GetxController {
     List<String>? existingMediaUrls,
   }) async {
     try {
-      // Upload new media files if any
-      List<String> newMediaUrls = [];
-      if (newMediaFiles != null && newMediaFiles.isNotEmpty) {
-        newMediaUrls = await _uploadMediaFiles(newMediaFiles);
+      print('🔄 Updating post: $postId');
+
+      // Get current post
+      final currentPostDoc = await _db
+          .collection(FirebaseCollectionNames.posts)
+          .doc(postId)
+          .get();
+
+      if (!currentPostDoc.exists) {
+        throw 'Post not found';
       }
 
-      // Combine existing and new media URLs
+      final currentPost = PostModel.fromSnapshot(currentPostDoc);
+      final currentMediaUrls = currentPost.mediaUrls;
+      print('📋 Current media: ${currentMediaUrls.length} files');
+
+      // Upload new media files
+      List<String> newMediaUrls = [];
+      if (newMediaFiles != null && newMediaFiles.isNotEmpty) {
+        print('📤 Uploading ${newMediaFiles.length} new files...');
+        newMediaUrls = await _uploadMediaFiles(newMediaFiles);
+        print('✅ New media uploaded: ${newMediaUrls.length} files');
+      }
+
+      // Combine media URLs
       final allMediaUrls = [
         ...(existingMediaUrls ?? []),
         ...newMediaUrls,
       ];
+      print('📊 Total media after update: ${allMediaUrls.length} files');
 
+      // Delete removed media files
+      final mediaUrlsToDelete = currentMediaUrls
+          .where((url) => !allMediaUrls.contains(url))
+          .toList();
+
+      if (mediaUrlsToDelete.isNotEmpty) {
+        print('🗑️ Deleting ${mediaUrlsToDelete.length} removed files...');
+        await _deleteMediaFiles(mediaUrlsToDelete);
+        print('✅ Removed files deleted');
+      }
+
+      // Update post in Firestore
       await _db
           .collection(FirebaseCollectionNames.posts)
           .doc(postId)
@@ -259,6 +402,7 @@ class PostRepository extends GetxController {
         FirebaseFieldNames.updatedAt: DateTime.now().millisecondsSinceEpoch,
       });
 
+      print('✅ Post updated successfully');
       return null;
     } on FirebaseException catch (e) {
       throw TFirebaseException(e.code).message;
@@ -267,31 +411,36 @@ class PostRepository extends GetxController {
     } on PlatformException catch (e) {
       throw TPlatformException(e.code).message;
     } catch (e) {
+      print('❌ Error updating post: $e');
       throw TTexts.commonErrorMessage;
     }
   }
 
-  /// Delete post and its media files
+  /// Delete post and its media files and comments
   Future<String?> deletePost(String postId) async {
     try {
-      // Get post to retrieve media URLs for deletion
+      print('🗑️ Deleting post: $postId');
+
+      // Get post to retrieve media URLs
       final postDoc = await _db.collection(FirebaseCollectionNames.posts).doc(postId).get();
       if (postDoc.exists) {
         final post = PostModel.fromSnapshot(postDoc);
 
-        // Delete media files from storage
-        for (String mediaUrl in post.mediaUrls) {
-          try {
-            final ref = _storage.refFromURL(mediaUrl);
-            await ref.delete();
-          } catch (e) {
-            // Continue deletion even if some files can't be deleted
-          }
+        if (post.mediaUrls.isNotEmpty) {
+          print('🗑️ Deleting ${post.mediaUrls.length} media files...');
+          await _deleteMediaFiles(post.mediaUrls);
+          print('✅ Media files deleted');
         }
       }
 
-      // Delete the post document
+      // Delete all comments
+      final commentRepo = Get.put(CommentRepository());
+      await commentRepo.deleteCommentsByPostId(postId);
+      print('✅ Comments deleted');
+
+      // Delete post document
       await _db.collection(FirebaseCollectionNames.posts).doc(postId).delete();
+      print('✅ Post deleted successfully');
 
       return null;
     } on FirebaseException catch (e) {
@@ -301,6 +450,7 @@ class PostRepository extends GetxController {
     } on PlatformException catch (e) {
       throw TPlatformException(e.code).message;
     } catch (e) {
+      print('❌ Error deleting post: $e');
       throw TTexts.commonErrorMessage;
     }
   }
@@ -467,6 +617,67 @@ class PostRepository extends GetxController {
       throw TPlatformException(e.code).message;
     } catch (e) {
       throw TTexts.commonErrorMessage;
+    }
+  }
+
+  /// Download media files from Firebase Storage URLs
+  Future<List<File>> _downloadMediaFiles(List<String> mediaUrls) async {
+    List<File> downloadedFiles = [];
+
+    for (String url in mediaUrls) {
+      try {
+        final file = await _downloadMediaFile(url);
+        if (file != null) {
+          downloadedFiles.add(file);
+        }
+      } catch (e) {
+        print('Failed to download media from $url: $e');
+        // Continue with other files even if one fails
+      }
+    }
+
+    return downloadedFiles;
+  }
+
+  /// Download single media file from URL
+  Future<File?> _downloadMediaFile(String mediaUrl) async {
+    try {
+      // Create a temporary file
+      final tempDir = Directory.systemTemp;
+      final fileName = mediaUrl.split('/').last;
+      final tempFile = File('${tempDir.path}/$fileName');
+
+      // Get reference from URL
+      final ref = _storage.refFromURL(mediaUrl);
+
+      // Download the file
+      await ref.writeToFile(tempFile);
+
+      return tempFile;
+    } catch (e) {
+      print('Error downloading media file: $e');
+      return null;
+    }
+  }
+
+  /// Get existing post with downloaded media files
+  Future<PostModel?> getPostWithMedia(String postId) async {
+    try {
+      final doc = await _db.collection(FirebaseCollectionNames.posts).doc(postId).get();
+      if (doc.exists) {
+        final post = PostModel.fromSnapshot(doc);
+
+        // Download media files if any
+        if (post.mediaUrls.isNotEmpty) {
+          // Note: We'll handle the downloaded files separately
+          // since we can't store them in the PostModel
+          return post;
+        }
+        return post;
+      }
+      return null;
+    } catch (e) {
+      return null;
     }
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -23,6 +24,10 @@ class PostController extends GetxController {
   final hasMorePosts = true.obs;
   DocumentSnapshot? lastPostDoc;
 
+  final hasNewPosts = false.obs;
+  final newPostsCount = 0.obs;
+  Timer? _refreshTimer;
+
   // Filtering
   final selectedPostType = 'all'.obs;
   final postTypeFilters = [
@@ -46,10 +51,73 @@ class PostController extends GetxController {
     _setupScrollListener();
     fetchPosts();
     _loadPostCounts();
+    _startAutoRefresh();
+  }
+
+  void _startAutoRefresh() {
+    print('🔄 Starting periodic post check...');
+
+    // 取消现有的 timer
+    _refreshTimer?.cancel();
+
+    // 创建新的 timer
+    _refreshTimer = Timer.periodic(
+      Duration(seconds: 30),
+          (timer) {
+        _checkForNewPosts();
+      },
+    );
+
+    // 立即执行一次检查
+    _checkForNewPosts();
+  }
+
+  Future<void> _checkForNewPosts() async {
+    print('🔍 Checking for new posts...');
+
+    if (posts.isEmpty) {
+      print('❌ No posts to check against');
+      return;
+    }
+
+    try {
+      // 获取当前最新的帖子ID
+      final currentLatestId = posts.first.postId;
+      print('📝 Current latest post ID: $currentLatestId');
+
+      // 查询是否有新帖子
+      final count = await postRepo.getNewPostsCount(currentLatestId);
+      print('📊 New posts count: $count');
+
+      if (count > 0) {
+        newPostsCount.value = count;
+        hasNewPosts.value = true;
+        print('✅ Found $count new posts');
+      } else {
+        print('ℹ️ No new posts');
+      }
+    } catch (e) {
+      print('❌ Error checking for new posts: $e');
+    }
+  }
+
+  // 加载新帖子
+  Future<void> loadNewPosts() async {
+    hasNewPosts.value = false;
+    newPostsCount.value = 0;
+    await fetchPosts(refresh: true);
+  }
+
+  // 关闭新帖子横幅
+  void dismissNewPostsBanner() {
+    hasNewPosts.value = false;
+    newPostsCount.value = 0;
   }
 
   @override
   void onClose() {
+    print('🛑 Stopping auto refresh timer');
+    _refreshTimer?.cancel();
     scrollController.dispose();
     postContent.dispose();
     super.onClose();
@@ -202,38 +270,6 @@ class PostController extends GetxController {
     }
   }
 
-  /// Delete post with additional checks (for own posts)
-  Future<void> deleteOwnPost(String postId) async {
-    try {
-      // Verify the post belongs to current user
-      final post = getPostById(postId);
-      final currentUserId = ''; // Get current user ID from your auth service
-
-      if (post == null) {
-        TLoaders.errorSnackBar(
-          title: TTexts.error,
-          message: 'Post not found',
-        );
-        return;
-      }
-
-      // if (post.posterId != currentUserId) {
-      //   TLoaders.errorSnackBar(
-      //     title: 'Permission Denied',
-      //     message: 'You can only delete your own posts',
-      //   );
-      //   return;
-      // }
-
-      await deletePost(postId);
-    } catch (e) {
-      TLoaders.errorSnackBar(
-        title: TTexts.error,
-        message: 'Failed to delete post',
-      );
-    }
-  }
-
   /// Get post by ID
   PostModel? getPostById(String postId) {
     try {
@@ -260,7 +296,17 @@ class PostController extends GetxController {
 
   /// Refresh posts (pull to refresh)
   Future<void> refreshPosts() async {
+    // 重置新帖子状态
+    hasNewPosts.value = false;
+    newPostsCount.value = 0;
+
+    // 重置错误状态
+    postsError.value = '';
+
+    // 刷新帖子
     await fetchPosts(refresh: true);
+
+    // 重新加载统计
     _loadPostCounts();
   }
 }

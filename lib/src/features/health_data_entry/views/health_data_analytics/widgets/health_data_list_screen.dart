@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import 'package:icons_plus/icons_plus.dart';
 
-import '../../../../../common/widgets/dialogs/common_confirmation_dialog.dart';
+import '../../../../../common/widgets/dialogs/dialog.dart';
 import '../../../../../utils/constants/colors.dart';
 import '../../../../../utils/constants/enums.dart';
 import '../../../../../utils/constants/sizes.dart';
@@ -295,14 +294,10 @@ class HealthDataListScreen extends StatelessWidget {
 
   /// Show Delete Confirmation Dialog
   void _showDeleteDialog(BuildContext context, HealthDataModel data) {
-    ConfirmationDialog.show(
+    TDialog.deleteDialog(
       title: 'Delete Record',
       message:
       'Are you sure you want to delete this health record? This action cannot be undone.',
-      confirmButtonText: 'Delete',
-      customIcon: Iconsax.trash_bold,
-      iconColor: TColors.error,
-      confirmButtonColor: TColors.error,
       onConfirm: () => _deleteHealthRecord(data.logId),
     );
   }
@@ -365,7 +360,17 @@ class HealthDataListScreen extends StatelessWidget {
         return TColors.weightNormal;
 
       case HealthDataType.physicalActivity:
-        return TColors.success; // Default color for exercise
+        final intensity = data.physicalActivity.intensityLevel;
+        switch (intensity) {
+          case IntensityLevel.low:
+            return TColors.exerciseLowIntensity;
+          case IntensityLevel.moderate:
+            return TColors.exerciseModerateIntensity;
+          case IntensityLevel.high:
+            return TColors.exerciseHighIntensity;
+          default:
+            return TColors.exerciseDefault;
+        }
     }
   }
 
@@ -379,7 +384,7 @@ class HealthDataListScreen extends StatelessWidget {
       case HealthDataType.bodyComposition:
         return Icons.monitor_weight;
       case HealthDataType.physicalActivity:
-        return Icons.fitness_center;
+        return Icons.directions_run;
     }
   }
 

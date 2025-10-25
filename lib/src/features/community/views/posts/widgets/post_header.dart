@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../../../common/loaders/circular_loader.dart';
-import '../../../../../common/widgets/dialogs/common_confirmation_dialog.dart';
+import '../../../../../common/widgets/dialogs/dialog.dart';
 import '../../../../../common/widgets/images/t_circular_image.dart';
 import '../../../../../utils/constants/colors.dart';
 import '../../../../../utils/constants/image_strings.dart';
@@ -12,6 +12,7 @@ import '../../../../../utils/helpers/helper_functions.dart';
 import '../../../../authentication/models/user_model.dart';
 import '../../../../personalization/controllers/user_controller.dart';
 import '../../../controllers/post_controller.dart';
+import '../../../controllers/post_share_utils.dart';
 import '../../../models/post_model.dart';
 import '../../create_post/create_post_screen.dart';
 
@@ -64,6 +65,7 @@ class PostHeader extends StatelessWidget {
           height: 48,
           padding: 0,
           backgroundColor: isDark ? TColors.darkGrey : TColors.lightGrey,
+          isNetworkImage: user.profileImg.isNotEmpty,
         ),
         const SizedBox(width: TSizes.md),
         Expanded(
@@ -131,8 +133,20 @@ class PostHeader extends StatelessWidget {
             ],
           ),
         ),
+        if (isOwnPost) ...[
+          IconButton(
+            onPressed: () => _editPost(),
+            icon: Icon(
+              Icons.edit_outlined,
+              color: isDark ? TColors.darkGrey : TColors.textSecondary,
+              size: 20,
+            ),
+            tooltip: 'Edit Post',
+          ),
+          const SizedBox(width: TSizes.xs),
+        ],
         IconButton(
-          onPressed: () => _showPostOptions(context, isOwnPost, postController),
+          onPressed: () => _showPostOptions(context, isOwnPost, postController, isDark),
           icon: Icon(
             Icons.more_vert,
             color: isDark ? TColors.darkGrey : TColors.textSecondary,
@@ -200,8 +214,20 @@ class PostHeader extends StatelessWidget {
             ],
           ),
         ),
+        if (isOwnPost) ...[
+          IconButton(
+            onPressed: () => _editPost(),
+            icon: Icon(
+              Icons.edit_outlined,
+              color: isDark ? TColors.darkGrey : TColors.textSecondary,
+              size: 20,
+            ),
+            tooltip: 'Edit Post',
+          ),
+          const SizedBox(width: TSizes.xs),
+        ],
         IconButton(
-          onPressed: () => _showPostOptions(context, isOwnPost, postController),
+          onPressed: () => _showPostOptions(context, isOwnPost, postController, isDark),
           icon: Icon(
             Icons.more_vert,
             color: isDark ? TColors.darkGrey : TColors.textSecondary,
@@ -211,7 +237,7 @@ class PostHeader extends StatelessWidget {
     );
   }
 
-  void _showPostOptions(BuildContext context, bool isOwnPost, PostController postController) {
+  void _showPostOptions(BuildContext context, bool isOwnPost, PostController postController, bool isDark) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -257,18 +283,11 @@ class PostHeader extends StatelessWidget {
                   _deletePost(postController);
                 },
               ),
-              const Divider(height: 1),
+              Divider(
+                height: 1,
+                color: isDark ? TColors.darkGrey.withOpacity(0.3) : TColors.grey.withOpacity(0.7),
+              ),
             ],
-            _buildOptionItem(
-              context,
-              icon: Icons.report,
-              title: 'Report Post',
-              color: TColors.warning,
-              onTap: () {
-                Get.back();
-                _reportPost();
-              },
-            ),
             _buildOptionItem(
               context,
               icon: Icons.share,
@@ -281,12 +300,22 @@ class PostHeader extends StatelessWidget {
             ),
             _buildOptionItem(
               context,
-              icon: Icons.copy,
+              icon: Icons.link,
               title: 'Copy Post Link',
               color: TColors.success,
               onTap: () {
                 Get.back();
                 _copyPostLink();
+              },
+            ),
+            _buildOptionItem(
+              context,
+              icon: Icons.report,
+              title: 'Report Post',
+              color: TColors.warning,
+              onTap: () {
+                Get.back();
+                _reportPost();
               },
             ),
             const SizedBox(height: TSizes.md),
@@ -324,11 +353,20 @@ class PostHeader extends StatelessWidget {
   }
 
   void _editPost() {
-    Get.to(() => CreatePostScreen(isEditing: true, postToEdit: post,));
+    Get.to(() => CreatePostScreen(
+      isEditing: true,
+      postToEdit: post,
+    ));
   }
 
   void _deletePost(PostController postController) {
-    CommonConfirmationDialog(title: 'Delete Post', message: 'Are you sure you want to delete this post? This action cannot be undone.', confirmButtonText: 'Delete', onConfirm: () => postController.deleteOwnPost(post.postId),);
+    TDialog.deleteDialog(
+      title: 'Delete Post',
+      message: 'Are you sure you want to delete this post? This action cannot be undone.',
+      onConfirm: () {
+        postController.deletePost(post.postId);
+      },
+    );
   }
 
   void _reportPost() {
@@ -341,20 +379,10 @@ class PostHeader extends StatelessWidget {
   }
 
   void _sharePost() {
-    // TODO: 实现分享帖子功能
-    Get.snackbar(
-      'Share Post',
-      'Share functionality for post: ${post.postId}',
-      snackPosition: SnackPosition.BOTTOM,
-    );
+    PostShareUtils.sharePost(post);
   }
 
   void _copyPostLink() {
-    // TODO: 实现复制帖子链接功能
-    Get.snackbar(
-      'Link Copied',
-      'Post link copied to clipboard',
-      snackPosition: SnackPosition.BOTTOM,
-    );
+    PostShareUtils.copyPostLink(post.postId);
   }
 }

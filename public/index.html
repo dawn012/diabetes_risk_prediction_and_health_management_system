@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Diatrack - Diabetes Management Community</title>
+
+  <style>
+    body {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .container {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        max-width: 400px;
+        margin: 20px;
+        padding: 40px 30px;
+        text-align: center;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .logo {
+        font-size: 48px;
+        margin-bottom: 20px;
+    }
+
+    h1 {
+        font-size: 28px;
+        font-weight: 600;
+        margin: 0 0 10px;
+        background: linear-gradient(45deg, #fff, #f0f0f0);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .subtitle {
+        font-size: 16px;
+        opacity: 0.8;
+        margin-bottom: 30px;
+    }
+
+    .post-info {
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 15px;
+        padding: 20px;
+        margin: 20px 0;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .post-id {
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 10px;
+        color: #FFD700;
+    }
+
+    .button {
+        display: inline-block;
+        background: linear-gradient(45deg, #4CAF50, #45a049);
+        color: white;
+        padding: 15px 30px;
+        border-radius: 25px;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 16px;
+        margin: 10px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .button.secondary {
+        background: linear-gradient(45deg, #2196F3, #1976D2);
+    }
+
+    .status {
+        margin-top: 20px;
+        padding: 15px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.1);
+        font-size: 14px;
+    }
+
+    .loading {
+        color: #FFD700;
+    }
+
+    .success {
+        color: #4CAF50;
+    }
+
+    .error {
+        color: #f44336;
+    }
+
+    .spinner {
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top: 2px solid #FFD700;
+        width: 20px;
+        height: 20px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 10px;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .footer {
+        margin-top: 30px;
+        font-size: 12px;
+        opacity: 0.6;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="logo">💬</div>
+  <h1>Diatrack Community</h1>
+  <div class="subtitle">Diabetes Support & Discussion</div>
+
+  <div id="post-section" style="display: none;">
+    <div class="post-info">
+      <div>Community Post</div>
+      <div class="post-id" id="post-id"></div>
+    </div>
+  </div>
+
+  <div id="buttons">
+    <a href="#" id="open-app-btn" class="button" style="display: none;">Open in Diatrack App</a>
+    <a href="#" id="try-again-btn" class="button secondary" style="display: none;">Try Again</a>
+  </div>
+
+  <div class="status" id="status">
+    <div class="spinner"></div>
+    <div class="loading">Opening Diatrack App...</div>
+  </div>
+
+  <div class="footer">
+    Please install the Diatrack mobile app to view this community post
+  </div>
+</div>
+
+<script>
+  class DiatrackDeepLinkHandler {
+      constructor() {
+          this.postId = null;
+          this.hasTriedApp = false;
+          this.init();
+      }
+
+      init() {
+          this.extractPostId();
+          this.setupEventListeners();
+          this.attemptAppLaunch();
+      }
+
+      extractPostId() {
+          const path = window.location.pathname;
+          // 支持两种URL格式：
+          // /community/post/{postId}
+          // /post/{postId}
+          const match = path.match(/\/(?:community\/)?post\/([^\/]+)/);
+          if (match && match[1]) {
+              this.postId = match[1];
+              document.getElementById('post-id').textContent = this.postId;
+              document.getElementById('post-section').style.display = 'block';
+          }
+      }
+
+      setupEventListeners() {
+          document.getElementById('open-app-btn').addEventListener('click', (e) => {
+              e.preventDefault();
+              this.openApp();
+          });
+
+          document.getElementById('try-again-btn').addEventListener('click', (e) => {
+              e.preventDefault();
+              this.attemptAppLaunch();
+          });
+
+          // 监听页面可见性变化
+          document.addEventListener('visibilitychange', () => {
+              if (document.hidden && this.hasTriedApp) {
+                  // 用户切换到了应用，认为成功
+                  this.showSuccess();
+              }
+          });
+      }
+
+      attemptAppLaunch() {
+          if (!this.postId) {
+              this.showError('No post ID found in URL');
+              return;
+          }
+
+          this.showLoading('Opening Diatrack App...');
+          this.hasTriedApp = true;
+
+          // 尝试两种 scheme
+          const deepLinkUrls = [
+            `diatrack://community/post/${this.postId}`,
+            `https://diabetes-health-system.web.app/community/post/${this.postId}`
+          ];
+
+          // 先尝试自定义 scheme
+          this.openDeepLink(deepLinkUrls[0]);
+
+          // 3秒后检查是否还在页面
+          setTimeout(() => {
+              if (!document.hidden) {
+                  this.showFallback();
+              }
+          }, 3000);
+      }
+
+      openApp() {
+          if (this.postId) {
+              const deepLinkUrl = `diatrack://community/post/${this.postId}`;
+              this.openDeepLink(deepLinkUrl);
+          }
+      }
+
+      openDeepLink(url) {
+          // 方法1: 直接跳转
+          window.location.href = url;
+
+          // 方法2: 创建隐藏的 iframe (backup)
+          setTimeout(() => {
+              const iframe = document.createElement('iframe');
+              iframe.style.display = 'none';
+              iframe.src = url;
+              document.body.appendChild(iframe);
+              setTimeout(() => {
+                  document.body.removeChild(iframe);
+              }, 1000);
+          }, 500);
+      }
+
+      showLoading(message) {
+          const status = document.getElementById('status');
+          status.innerHTML = `
+              <div class="spinner"></div>
+              <div class="loading">${message}</div>
+          `;
+          this.hideButtons();
+      }
+
+      showSuccess() {
+          const status = document.getElementById('status');
+          status.innerHTML = `<div class="success">✓ Successfully opened in Diatrack App!</div>`;
+          this.hideButtons();
+      }
+
+      showError(message) {
+          const status = document.getElementById('status');
+          status.innerHTML = `<div class="error">✗ ${message}</div>`;
+          this.showButtons();
+      }
+
+      showFallback() {
+          const status = document.getElementById('status');
+          status.innerHTML = `
+              <div class="error">
+                  ⚠️ Diatrack App not found or failed to open<br>
+                  <small>Please make sure the Diatrack app is installed on your device</small>
+              </div>
+          `;
+          this.showButtons();
+      }
+
+      hideButtons() {
+          document.getElementById('open-app-btn').style.display = 'none';
+          document.getElementById('try-again-btn').style.display = 'none';
+      }
+
+      showButtons() {
+          if (this.postId) {
+              document.getElementById('open-app-btn').style.display = 'inline-block';
+          }
+          document.getElementById('try-again-btn').style.display = 'inline-block';
+      }
+  }
+
+  // 页面加载完成后初始化
+  document.addEventListener('DOMContentLoaded', () => {
+      new DiatrackDeepLinkHandler();
+  });
+
+  // 处理页面焦点变化
+  let startTime = Date.now();
+
+  window.addEventListener('blur', () => {
+      startTime = Date.now();
+  });
+
+  window.addEventListener('focus', () => {
+      const timeElapsed = Date.now() - startTime;
+      // 如果离开时间很短，可能是应用打开又切回来了
+      if (timeElapsed < 2000) {
+          document.getElementById('status').innerHTML =
+              `<div class="success">✓ Welcome back! App launch detected.</div>`;
+      }
+  });
+</script>
+</body>
+</html>

@@ -7,7 +7,6 @@ import '../../../data/repositories/user/user_repository.dart';
 import '../../../utils/constants/text_strings.dart';
 import '../../../utils/helpers/network_manager.dart';
 import '../../../utils/validators/user_profile_validator.dart';
-import '../../health_data_entry/controllers/exercise_controller.dart';
 import '../../personalization/models/user_profile_model.dart';
 import 'user_controller.dart';
 
@@ -21,7 +20,6 @@ class UpdateProfileController extends GetxController {
   final basicProfileFormKey = GlobalKey<FormState>();
   final healthProfileFormKey = GlobalKey<FormState>();
   final passwordFormKey = GlobalKey<FormState>();
-  final goalsFormKey = GlobalKey<FormState>();
 
   /// Basic Profile Controllers
   final username = TextEditingController();
@@ -423,45 +421,43 @@ class UpdateProfileController extends GetxController {
     hideConfirmPassword.value = true;
   }
 
-  Future<void> updateGoals() async {
+  /// Update single goal (called from dialog)
+  Future<void> updateSingleGoal(String goalType, int value) async {
     try {
       // Check Internet
       final isConnected = await NetworkManager.instance.isConnected();
       if (!isConnected) {
-        return;
-      }
-
-      // Form Validation
-      if (!goalsFormKey.currentState!.validate()) {
-        return;
-      }
-
-      // Start Loading
-      isGoalsLoading.value = true;
-
-      // Parse values
-      final newDailySteps = int.tryParse(dailyStepsGoal.text.trim()) ?? 7500;
-      final newWeeklyExercise = int.tryParse(weeklyExerciseTime.text.trim()) ?? 150;
-
-      // Check if there are any changes
-      final currentProfile = userController.user.value.profile;
-
-      if (currentProfile.dailyStepsGoal == newDailySteps &&
-          currentProfile.weeklyExerciseTime == newWeeklyExercise) {
-        isGoalsLoading.value = false;
-        TLoaders.warningSnackBar(
-          title: 'No Changes',
-          message: 'No changes were made to your goals.',
+        TLoaders.errorSnackBar(
+          title: 'No Internet',
+          message: 'Please check your internet connection and try again.',
         );
         return;
       }
 
-      // Update profile fields
-      final updatedProfile = currentProfile.copyWith(
-        dailyStepsGoal: newDailySteps,
-        weeklyExerciseTime: newWeeklyExercise,
-        updatedAt: DateTime.now(),
-      );
+      // Get current profile
+      final currentProfile = userController.user.value.profile;
+
+      // Check if there are changes
+      if (goalType == 'dailyStepsGoal' && currentProfile.dailyStepsGoal == value) {
+        TLoaders.warningSnackBar(
+          title: 'No Changes',
+          message: 'No changes were made to your daily steps goal.',
+        );
+        return;
+      }
+
+      if (goalType == 'weeklyExerciseTime' && currentProfile.weeklyExerciseTime == value) {
+        TLoaders.warningSnackBar(
+          title: 'No Changes',
+          message: 'No changes were made to your weekly exercise goal.',
+        );
+        return;
+      }
+
+      // Update profile field
+      final updatedProfile = goalType == 'dailyStepsGoal'
+          ? currentProfile.copyWith(dailyStepsGoal: value, updatedAt: DateTime.now())
+          : currentProfile.copyWith(weeklyExerciseTime: value, updatedAt: DateTime.now());
 
       // Update in Firebase
       await userRepository.updateUserProfile(
@@ -470,32 +466,22 @@ class UpdateProfileController extends GetxController {
       );
 
       // Update local user model
-      userController.user.value.profile = updatedProfile;
-      userController.user.refresh();
-
-      // Update ExerciseController if it exists
-      try {
-        final exerciseController = Get.find<ExerciseController>();
-        exerciseController.updateDailyStepsGoal(newDailySteps);
-        exerciseController.updateWeeklyExerciseGoal(newWeeklyExercise);
-      } catch (e) {
-        // ExerciseController not found, skip
-      }
-
-      // Stop Loading
-      isGoalsLoading.value = false;
+      final updatedUser = userController.user.value.copyWith(profile: updatedProfile);
+      userController.user.value = updatedUser;
 
       // Success Message
       TLoaders.successSnackBar(
         title: 'Success',
-        message: 'Your goals have been updated successfully.',
+        message: goalType == 'dailyStepsGoal'
+            ? 'Daily steps goal updated to $value steps.'
+            : 'Weekly exercise goal updated to $value minutes.',
       );
-
-      // Go back
-      Get.back();
     } catch (e) {
-      isGoalsLoading.value = false;
-      TLoaders.errorSnackBar(title: TTexts.error, message: e.toString());
+      print('Error updating goal: $e');
+      TLoaders.errorSnackBar(
+          title: TTexts.error,
+          message: 'Failed to update goal. Please try again.'
+      );
     }
   }
 

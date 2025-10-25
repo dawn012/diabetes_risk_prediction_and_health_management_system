@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:icons_plus/icons_plus.dart';
 
-import '../../../../common/widgets/dialogs/common_confirmation_dialog.dart';
+import '../../../../common/widgets/dialogs/dialog.dart';
 import '../../../../utils/constants/colors.dart';
 import '../../../../utils/helpers/helper_functions.dart';
 import '../../controllers/reminder_controller.dart';
@@ -134,13 +134,9 @@ class BatchActionBar extends StatelessWidget {
 
   void _showDeleteDialog(BuildContext context, ReminderController controller) {
     final count = controller.selectedReminderIds.length;
-    ConfirmationDialog.show(
+    TDialog.deleteDialog(
       title: 'Delete Reminders',
       message: 'Are you sure you want to delete $count reminder${count > 1 ? 's' : ''}? This action cannot be undone.',
-      confirmButtonText: 'Delete',
-      customIcon: Iconsax.trash_bold,
-      iconColor: TColors.error,
-      confirmButtonColor: TColors.error,
       onConfirm: () {
         controller.batchDeleteReminders();
       },

@@ -97,7 +97,7 @@ class BloodPressureController extends GetxController {
 
     isLoading.value = true;
 
-    final endDate = DateTime.now();
+    final endDate = DateTime.now().add(const Duration(days: 1));
     final startDate = endDate.subtract(const Duration(days: 90));
 
     _healthDataSubscription = _healthLogRepo

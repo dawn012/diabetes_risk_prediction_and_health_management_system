@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:video_player/video_player.dart';
 
-import '../../../../../utils/helpers/helper_functions.dart';
 import '../../../../../utils/helpers/media_helper.dart';
 import '../../../controllers/post_controller.dart';
 import 'video_player_widget.dart';
@@ -25,6 +25,10 @@ class _MediaGalleryViewerState extends State<MediaGalleryViewer> {
   late int _currentIndex;
   final postController = PostController.instance;
 
+  // 视频控制器缓存
+  final Map<int, VideoPlayerController> _videoControllers = {};
+  final Map<int, bool> _videoInitialized = {};
+
   @override
   void initState() {
     super.initState();
@@ -33,11 +37,85 @@ class _MediaGalleryViewerState extends State<MediaGalleryViewer> {
 
     // Hide status bar for immersive experience
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+
+    // 预加载当前和相邻的视频
+    _preloadVideos(_currentIndex);
+  }
+
+  void _preloadVideos(int currentIndex) {
+    // 预加载当前、前一个和后一个视频
+    final indicesToPreload = [
+      currentIndex,
+      if (currentIndex > 0) currentIndex - 1,
+      if (currentIndex < widget.mediaUrls.length - 1) currentIndex + 1,
+    ];
+
+    for (final index in indicesToPreload) {
+      final mediaUrl = widget.mediaUrls[index];
+      if (MediaUtils.getMediaType(mediaUrl) == 'video' &&
+          !_videoControllers.containsKey(index)) {
+        _initializeVideo(index, mediaUrl);
+      }
+    }
+  }
+
+  void _initializeVideo(int index, String videoUrl) {
+    if (_videoControllers.containsKey(index)) return;
+
+    print('🎬 Pre-loading video at index $index');
+
+    final controller = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
+    _videoControllers[index] = controller;
+    _videoInitialized[index] = false;
+
+    controller.initialize().then((_) {
+      if (!mounted) return;
+      setState(() {
+        _videoInitialized[index] = true;
+      });
+      print('✅ Video at index $index initialized');
+
+      // 如果是当前显示的视频，自动播放
+      if (index == _currentIndex) {
+        controller.play();
+      }
+    }).catchError((error) {
+      print('❌ Video at index $index failed to load: $error');
+    });
+  }
+
+  void _onPageChanged(int index) {
+    // 暂停之前的视频
+    final prevController = _videoControllers[_currentIndex];
+    if (prevController != null && prevController.value.isPlaying) {
+      prevController.pause();
+    }
+
+    setState(() {
+      _currentIndex = index;
+    });
+
+    // 播放当前视频
+    final currentController = _videoControllers[index];
+    if (currentController != null && _videoInitialized[index] == true) {
+      currentController.play();
+    }
+
+    // 预加载相邻视频
+    _preloadVideos(index);
   }
 
   @override
   void dispose() {
     _pageController.dispose();
+
+    // 清理所有视频控制器
+    for (final controller in _videoControllers.values) {
+      controller.dispose();
+    }
+    _videoControllers.clear();
+    _videoInitialized.clear();
+
     // Restore status bar
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
@@ -52,11 +130,7 @@ class _MediaGalleryViewerState extends State<MediaGalleryViewer> {
           // Media viewer
           PageView.builder(
             controller: _pageController,
-            onPageChanged: (index) {
-              setState(() {
-                _currentIndex = index;
-              });
-            },
+            onPageChanged: _onPageChanged,
             itemCount: widget.mediaUrls.length,
             itemBuilder: (context, index) {
               final mediaUrl = widget.mediaUrls[index];
@@ -64,11 +138,7 @@ class _MediaGalleryViewerState extends State<MediaGalleryViewer> {
 
               return Center(
                 child: isVideo
-                    ? VideoPlayerWidget(
-                  videoUrl: mediaUrl,
-                  autoPlay: true,
-                  showControls: true,
-                )
+                    ? _buildCachedVideoPlayer(index, mediaUrl)
                     : InteractiveViewer(
                   panEnabled: true,
                   boundaryMargin: const EdgeInsets.all(20),
@@ -150,12 +220,10 @@ class _MediaGalleryViewerState extends State<MediaGalleryViewer> {
                         ),
                       ),
                       IconButton(
-                        onPressed: () {
-                          // TODO: Implement share functionality
-                        },
+                        onPressed: null,
                         icon: const Icon(
                           Icons.share,
-                          color: Colors.white,
+                          color: Colors.transparent,
                         ),
                       ),
                     ],
@@ -208,6 +276,29 @@ class _MediaGalleryViewerState extends State<MediaGalleryViewer> {
             ),
         ],
       ),
+    );
+  }
+
+  Widget _buildCachedVideoPlayer(int index, String videoUrl) {
+    final controller = _videoControllers[index];
+    final isInitialized = _videoInitialized[index] ?? false;
+
+    if (controller == null || !isInitialized) {
+      return Container(
+        color: Colors.black,
+        child: const Center(
+          child: CircularProgressIndicator(
+            color: Colors.white,
+          ),
+        ),
+      );
+    }
+
+    return VideoPlayerWidget(
+      videoUrl: videoUrl,
+      autoPlay: index == _currentIndex,
+      showControls: true,
+      controller: controller, // 传入已初始化的控制器
     );
   }
 }

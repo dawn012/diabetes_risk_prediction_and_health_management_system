@@ -1,8 +1,10 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as path;
 import 'package:video_compress/video_compress.dart';
+import 'package:video_thumbnail/video_thumbnail.dart' as vt;
 
 class VideoHelper {
   VideoHelper._();
@@ -50,8 +52,18 @@ class VideoHelper {
 
   /// Check if file is a video
   static bool isVideoFile(String filePath) {
-    final extension = path.extension(filePath).toLowerCase();
-    return ['.mp4', '.mov', '.avi', '.mkv', '.m4v', '.3gp'].contains(extension);
+    final lowerPath = filePath.toLowerCase();
+
+    // 检查是否包含视频扩展名
+    final isVideo = lowerPath.contains('.mp4') ||
+        lowerPath.contains('.mov') ||
+        lowerPath.contains('.avi') ||
+        lowerPath.contains('.mkv') ||
+        lowerPath.contains('.m4v') ||
+        lowerPath.contains('.3gp') ||
+        lowerPath.contains('.mpeg');
+
+    return isVideo;
   }
 
   /// Check video file size
@@ -80,15 +92,59 @@ class VideoHelper {
     }
   }
 
-  /// Get video thumbnail
-  static Future<File?> getVideoThumbnail(File videoFile) async {
+  /// Get video thumbnail as File
+  static Future<File?> getVideoThumbnailFile(File videoFile) async {
     try {
-      final thumbnail = await VideoCompress.getFileThumbnail(videoFile.path);
-      return thumbnail;
+      final tempDir = await _getTemporaryDirectory();
+
+      // 使用 video_thumbnail 包生成缩略图
+      final thumbnailPath = await vt.VideoThumbnail.thumbnailFile(
+        video: videoFile.path,
+        thumbnailPath: tempDir,
+        imageFormat: vt.ImageFormat.JPEG,
+        maxWidth: 300, // 设置最大宽度
+        quality: 75,
+      );
+
+      if (thumbnailPath != null) {
+        final thumbnailFile = File(thumbnailPath);
+        if (thumbnailFile.existsSync()) {
+          return thumbnailFile;
+        }
+      }
+
+      print('Thumbnail generation failed');
+      return null;
     } catch (e) {
       print('Error getting video thumbnail: $e');
       return null;
     }
+  }
+
+  /// Get video thumbnail as Uint8List (用于网络显示)
+  static Future<Uint8List?> getVideoThumbnailBytes(String videoPath) async {
+    try {
+      final uint8list = await vt.VideoThumbnail.thumbnailData(
+        video: videoPath,
+        imageFormat: vt.ImageFormat.JPEG,
+        maxWidth: 300,
+        quality: 50,
+      );
+      return uint8list;
+    } catch (e) {
+      print('Error getting video thumbnail bytes: $e');
+      return null;
+    }
+  }
+
+  /// Get temporary directory for thumbnails
+  static Future<String> _getTemporaryDirectory() async {
+    final tempDir = Directory.systemTemp;
+    final thumbDir = Directory('${tempDir.path}/video_thumbnails');
+    if (!thumbDir.existsSync()) {
+      thumbDir.createSync(recursive: true);
+    }
+    return thumbDir.path;
   }
 
   /// Get video duration

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:pedometer/pedometer.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -13,10 +14,15 @@ class StepTrackingService extends GetxController {
   static StepTrackingService get instance => Get.find();
 
   final _authRepo = AuthenticationRepository.instance;
-  final _healthLogRepo = HealthLogRepository.instance;
+  final _healthLogRepo = Get.put(HealthLogRepository());
+  final _storage = GetStorage();
+
+  // Storage key
+  static const String _isConnectedKey = 'step_tracking_connected';
 
   // Observables
   final isTracking = false.obs;
+  final isConnected = false.obs;
   final currentSteps = 0.obs;
   final todaySteps = 0.obs;
 
@@ -29,8 +35,8 @@ class StepTrackingService extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    _loadConnectionStatus();
     _loadTodaySteps();
-    _checkAndStartTracking(); // 自动检查并启动追踪
   }
 
   @override
@@ -39,17 +45,33 @@ class StepTrackingService extends GetxController {
     super.onClose();
   }
 
-  /// 检查是否应该启动追踪（如果之前已连接）
+  /// Load connection status from storage
+  void _loadConnectionStatus() {
+    isConnected.value = _storage.read(_isConnectedKey) ?? false;
+
+    // If connected, start tracking automatically
+    if (isConnected.value) {
+      _checkAndStartTracking();
+    }
+  }
+
+  /// Save connection status to storage
+  void _saveConnectionStatus(bool connected) {
+    _storage.write(_isConnectedKey, connected);
+    isConnected.value = connected;
+
+    // 强制触发更新
+    update();
+
+    print('Step tracking connection status saved: $connected');
+  }
+
+  /// Check and start tracking if permission is granted
   Future<void> _checkAndStartTracking() async {
     try {
-      final userId = _authRepo.authUser?.uid;
-      if (userId == null) return;
-
-      // 检查权限状态
       final status = await Permission.activityRecognition.status;
       if (status.isGranted) {
-        // 如果权限已授予，自动启动追踪
-        await startTracking();
+        await startTracking(silent: true);
       }
     } catch (e) {
       print('Error checking tracking status: $e');
@@ -83,18 +105,24 @@ class StepTrackingService extends GetxController {
   }
 
   /// Start tracking steps
-  Future<void> startTracking() async {
-    if (isTracking.value) return;
+  Future<void> startTracking({bool silent = false}) async {
+    if (isTracking.value) {
+      // 如果已经在追踪，只需要更新连接状态
+      _saveConnectionStatus(true);
+      return;
+    }
 
     try {
       // Request permission
       final status = await Permission.activityRecognition.request();
 
       if (status.isDenied || status.isPermanentlyDenied) {
-        TLoaders.errorSnackBar(
-          title: 'Permission Required',
-          message: 'Please enable activity recognition permission to track steps.',
-        );
+        if (!silent) {
+          TLoaders.errorSnackBar(
+            title: 'Permission Required',
+            message: 'Please enable activity recognition permission to track steps.',
+          );
+        }
         return;
       }
 
@@ -110,16 +138,21 @@ class StepTrackingService extends GetxController {
       );
 
       isTracking.value = true;
+      _saveConnectionStatus(true);
 
-      TLoaders.successSnackBar(
-        title: 'Tracking Started',
-        message: 'Step tracking is now active.',
-      );
+      if (!silent) {
+        TLoaders.successSnackBar(
+          title: 'Tracking Started',
+          message: 'Step tracking is now active.',
+        );
+      }
     } catch (e) {
-      TLoaders.errorSnackBar(
-        title: 'Error',
-        message: 'Failed to start step tracking: ${e.toString()}',
-      );
+      if (!silent) {
+        TLoaders.errorSnackBar(
+          title: 'Error',
+          message: 'Failed to start step tracking: ${e.toString()}',
+        );
+      }
     }
   }
 
@@ -130,6 +163,10 @@ class StepTrackingService extends GetxController {
     _stepCountSubscription = null;
     _pedestrianStatusSubscription = null;
     isTracking.value = false;
+    _saveConnectionStatus(false);
+
+    // 立即通知所有监听者状态已改变
+    update();
   }
 
   /// Handle step count updates
@@ -168,7 +205,6 @@ class StepTrackingService extends GetxController {
 
   /// Handle pedestrian status changes
   void _onPedestrianStatusChanged(PedestrianStatus event) {
-    // Optional: You can use this to show walking/stopped status
     print('Pedestrian Status: ${event.status}');
   }
 

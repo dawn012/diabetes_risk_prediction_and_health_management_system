@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:diabetes_risk_prediction_and_health_management_system/src/features/personalization/controllers/user_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -13,6 +14,7 @@ import '../views/health_data_analytics/widgets/activity_bar_chart.dart';
 
 class ExerciseController extends GetxController with GetTickerProviderStateMixin {
   late TabController tabController;
+  final UserController _userController = UserController.instance;
 
   // Repositories
   final _healthLogRepo = HealthLogRepository.instance;
@@ -28,7 +30,7 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
   final selectedTimeRange = 'This Week'.obs;
   final selectedPeriodFilter = 'All'.obs;
   final selectedTrendFilter = 'All'.obs;
-  final isConnected = true.obs;
+  RxBool get isConnected => _stepTrackingService.isConnected;
   final isLoading = false.obs;
 
   // Exercise data
@@ -46,9 +48,13 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
   final weeklyExerciseMinutes = 0.obs;
   final todaySteps = 0.obs;
 
-  // Goals
-  final dailyStepsGoal = 7500.obs;
-  final weeklyExerciseGoal = 150.obs;
+  int get dailyStepsGoal => _userController.user.value.profile.dailyStepsGoal > 0
+      ? _userController.user.value.profile.dailyStepsGoal
+      : 7500;
+
+  int get weeklyExerciseGoal => _userController.user.value.profile.weeklyExerciseTime > 0
+      ? _userController.user.value.profile.weeklyExerciseTime
+      : 150;
 
   // Chart data
   final exerciseChartData = <ChartBarData>[].obs;
@@ -57,7 +63,7 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
 
   // Keep track of the time ranges for each tab
   String weekTimeRange = 'This Week';
-  String monthTimeRange = 'Sep 2025';
+  String monthTimeRange = 'Oct 2025';
 
   // Data from Firestore
   final healthDataList = <HealthDataModel>[].obs;
@@ -70,6 +76,28 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
 
     tabController.addListener(() {
       _updateForTabChange();
+    });
+
+    // 监听 UserController 的用户数据变化
+    ever(_userController.user, (user) {
+      print('User data updated in ExerciseController');
+      // 当用户数据更新时，重新计算进度
+      _updateExerciseProgress();
+      update(); // 通知 UI 更新
+    });
+
+    // Listen to step tracking service
+    ever(_stepTrackingService.isConnected, (connected) {
+      print('Connection status changed in ExerciseController: $connected');
+      if (connected) {
+        _updateStepsChartData();
+      }
+    });
+
+    // Listen to step tracking service
+    _stepTrackingService.todaySteps.listen((steps) {
+      todaySteps.value = steps;
+      _updateStepsChartData();
     });
   }
 
@@ -87,7 +115,7 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
 
     isLoading.value = true;
 
-    final endDate = DateTime.now();
+    final endDate = DateTime.now().add(const Duration(days: 1));
     final startDate = endDate.subtract(const Duration(days: 90));
 
     _healthDataSubscription = _healthLogRepo
@@ -96,9 +124,7 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
           (filteredLogs) {
         healthDataList.value = filteredLogs;
 
-        _updateDashboardData();
-        _initializeChartData();
-        _updateExerciseSummary();
+        refreshData();
 
         isLoading.value = false;
       },
@@ -133,14 +159,17 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
     }
     weeklyExerciseMinutes.value = weeklyMinutes;
 
-    // Note: Steps data would come from a fitness tracking API
-    // For now, we keep it as mock data or set to 0
     todaySteps.value = 0;
   }
 
   void _initializeChartData() {
-    _generateExerciseWeekData();
-    _generateStepsWeekData();
+    if (tabController.index == 0) {
+      _generateExerciseDataForRange(selectedTimeRange.value);
+      _generateStepsDataForRange(selectedTimeRange.value);
+    } else {
+      _generateExerciseMonthData(selectedTimeRange.value);
+      _generateStepsMonthData(selectedTimeRange.value);
+    }
   }
 
   void _updateForTabChange() {
@@ -153,22 +182,23 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
     }
   }
 
-  /// Generate exercise week data from Firestore
-  void _generateExerciseWeekData() {
-    final range = selectedTimeRange.value;
-    final now = DateTime.now();
-    DateTime startDate;
-
-    if (range == 'This Week') {
-      startDate = now.subtract(Duration(days: now.weekday));
-    } else if (range == 'Last Week') {
-      startDate = now.subtract(Duration(days: now.weekday + 7));
+  void _updateDataForTimeRange(String range) {
+    if (tabController.index == 0) {
+      // Week view
+      _generateExerciseDataForRange(range);
+      _generateStepsDataForRange(range);
     } else {
-      _generateEmptyData();
-      return;
+      // Month view
+      _generateExerciseMonthData(range);
+      _generateStepsMonthData(range);
     }
+  }
 
+  /// 根据任意时间范围生成运动数据（Week视图）
+  void _generateExerciseDataForRange(String range) {
+    final DateTime startDate = _parseWeekRange(range);
     final chartData = <ChartBarData>[];
+
     for (int i = 0; i < 7; i++) {
       final currentDate = startDate.add(Duration(days: i));
       final dayData = _getExerciseDataForDate(currentDate);
@@ -182,6 +212,212 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
 
     exerciseChartData.value = chartData;
     _updateExerciseSummary();
+  }
+
+  /// 根据任意时间范围生成步数数据（Week视图）
+  Future<void> _generateStepsDataForRange(String range) async {
+    final userId = _authRepo.authUser?.uid;
+    if (userId == null) return;
+
+    final DateTime startDate = _parseWeekRange(range);
+    final chartData = <ChartBarData>[];
+    final rawData = <double>[];
+
+    for (int i = 0; i < 7; i++) {
+      final currentDate = startDate.add(Duration(days: i));
+      final dayStart = DateTime(currentDate.year, currentDate.month, currentDate.day);
+      final dayEnd = dayStart.add(const Duration(days: 1));
+
+      final logs = await _healthLogRepo.findLogsInTimeRange(
+        userId: userId,
+        startTime: dayStart,
+        endTime: dayEnd,
+        physiologicalTimePeriod: PhysiologicalTimePeriod.wakeUp,
+      );
+
+      double steps = logs.isNotEmpty && logs.first.steps != null
+          ? logs.first.steps!.toDouble()
+          : 0;
+
+      chartData.add(ChartBarData(
+        label: _getWeekDayLabel(i),
+        value: steps,
+      ));
+
+      rawData.add(steps);
+    }
+
+    stepsChartData.value = chartData;
+    rawStepsData.value = rawData;
+    hasStepsData.value = rawData.any((step) => step > 0);
+
+    if (hasStepsData.value) {
+      final total = rawData.reduce((a, b) => a + b);
+      averageSteps.value = (total / 7).round();
+    } else {
+      averageSteps.value = 0;
+    }
+  }
+
+  /// 解析 Week 时间范围字符串，返回该周的开始日期
+  DateTime _parseWeekRange(String range) {
+    final now = DateTime.now();
+
+    if (range == 'This Week') {
+      return now.subtract(Duration(days: now.weekday % 7));
+    } else if (range == 'Last Week') {
+      return now.subtract(Duration(days: now.weekday % 7 + 7));
+    } else {
+      // 解析 "9/15 - 9/21" 格式
+      try {
+        final parts = range.split(' - ');
+        if (parts.length == 2) {
+          final startParts = parts[0].split('/');
+          if (startParts.length == 2) {
+            final month = int.parse(startParts[0]);
+            final day = int.parse(startParts[1]);
+
+            // 确定年份（如果是未来月份，则是去年）
+            int year = now.year;
+            if (month > now.month) {
+              year = now.year - 1;
+            }
+
+            return DateTime(year, month, day);
+          }
+        }
+      } catch (e) {
+        print('Error parsing week range: $e');
+      }
+
+      // 默认返回本周
+      return now.subtract(Duration(days: now.weekday % 7));
+    }
+  }
+
+  /// 生成月度运动数据（Month视图）
+  void _generateExerciseMonthData(String range) {
+    final DateTime monthStart = _parseMonthRange(range);
+    final chartData = <ChartBarData>[];
+
+    // 生成该月的4周数据
+    for (int weekIndex = 0; weekIndex < 4; weekIndex++) {
+      final weekStart = monthStart.add(Duration(days: weekIndex * 7));
+      final weekEnd = weekStart.add(const Duration(days: 6));
+
+      int weekLowIntensity = 0;
+      int weekModerateIntensity = 0;
+      int weekHighIntensity = 0;
+
+      // 累计这一周的数据
+      for (var data in healthDataList) {
+        if (data.logDateTime.isAfter(weekStart.subtract(const Duration(days: 1))) &&
+            data.logDateTime.isBefore(weekEnd.add(const Duration(days: 1)))) {
+          switch (data.physicalActivity.intensityLevel) {
+            case IntensityLevel.low:
+              weekLowIntensity += data.physicalActivity.duration;
+              break;
+            case IntensityLevel.moderate:
+              weekModerateIntensity += data.physicalActivity.duration;
+              break;
+            case IntensityLevel.high:
+              weekHighIntensity += data.physicalActivity.duration;
+              break;
+          }
+        }
+      }
+
+      final stackData = [
+        StackData(value: weekLowIntensity.toDouble(), color: const Color(0xFF06B6D4)),
+        StackData(value: weekModerateIntensity.toDouble(), color: const Color(0xFFF59E0B)),
+        StackData(value: weekHighIntensity.toDouble(), color: const Color(0xFFEF4444)),
+      ];
+
+      chartData.add(ChartBarData(
+        label: 'Week ${weekIndex + 1}',
+        value: (weekLowIntensity + weekModerateIntensity + weekHighIntensity).toDouble(),
+        stackData: stackData,
+      ));
+    }
+
+    exerciseChartData.value = chartData;
+    _updateExerciseSummary();
+  }
+
+  /// 生成月度步数数据（Month视图）
+  Future<void> _generateStepsMonthData(String range) async {
+    final userId = _authRepo.authUser?.uid;
+    if (userId == null) return;
+
+    final DateTime monthStart = _parseMonthRange(range);
+    final chartData = <ChartBarData>[];
+    final rawData = <double>[];
+
+    for (int weekIndex = 0; weekIndex < 4; weekIndex++) {
+      final weekStart = monthStart.add(Duration(days: weekIndex * 7));
+      final weekEnd = weekStart.add(const Duration(days: 7));
+
+      final logs = await _healthLogRepo.findLogsInTimeRange(
+        userId: userId,
+        startTime: weekStart,
+        endTime: weekEnd,
+        physiologicalTimePeriod: PhysiologicalTimePeriod.wakeUp,
+      );
+
+      double weekSteps = 0;
+      for (var log in logs) {
+        if (log.steps != null) {
+          weekSteps += log.steps!;
+        }
+      }
+
+      chartData.add(ChartBarData(
+        label: 'Week ${weekIndex + 1}',
+        value: weekSteps,
+      ));
+
+      rawData.add(weekSteps);
+    }
+
+    stepsChartData.value = chartData;
+    rawStepsData.value = rawData;
+    hasStepsData.value = rawData.any((step) => step > 0);
+
+    if (hasStepsData.value) {
+      final total = rawData.reduce((a, b) => a + b);
+      averageSteps.value = (total / 4).round(); // 4周平均
+    } else {
+      averageSteps.value = 0;
+    }
+  }
+
+  /// 解析 Month 时间范围字符串，返回该月的第一天
+  DateTime _parseMonthRange(String range) {
+    final now = DateTime.now();
+
+    try {
+      // 解析 "Oct 2025" 格式
+      final parts = range.split(' ');
+      if (parts.length == 2) {
+        final monthMap = {
+          'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4,
+          'May': 5, 'Jun': 6, 'Jul': 7, 'Aug': 8,
+          'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12
+        };
+
+        final month = monthMap[parts[0]];
+        final year = int.parse(parts[1]);
+
+        if (month != null) {
+          return DateTime(year, month, 1);
+        }
+      }
+    } catch (e) {
+      print('Error parsing month range: $e');
+    }
+
+    // 默认返回当前月份
+    return DateTime(now.year, now.month, 1);
   }
 
   /// Get exercise data for a specific date
@@ -249,65 +485,12 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
     _updateExerciseProgress();
   }
 
-  /// Generate steps week data (mock for now - would need fitness API)
-  void _generateStepsWeekData() {
-    // Steps data would come from a fitness tracking API integration
-    // For now, generate empty data
-    stepsChartData.value = List.generate(
-        7, (index) => ChartBarData(label: _getWeekDayLabel(index), value: 0));
-
-    rawStepsData.value = List.filled(7, 0);
-    hasStepsData.value = false;
-    averageSteps.value = 0;
-  }
-
   // 更新步数图表
   void _updateStepsChartData() {
-    // 这里需要从 Firebase 加载最近7天的步数数据
-    // 然后更新 stepsChartData 和 rawStepsData
-    _loadWeekStepsData();
-  }
-
-  // 加载一周步数数据的方法
-  Future<void> _loadWeekStepsData() async {
-    final userId = _authRepo.authUser?.uid;
-    if (userId == null) return;
-
-    final now = DateTime.now();
-    final startDate = now.subtract(Duration(days: now.weekday));
-
-    final chartData = <ChartBarData>[];
-    final rawData = <double>[];
-
-    for (int i = 0; i < 7; i++) {
-      final currentDate = startDate.add(Duration(days: i));
-      final dayStart = DateTime(currentDate.year, currentDate.month, currentDate.day);
-      final dayEnd = dayStart.add(const Duration(days: 1));
-
-      final logs = await _healthLogRepo.findLogsInTimeRange(
-        userId: userId,
-        startTime: dayStart,
-        endTime: dayEnd,
-        physiologicalTimePeriod: PhysiologicalTimePeriod.wakeUp,
-      );
-
-      double steps = logs.isNotEmpty && logs.first.steps != null ? logs.first.steps!.toDouble() : 0;
-
-      chartData.add(ChartBarData(
-        label: _getWeekDayLabel(i),
-        value: steps,
-      ));
-
-      rawData.add(steps);
-    }
-
-    stepsChartData.value = chartData;
-    rawStepsData.value = rawData;
-    hasStepsData.value = rawData.any((step) => step > 0);
-
-    if (hasStepsData.value) {
-      final total = rawData.reduce((a, b) => a + b);
-      averageSteps.value = (total / 7).round();
+    if (tabController.index == 0) {
+      _generateStepsDataForRange(selectedTimeRange.value);
+    } else {
+      _generateStepsMonthData(selectedTimeRange.value);
     }
   }
 
@@ -335,10 +518,20 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
 
   void _updateExerciseProgress() {
     final totalMinutes = totalExerciseMinutes;
-    exerciseProgress.value =
-        (totalMinutes / weeklyExerciseGoal.value).clamp(0.0, 1.0);
-    remainingMinutes.value =
-        (weeklyExerciseGoal.value - totalMinutes).clamp(0, weeklyExerciseGoal.value);
+    final goal = weeklyExerciseGoal;
+
+    // 计算进度
+    exerciseProgress.value = (totalMinutes / goal).clamp(0.0, 1.0);
+
+    // 修复剩余时间计算：如果已经超过目标，剩余时间为0
+    if (totalMinutes >= goal) {
+      remainingMinutes.value = 0;
+    } else {
+      remainingMinutes.value = goal - totalMinutes;
+    }
+
+    print('Progress: $totalMinutes / $goal = ${exerciseProgress.value}');
+    print('Remaining: ${remainingMinutes.value} minutes');
   }
 
   // Public methods
@@ -354,17 +547,6 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
     _updateDataForTimeRange(range);
   }
 
-  void _updateDataForTimeRange(String range) {
-    if (tabController.index == 0) {
-      _generateExerciseWeekData();
-      _generateStepsWeekData();
-    } else {
-      // Month view logic would go here
-      _generateExerciseWeekData();
-      _generateStepsWeekData();
-    }
-  }
-
   void updatePeriodFilter(String period) {
     selectedPeriodFilter.value = period;
   }
@@ -373,23 +555,31 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
     selectedTrendFilter.value = filter;
   }
 
-  void connectApp() {
-    isConnected.value = true;
-    _stepTrackingService.startTracking();
+  void connectApp() async {
+    await _stepTrackingService.startTracking();
   }
 
   void disconnectApp() {
-    isConnected.value = false;
     _stepTrackingService.stopTracking();
   }
 
-  void updateDailyStepsGoal(int newGoal) {
-    dailyStepsGoal.value = newGoal;
-  }
+  Future<void> deleteHealthRecord(String logId) async {
+    try {
+      final userId = _authRepo.authUser?.uid;
+      if (userId == null) return;
 
-  void updateWeeklyExerciseGoal(int newGoal) {
-    weeklyExerciseGoal.value = newGoal;
-    _updateExerciseProgress();
+      await _healthLogRepo.deleteHealthLog(userId, logId);
+
+      TLoaders.successSnackBar(
+        title: 'Success',
+        message: 'Exercise record deleted successfully',
+      );
+    } catch (e) {
+      TLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to delete record: ${e.toString()}',
+      );
+    }
   }
 
   /// Refresh data from Firestore
@@ -397,6 +587,7 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
     _updateDashboardData();
     _initializeChartData();
     _updateExerciseSummary();
+    _updateExerciseProgress();
   }
 
   // Getters
@@ -404,7 +595,12 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
       lowIntensityMinutes.value +
           moderateIntensityMinutes.value +
           highIntensityMinutes.value;
-  double get weeklyGoal => weeklyExerciseGoal.value.toDouble();
+
+  double get weeklyGoal => weeklyExerciseGoal.toDouble();
+
   bool get goalAchieved => totalExerciseMinutes >= weeklyGoal;
-  bool get shouldShowConnectionCard => !isConnected.value;
+
+  bool get shouldShowConnectionCard => !_stepTrackingService.isConnected.value;
+
+  List<HealthDataModel> get allExerciseLogs => healthDataList;
 }

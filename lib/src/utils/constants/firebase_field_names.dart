@@ -78,7 +78,7 @@ class FirebaseFieldNames {
   static const String isDisable = 'isDisable';
 
   ///-- Comments
-  static const String commentId = 'commentIdd';
+  static const String commentId = 'commentId';
   static const String authorId = 'authorId';
   // static const String createdAt = 'createdAt';
   static const String content = 'content';

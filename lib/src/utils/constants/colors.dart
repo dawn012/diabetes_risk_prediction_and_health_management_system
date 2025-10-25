@@ -121,6 +121,7 @@ class TColors {
   static const Color exerciseHighIntensity = Color(0xFFEF4444);      // Red for high intensity
   static const Color exerciseHighIntensityLight = Color(0xFFFCA5A5);
   static const Color exerciseHighIntensityDark = Color(0xFFDC2626);
+  static const Color exerciseDefault = Color(0xFF10B981);
 
   /* -- Steps Colors -- */
   static const Color stepsDefault = Color(0xFF9E9E9E);              // Grey for steps bars

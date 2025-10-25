@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:video_player/video_player.dart';
 
@@ -38,6 +39,8 @@ class MediaPreviewController extends GetxController {
   void onClose() {
     pageController.dispose();
     videoController?.dispose();
+    // 恢复系统UI
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.onClose();
   }
 
@@ -61,12 +64,23 @@ class MediaPreviewController extends GetxController {
 
   void _initializeVideo(PostMediaItem mediaItem) {
     try {
-      videoController = VideoPlayerController.file(mediaItem.file);
+      if (mediaItem.isExisting && mediaItem.existingUrl != null) {
+        // 网络视频
+        videoController = VideoPlayerController.network(mediaItem.existingUrl!);
+      } else if (mediaItem.file != null && mediaItem.file!.existsSync()) {
+        // 本地视频
+        videoController = VideoPlayerController.file(mediaItem.file!);
+      } else {
+        throw Exception('No valid video source');
+      }
+
       videoController!.initialize().then((_) {
         isVideoInitialized.value = true;
         // Auto-hide controls after 3 seconds
         _autoHideControls();
       }).catchError((error) {
+        print('Video initialization error: $error');
+        isVideoInitialized.value = false;
         TLoaders.errorSnackBar(
           title: 'Video Error',
           message: 'Failed to load video',
@@ -80,6 +94,7 @@ class MediaPreviewController extends GetxController {
         }
       });
     } catch (e) {
+      print('Error initializing video: $e');
       TLoaders.errorSnackBar(
         title: 'Error',
         message: 'Failed to initialize video player',
@@ -257,12 +272,13 @@ class MediaPreviewController extends GetxController {
     final media = mediaItems[currentIndex.value];
     final typeText = media.isImage ? 'Image' : 'Video';
     final sizeText = media.formattedFileSize;
+    final sourceText = media.isExisting ? 'Network' : 'Local';
 
     if (media.isVideo && media.duration != null) {
-      return '$typeText • ${media.formattedDuration} • $sizeText';
+      return '$typeText • ${media.formattedDuration} • $sizeText • $sourceText';
     }
 
-    return '$typeText • $sizeText';
+    return '$typeText • $sizeText • $sourceText';
   }
 
   bool get canNavigatePrevious => currentIndex.value > 0;

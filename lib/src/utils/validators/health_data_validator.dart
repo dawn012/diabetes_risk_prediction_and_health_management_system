@@ -51,7 +51,7 @@ class HealthDataValidator {
   /// Validate systolic blood pressure
   static String? validateSystolic(int? value) {
     if (value == null || value <= 0) {
-      return 'Systolic blood pressure is required';
+      return 'Please enter systolic blood pressure';
     }
     if (value < 1 || value > 500) {
       return 'Systolic blood pressure must be between 1 and 500 mmHg';
@@ -62,7 +62,7 @@ class HealthDataValidator {
   /// Validate diastolic blood pressure
   static String? validateDiastolic(int? value) {
     if (value == null || value <= 0) {
-      return 'Diastolic blood pressure is required';
+      return 'Please enter diastolic blood pressure';
     }
     if (value < 1 || value > 500) {
       return 'Diastolic blood pressure must be between 1 and 500 mmHg';
@@ -73,7 +73,7 @@ class HealthDataValidator {
   /// Validate pulse
   static String? validatePulse(int? value) {
     if (value == null || value <= 0) {
-      return 'Pulse is required';
+      return 'Please enter pulse';
     }
     if (value < 1 || value > 500) {
       return 'Pulse must be between 1 and 500 bpm';
@@ -84,7 +84,7 @@ class HealthDataValidator {
   /// Validate blood glucose level
   static String? validateGlucoseLevel(double? value) {
     if (value == null || value <= 0) {
-      return 'Blood glucose level is required';
+      return 'Please enter blood glucose level';
     }
     if (value < 0.0 || value > 50.0) {
       return 'Blood glucose level must be between 0.0 and 50.0 mmol/L';
@@ -115,7 +115,7 @@ class HealthDataValidator {
   /// Validate activity type
   static String? validateActivityType(String? value, int duration) {
     if (duration > 0 && (value == null || value.trim().isEmpty)) {
-      return 'Activity type is required when duration is provided';
+      return 'Please enter activity type when duration is provided';
     }
     return null;
   }
@@ -123,7 +123,7 @@ class HealthDataValidator {
   /// Validate activity duration
   static String? validateActivityDuration(int? value, String activityType) {
     if (activityType.isNotEmpty && (value == null || value <= 0)) {
-      return 'Duration is required when activity type is provided';
+      return 'Please enter duration when activity type is provided';
     }
     if (value != null && value < 0) {
       return 'Duration must be greater than or equal to 0';

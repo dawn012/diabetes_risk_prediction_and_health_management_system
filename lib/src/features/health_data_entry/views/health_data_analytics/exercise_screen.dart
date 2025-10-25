@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import '../../../../utils/constants/colors.dart';
 import '../../../../utils/constants/sizes.dart';
 import '../../../../utils/helpers/helper_functions.dart';
+import '../../controllers/blood_glucose_controller.dart';
 import '../../controllers/exercise_controller.dart';
 import 'connect_exercise_apps_screen.dart';
 import 'exercise_goals_info_screen.dart';
@@ -11,6 +12,7 @@ import 'set_goals_screen.dart';
 import 'step_goal_info_screen.dart';
 import 'widgets/activity_bar_chart.dart';
 import 'widgets/activity_time_range_picker.dart';
+import 'widgets/health_data_list_screen.dart';
 
 class ExerciseScreen extends StatelessWidget {
   const ExerciseScreen({super.key});
@@ -36,16 +38,8 @@ class ExerciseScreen extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.settings, color: Colors.white),
             onPressed: () async {
-              final result = await Get.to(() => const SetGoalsScreen());
-              if (result != null) {
-                // Update goals from the result
-                if (result['stepsGoal'] != null) {
-                  controller.updateDailyStepsGoal(int.parse(result['stepsGoal']));
-                }
-                if (result['exerciseGoal'] != null) {
-                  controller.updateWeeklyExerciseGoal(int.parse(result['exerciseGoal']));
-                }
-              }
+              // 直接导航到 SetGoalsScreen，不等待返回值
+              Get.to(() => const SetGoalsScreen());
             },
           ),
         ],
@@ -70,11 +64,12 @@ class ExerciseScreen extends StatelessWidget {
           ),
 
           // Time Range Dropdown
-          Obx(() => ActivityTimeRangePicker(
-            selectedRange: controller.selectedTimeRange.value,
-            onRangeChanged: controller.updateTimeRange,
-            isWeekView: controller.tabController.index == 0,
-          )),
+          Obx(() =>
+              ActivityTimeRangePicker(
+                selectedRange: controller.selectedTimeRange.value,
+                onRangeChanged: controller.updateTimeRange,
+                isWeekView: controller.tabController.index == 0,
+              )),
 
           // Content
           Expanded(
@@ -217,79 +212,117 @@ class ExerciseScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildExerciseCard(ExerciseController controller, bool darkMode, {required bool isWeekView}) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(TSizes.defaultSpace),
-      decoration: BoxDecoration(
-        color: darkMode ? TColors.darkContainer : Colors.white,
-        borderRadius: BorderRadius.circular(TSizes.cardRadiusLg),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Exercise',
-                style: TextStyle(
-                  color: darkMode ? TColors.white : TColors.textPrimary,
-                  fontSize: TSizes.fontSizeLg,
-                  fontWeight: FontWeight.bold,
+  Widget _buildExerciseCard(ExerciseController controller, bool darkMode,
+      {required bool isWeekView}) {
+    return GestureDetector(
+      onTap: () {
+        // 跳转到运动记录列表页面
+        Get.to(() =>
+            HealthDataListScreen(
+              title: 'Exercise Records',
+              healthDataList: controller.allExerciseLogs,
+              healthDataType: HealthDataType.physicalActivity,
+            ));
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(TSizes.defaultSpace),
+        decoration: BoxDecoration(
+          color: darkMode ? TColors.darkContainer : Colors.white,
+          borderRadius: BorderRadius.circular(TSizes.cardRadiusLg),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Exercise',
+                  style: TextStyle(
+                    color: darkMode ? TColors.white : TColors.textPrimary,
+                    fontSize: TSizes.fontSizeLg,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-              IconButton(
-                icon: Icon(
-                  Icons.info_outline,
-                  color: darkMode ? TColors.white : TColors.textSecondary,
+                Row(
+                  children: [
+                    // View all records icon
+                    IconButton(
+                      icon: Icon(
+                        Icons.list_alt,
+                        color: darkMode ? TColors.white : TColors.textSecondary,
+                      ),
+                      onPressed: () {
+                        Get.to(() =>
+                            HealthDataListScreen(
+                              title: 'Exercise Records',
+                              healthDataList: controller.allExerciseLogs,
+                              healthDataType: HealthDataType.physicalActivity,
+                            ));
+                      },
+                      tooltip: 'View all records',
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        Icons.info_outline,
+                        color: darkMode ? TColors.white : TColors.textSecondary,
+                      ),
+                      onPressed: () =>
+                          Get.to(() => const ExerciseGoalsInfoScreen()),
+                    ),
+                  ],
                 ),
-                onPressed: () => Get.to(() => const ExerciseGoalsInfoScreen()),
-              ),
-            ],
-          ),
+              ],
+            ),
 
-          const SizedBox(height: TSizes.md),
-
-          // Goal Progress (only show for week view)
-          if (isWeekView) ...[
-            Obx(() => _buildExerciseGoalProgress(controller, darkMode)),
-            const SizedBox(height: TSizes.lg),
-          ] else
             const SizedBox(height: TSizes.md),
 
-          // Chart
-          Obx(() => ActivityBarChart(
-            data: controller.exerciseChartData.value,
-            isWeekView: isWeekView,
-            maxValue: 160,
-            goalValue: controller.weeklyExerciseGoal.value.toDouble(),
-            showLegend: true,
-            legendItems: const [
-              LegendItem(color: Color(0xFF06B6D4), label: 'Low-intensity'),
-              LegendItem(color: Color(0xFFF59E0B), label: 'Moderate-intensity'),
-              LegendItem(color: Color(0xFFEF4444), label: 'High-intensity'),
-            ],
-            unit: 'min',
-            // Required for export functionality
-            title: 'Daily Activity',
-            timeRange: controller.selectedTimeRange.value,
-            periodFilter: controller.selectedPeriodFilter.value,
-          )),
-        ],
+            // Goal Progress (only show for week view)
+            if (isWeekView) ...[
+              Obx(() => _buildExerciseGoalProgress(controller, darkMode)),
+              const SizedBox(height: TSizes.lg),
+            ] else
+              const SizedBox(height: TSizes.md),
+
+            // Chart
+            Obx(() =>
+                ActivityBarChart(
+                  data: controller.exerciseChartData.value,
+                  isWeekView: isWeekView,
+                  maxValue: 160,
+                  goalValue: controller.weeklyExerciseGoal.toDouble(),
+                  showLegend: true,
+                  legendItems: const [
+                    LegendItem(
+                        color: Color(0xFF06B6D4), label: 'Low-intensity'),
+                    LegendItem(
+                        color: Color(0xFFF59E0B), label: 'Moderate-intensity'),
+                    LegendItem(
+                        color: Color(0xFFEF4444), label: 'High-intensity'),
+                  ],
+                  unit: 'min',
+                  // Required for export functionality
+                  title: 'Daily Activity',
+                  timeRange: controller.selectedTimeRange.value,
+                  periodFilter: controller.selectedPeriodFilter.value,
+                )),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildExerciseGoalProgress(ExerciseController controller, bool darkMode) {
+  Widget _buildExerciseGoalProgress(ExerciseController controller,
+      bool darkMode) {
     return Row(
       children: [
         // Circular Progress
@@ -301,7 +334,8 @@ class ExerciseScreen extends StatelessWidget {
               CircularProgressIndicator(
                 value: controller.exerciseProgress.value,
                 backgroundColor: TColors.grey,
-                valueColor: const AlwaysStoppedAnimation<Color>(TColors.primary),
+                valueColor: const AlwaysStoppedAnimation<Color>(
+                    TColors.primary),
                 strokeWidth: 6,
               ),
               Center(
@@ -322,43 +356,52 @@ class ExerciseScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Obx(() => Text(
-                'Weekly goal of ${controller.weeklyExerciseGoal.value} min',
-                style: TextStyle(
-                  color: darkMode ? TColors.white : TColors.textPrimary,
-                  fontWeight: FontWeight.bold,
-                ),
-              )),
+              Obx(() =>
+                  Text(
+                    'Weekly goal of ${controller.weeklyExerciseGoal} min',
+                    style: TextStyle(
+                      color: darkMode ? TColors.white : TColors.textPrimary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  )),
               const SizedBox(height: TSizes.xs),
-              Obx(() => Text(
-                '${controller.remainingMinutes.value} min left to achieve weekly goal',
-                style: TextStyle(
-                  color: darkMode ? TColors.textSecondary : TColors.textSecondary,
-                  fontSize: TSizes.fontSizeSm,
-                ),
-              )),
+              Obx(() =>
+                  Text(
+                    '${controller.remainingMinutes
+                        .value} min left to achieve weekly goal',
+                    style: TextStyle(
+                      color: darkMode ? TColors.textSecondary : TColors
+                          .textSecondary,
+                      fontSize: TSizes.fontSizeSm,
+                    ),
+                  )),
               const SizedBox(height: TSizes.xs),
-              Obx(() => Text(
-                '${controller.lowIntensityMinutes.value} min low-intensity',
-                style: TextStyle(
-                  color: const Color(0xFF06B6D4),
-                  fontSize: TSizes.fontSizeSm,
-                ),
-              )),
-              Obx(() => Text(
-                '${controller.moderateIntensityMinutes.value} min moderate-intensity',
-                style: TextStyle(
-                  color: const Color(0xFFF59E0B),
-                  fontSize: TSizes.fontSizeSm,
-                ),
-              )),
-              Obx(() => Text(
-                '${controller.highIntensityMinutes.value} min high-intensity',
-                style: TextStyle(
-                  color: const Color(0xFFEF4444),
-                  fontSize: TSizes.fontSizeSm,
-                ),
-              )),
+              Obx(() =>
+                  Text(
+                    '${controller.lowIntensityMinutes.value} min low-intensity',
+                    style: TextStyle(
+                      color: const Color(0xFF06B6D4),
+                      fontSize: TSizes.fontSizeSm,
+                    ),
+                  )),
+              Obx(() =>
+                  Text(
+                    '${controller.moderateIntensityMinutes
+                        .value} min moderate-intensity',
+                    style: TextStyle(
+                      color: const Color(0xFFF59E0B),
+                      fontSize: TSizes.fontSizeSm,
+                    ),
+                  )),
+              Obx(() =>
+                  Text(
+                    '${controller.highIntensityMinutes
+                        .value} min high-intensity',
+                    style: TextStyle(
+                      color: const Color(0xFFEF4444),
+                      fontSize: TSizes.fontSizeSm,
+                    ),
+                  )),
             ],
           ),
         ),
@@ -366,7 +409,8 @@ class ExerciseScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStepsCard(ExerciseController controller, bool darkMode, {required bool isWeekView}) {
+  Widget _buildStepsCard(ExerciseController controller, bool darkMode,
+      {required bool isWeekView}) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(TSizes.defaultSpace),
@@ -414,29 +458,32 @@ class ExerciseScreen extends StatelessWidget {
           const SizedBox(height: TSizes.lg),
 
           // Chart
-          Obx(() => ActivityBarChart(
-            data: controller.stepsChartData.value,
-            isWeekView: isWeekView,
-            maxValue: isWeekView ? 12000 : 60000, // Higher max for weekly totals in month view
-            goalValue: controller.dailyStepsGoal.value.toDouble(),
-            showLegend: true,
-            legendItems: const [
-              LegendItem(color: TColors.primary, label: 'Steps'),
-            ],
-            singleColor: TColors.primary,
-            showNoData: !controller.hasStepsData.value,
-            unit: 'steps',
-            // Required for export functionality
-            title: 'Daily Steps',
-            timeRange: controller.selectedTimeRange.value,
-            periodFilter: controller.selectedPeriodFilter.value,
-          )),
+          Obx(() =>
+              ActivityBarChart(
+                data: controller.stepsChartData.value,
+                isWeekView: isWeekView,
+                maxValue: isWeekView ? 12000 : 60000,
+                // Higher max for weekly totals in month view
+                goalValue: controller.dailyStepsGoal.toDouble(),
+                showLegend: true,
+                legendItems: const [
+                  LegendItem(color: TColors.primary, label: 'Steps'),
+                ],
+                singleColor: TColors.primary,
+                showNoData: !controller.hasStepsData.value,
+                unit: 'steps',
+                // Required for export functionality
+                title: 'Daily Steps',
+                timeRange: controller.selectedTimeRange.value,
+                periodFilter: controller.selectedPeriodFilter.value,
+              )),
         ],
       ),
     );
   }
 
-  Widget _buildStepsSummary(ExerciseController controller, bool darkMode, bool isWeekView) {
+  Widget _buildStepsSummary(ExerciseController controller, bool darkMode,
+      bool isWeekView) {
     if (controller.hasStepsData.value) {
       return Row(
         children: [
@@ -447,14 +494,15 @@ class ExerciseScreen extends StatelessWidget {
               fontWeight: FontWeight.w500,
             ),
           ),
-          Obx(() => Text(
-            '${controller.averageSteps.value} steps',
-            style: TextStyle(
-              color: TColors.primary,
-              fontWeight: FontWeight.bold,
-              fontSize: TSizes.fontSizeMd,
-            ),
-          )),
+          Obx(() =>
+              Text(
+                '${controller.averageSteps.value} steps',
+                style: TextStyle(
+                  color: TColors.primary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: TSizes.fontSizeMd,
+                ),
+              )),
           Text(
             ' per ${isWeekView ? 'day' : 'week'}',
             style: TextStyle(

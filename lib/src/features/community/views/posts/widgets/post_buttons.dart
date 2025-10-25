@@ -5,6 +5,7 @@ import '../../../../../utils/constants/colors.dart';
 import '../../../../../utils/helpers/helper_functions.dart';
 import '../../../../personalization/controllers/user_controller.dart';
 import '../../../controllers/post_controller.dart';
+import '../../../controllers/post_share_utils.dart';
 import '../../../models/post_model.dart';
 import '../../comments/comments_screen.dart';
 
@@ -50,7 +51,7 @@ class PostButtons extends StatelessWidget {
           label: 'Share',
           color: isDark ? TColors.lightGrey : TColors.textSecondary,
           onPressed: () {
-            // TODO: Implement share functionality
+            PostShareUtils.sharePost(post);
           },
           isDark: isDark,
         ),

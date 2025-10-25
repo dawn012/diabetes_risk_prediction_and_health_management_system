@@ -182,7 +182,7 @@ class MyPostsScreen extends StatelessWidget {
                   }
 
                   final post = controller.myPosts[index];
-                  return PostTile(post: post);
+                  return PostTile(post: post, isInMyPosts: true,);
                 },
               ),
 

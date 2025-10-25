@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:icons_plus/icons_plus.dart';
 import 'package:intl/intl.dart';
 
-import '../../../../common/widgets/dialogs/common_confirmation_dialog.dart';
+import '../../../../common/widgets/dialogs/dialog.dart';
 import '../../../../utils/constants/colors.dart';
 import '../../../../utils/constants/enums.dart';
 import '../../../../utils/constants/sizes.dart';
@@ -847,14 +846,10 @@ class HealthDataEntryScreen extends StatelessWidget {
   /// Show Delete Dialog
   void _showDeleteDialog(
       BuildContext context, HealthDataEntryController controller) {
-    ConfirmationDialog.show(
+    TDialog.deleteDialog(
       title: 'Delete Record',
       message:
       'Are you sure you want to delete this health record? This action cannot be undone.',
-      confirmButtonText: 'Delete',
-      customIcon: Iconsax.trash_bold,
-      iconColor: TColors.error,
-      confirmButtonColor: TColors.error,
       onConfirm: () => _handleDelete(controller),
     );
   }

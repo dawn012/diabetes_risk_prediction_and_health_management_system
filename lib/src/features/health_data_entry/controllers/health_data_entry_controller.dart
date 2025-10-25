@@ -20,7 +20,7 @@ class HealthDataEntryController extends GetxController {
   HealthDataEntryController({this.editData, this.initialSections});
 
   // Repositories
-  final _healthLogRepo = Get.put(HealthLogRepository());
+  final _healthLogRepo = HealthLogRepository.instance;
   final _authRepo = AuthenticationRepository.instance;
 
   // Observable states
@@ -383,7 +383,6 @@ class HealthDataEntryController extends GetxController {
   }
 
   /// Save health data (for new records)
-  /// Save health data (修改版)
   Future<void> saveHealthData() async {
     try {
       isLoading.value = true;

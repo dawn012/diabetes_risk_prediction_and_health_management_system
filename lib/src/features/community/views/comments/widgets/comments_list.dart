@@ -66,9 +66,9 @@ class CommentsList extends StatelessWidget {
         onRefresh: () => controller.fetchComments(refresh: true),
         color: TColors.primary,
         child: ListView.separated(
-          padding: const EdgeInsets.symmetric(vertical: TSizes.sm),
+          padding: EdgeInsets.zero,
           itemCount: controller.comments.length,
-          separatorBuilder: (context, index) => const SizedBox(height: TSizes.sm),
+          separatorBuilder: (context, index) => const SizedBox.shrink(), // 完全移除分隔
           itemBuilder: (context, index) {
             final comment = controller.comments[index];
             return CommentTile(comment: comment);

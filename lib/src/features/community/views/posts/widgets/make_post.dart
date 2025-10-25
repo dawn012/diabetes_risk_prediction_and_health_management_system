@@ -49,6 +49,7 @@ class FeedMakePostWidget extends StatelessWidget {
                 height: 40,
                 padding: 0,
                 backgroundColor: isDark ? TColors.darkGrey : TColors.lightGrey,
+                isNetworkImage: user.profileImg.isNotEmpty,
               ),
               const SizedBox(width: TSizes.md),
 

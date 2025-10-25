@@ -91,13 +91,24 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
 
-            <!-- Deep Link Intent Filters for PayPal -->
+            <!-- App Links - 处理 HTTPS 链接 -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <!-- https://diabetes-health-system.web.app/community/post/{postId} -->
+                <data
+                    android:scheme="https"
+                    android:host="diabetes-health-system.web.app"
+                    android:pathPrefix="/community/post/" />
+            </intent-filter>
+
+            <!-- 自定义 scheme -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="wms"
-                    android:host="payment" />
+                <data android:scheme="diatrack" />
             </intent-filter>
 
         </activity>

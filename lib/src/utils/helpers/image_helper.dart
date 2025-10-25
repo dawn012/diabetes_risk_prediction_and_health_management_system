@@ -57,8 +57,11 @@ class ImageHelper {
   static Future<List<File>> pickMultipleMedia({int limit = 10}) async {
     try {
       final picker = ImagePicker();
-      final files = await picker.pickMultipleMedia(limit: limit);
 
+      // 确保 limit 至少为 2
+      final effectiveLimit = limit >= 2 ? limit : 2;
+
+      final files = await picker.pickMultipleMedia(limit: effectiveLimit);
       return files.map((file) => File(file.path)).toList();
     } catch (e) {
       print('Error picking multiple media: $e');
@@ -66,10 +69,29 @@ class ImageHelper {
     }
   }
 
+  static Future<File?> pickSingleMedia() async {
+    try {
+      final picker = ImagePicker();
+      final file = await picker.pickImage(source: ImageSource.gallery);
+      return file != null ? File(file.path) : null;
+    } catch (e) {
+      print('Error picking single media: $e');
+      return null;
+    }
+  }
+
   /// Check if file is an image
   static bool isImageFile(String filePath) {
-    final extension = path.extension(filePath).toLowerCase();
-    return ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'].contains(extension);
+    final lowerPath = filePath.toLowerCase();
+
+    final isImage = lowerPath.contains('.jpg') ||
+        lowerPath.contains('.jpeg') ||
+        lowerPath.contains('.png') ||
+        lowerPath.contains('.gif') ||
+        lowerPath.contains('.bmp') ||
+        lowerPath.contains('.webp');
+
+    return isImage;
   }
 
   /// Check image file size

@@ -44,7 +44,15 @@ class CommentRepository extends GetxController {
           .doc(commentId)
           .set({
         ...comment.toJson(),
-        FirebaseFieldNames.postId: postId, // Add postId for Firestore querying
+        FirebaseFieldNames.postId: postId,
+      });
+
+      await _db
+          .collection(FirebaseCollectionNames.posts)
+          .doc(postId)
+          .update({
+        FirebaseFieldNames.commentCount: FieldValue.increment(1),
+        FirebaseFieldNames.updatedAt: now.millisecondsSinceEpoch,
       });
 
       return null;
@@ -161,9 +169,45 @@ class CommentRepository extends GetxController {
   /// Delete comment
   Future<String?> deleteComment(String commentId) async {
     try {
-      // Delete the comment document
-      await _db.collection(FirebaseCollectionNames.comments).doc(commentId).delete();
+      // 1. First get the comment document to retrieve the postId
+      final commentDoc = await _db
+          .collection(FirebaseCollectionNames.comments)
+          .doc(commentId)
+          .get();
 
+      if (!commentDoc.exists) {
+        throw 'Comment not found';
+      }
+
+      final commentData = commentDoc.data();
+      final postId = commentData?[FirebaseFieldNames.postId] as String?;
+
+      if (postId == null || postId.isEmpty) {
+        throw 'Post ID not found in comment';
+      }
+
+      // 2. Use batch operation to ensure atomicity
+      final batch = _db.batch();
+
+      // Delete comment document
+      final commentRef = _db
+          .collection(FirebaseCollectionNames.comments)
+          .doc(commentId);
+      batch.delete(commentRef);
+
+      // Update post's comment count (-1)
+      final postRef = _db
+          .collection(FirebaseCollectionNames.posts)
+          .doc(postId);
+      batch.update(postRef, {
+        FirebaseFieldNames.commentCount: FieldValue.increment(-1),
+        FirebaseFieldNames.updatedAt: DateTime.now().millisecondsSinceEpoch,
+      });
+
+      // Commit the batch operation
+      await batch.commit();
+
+      print('✅ Comment deleted and post comment count decremented');
       return null;
     } on FirebaseException catch (e) {
       throw TFirebaseException(e.code).message;

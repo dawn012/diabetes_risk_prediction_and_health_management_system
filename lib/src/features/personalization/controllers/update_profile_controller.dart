@@ -31,7 +31,7 @@ class UpdateProfileController extends GetxController {
   final height = TextEditingController();
   final dietPreference = TextEditingController();
   final allergies = TextEditingController();
-  final prescribedFrequency = TextEditingController();
+  final medicationAdherence = TextEditingController();
   final sleepDuration = TextEditingController();
   final waterIntake = TextEditingController();
 
@@ -43,7 +43,7 @@ class UpdateProfileController extends GetxController {
   final selectedGender = ''.obs;
   final selectedDateOfBirth = Rx<DateTime?>(null);
   final isTakeMedication = false.obs;
-  final selectedStressLevel = ''.obs;
+  final selectedStressLevel = 0.obs;
 
   /// Password Controllers
   final oldPassword = TextEditingController();
@@ -92,7 +92,7 @@ class UpdateProfileController extends GetxController {
     dietPreference.text = profile.dietPreference;
     allergies.text = profile.allergies.join(', ');
     isTakeMedication.value = profile.isTakeMedication;
-    prescribedFrequency.text = profile.prescribedFrequency > 0 ? profile.prescribedFrequency.toString() : '';
+    medicationAdherence.text = profile.medicationAdherence > 0 ? profile.medicationAdherence.toString() : '';
     sleepDuration.text = profile.sleepDuration > 0 ? profile.sleepDuration.toString() : '';
     selectedStressLevel.value = profile.stressLevel;
     waterIntake.text = profile.waterIntake > 0 ? profile.waterIntake.toString() : '';
@@ -224,10 +224,10 @@ class UpdateProfileController extends GetxController {
         dietPreference: dietPreference.text.trim(),
         allergies: allergyList,
         isTakeMedication: isTakeMedication.value,
-        prescribedFrequency: int.tryParse(prescribedFrequency.text.trim()) ?? 0,
+        medicationAdherence: int.tryParse(medicationAdherence.text.trim()) ?? 0,
         sleepDuration: double.tryParse(sleepDuration.text.trim()) ?? 0,
         stressLevel: selectedStressLevel.value,
-        waterIntake: int.tryParse(waterIntake.text.trim()) ?? 0,
+        waterIntake: double.tryParse(waterIntake.text.trim()) ?? 0,
         updatedAt: DateTime.now(),
       );
 
@@ -283,7 +283,7 @@ class UpdateProfileController extends GetxController {
         profile1.dietPreference == profile2.dietPreference &&
         _areListsEqual(profile1.allergies, profile2.allergies) &&
         profile1.isTakeMedication == profile2.isTakeMedication &&
-        profile1.prescribedFrequency == profile2.prescribedFrequency &&
+        profile1.medicationAdherence == profile2.medicationAdherence &&
         profile1.sleepDuration == profile2.sleepDuration &&
         profile1.stressLevel == profile2.stressLevel &&
         profile1.waterIntake == profile2.waterIntake;
@@ -494,7 +494,7 @@ class UpdateProfileController extends GetxController {
     height.dispose();
     dietPreference.dispose();
     allergies.dispose();
-    prescribedFrequency.dispose();
+    medicationAdherence.dispose();
     sleepDuration.dispose();
     waterIntake.dispose();
     oldPassword.dispose();

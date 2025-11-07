@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../utils/constants/colors.dart';
 import '../../../utils/constants/sizes.dart';
+import '../../../utils/helpers/helper_functions.dart';
 
 class CustomTabSelector extends StatelessWidget {
   final List<String> tabs;
@@ -17,14 +18,16 @@ class CustomTabSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = THelperFunctions.isDarkMode(context);
+
     return Container(
       margin: const EdgeInsets.all(TSizes.defaultSpace),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? TColors.tabSelectorBackgroundDark : TColors.tabSelectorBackgroundLight,
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: TColors.getShadowColor(isDark).withOpacity(0.08),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -39,7 +42,7 @@ class CustomTabSelector extends StatelessWidget {
             alignment: Alignment(
               selectedIndex == 0
                   ? -1
-                  : (selectedIndex == tabs.length - 1 ? 1 : 0), // 适配两个tab的情况
+                  : (selectedIndex == tabs.length - 1 ? 1 : 0),
               0,
             ),
             child: Container(
@@ -47,11 +50,11 @@ class CustomTabSelector extends StatelessWidget {
               height: 48,
               margin: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: TColors.primary,
+                gradient: TColors.primaryGradient,
                 borderRadius: BorderRadius.circular(26),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.blue.withOpacity(0.3),
+                    color: TColors.primary.withOpacity(0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -62,6 +65,7 @@ class CustomTabSelector extends StatelessWidget {
           // Tab buttons
           Row(
             children: List.generate(tabs.length, (index) {
+              final isSelected = selectedIndex == index;
               return Expanded(
                 child: GestureDetector(
                   onTap: () => onChanged(index),
@@ -70,9 +74,9 @@ class CustomTabSelector extends StatelessWidget {
                     child: AnimatedDefaultTextStyle(
                       duration: const Duration(milliseconds: 300),
                       style: TextStyle(
-                        color: selectedIndex == index
+                        color: isSelected
                             ? Colors.white
-                            : Colors.grey[600],
+                            : isDark ? TColors.tabSelectorTextDark : TColors.tabSelectorTextLight,
                         fontWeight: FontWeight.w600,
                         fontSize: 16,
                       ),

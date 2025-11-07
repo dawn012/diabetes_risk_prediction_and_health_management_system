@@ -1,12 +1,17 @@
+// user_achievement_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+
 import '../../../common/loaders/circular_loader.dart';
 import '../../../common/widgets/tab_selector/custom_tab_selector.dart';
 import '../../../utils/constants/colors.dart';
+import '../../../utils/constants/enums.dart';
 import '../../../utils/constants/sizes.dart';
+import '../../../utils/device/device_utility.dart';
+import '../../../utils/helpers/helper_functions.dart';
 import '../controllers/user_achievement_controller.dart';
 import '../controllers/achievement_controller.dart';
-import '../models/achievement_model.dart';
+import '../models/achievement_display_data.dart';
 import 'leaderboard_screen.dart';
 
 class UserAchievementScreen extends StatelessWidget {
@@ -14,20 +19,22 @@ class UserAchievementScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = THelperFunctions.isDarkMode(context);
+
     // 确保 AchievementController 先初始化
     Get.put(AchievementController());
     final controller = Get.put(UserAchievementController());
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: isDark ? TColors.darkBackground : Colors.grey[50],
       appBar: AppBar(
         backgroundColor: TColors.primary,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Get.back(),
         ),
-        title: Text(
+        title: const Text(
           'Achievement',
           style: TextStyle(
             color: Colors.white,
@@ -39,88 +46,31 @@ class UserAchievementScreen extends StatelessWidget {
       ),
       body: Obx(() {
         if (controller.isLoading.value) {
-          return CircularLoader(message: 'Loading achievements...');
+          return const CircularLoader(message: 'Loading achievements...');
         }
 
         return Column(
           children: [
             // Tab Section with slide animation
             CustomTabSelector(
-              tabs: ["Periodic", "Permanent"],
+              tabs: const ["Periodic", "Permanent"],
               selectedIndex: controller.selectedTab.value,
               onChanged: (index) => controller.changeTab(index),
             ),
 
-            // Filter Chips
-            Container(
-              height: 50,
-              margin: EdgeInsets.only(left: TSizes.defaultSpace),
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: [
-                  _buildFilterChip('All', 'all', controller),
-                  SizedBox(width: TSizes.sm),
-                  _buildFilterChip('Locked', 'locked', controller),
-                  SizedBox(width: TSizes.sm),
-                  _buildFilterChip('Unlocked', 'unlocked', controller),
-                  SizedBox(width: TSizes.sm),
-                  _buildFilterChip('Bronze', 'bronze', controller),
-                  SizedBox(width: TSizes.sm),
-                  _buildFilterChip('Silver', 'silver', controller),
-                  SizedBox(width: TSizes.sm),
-                  _buildFilterChip('Gold', 'gold', controller),
-                  SizedBox(width: TSizes.defaultSpace),
-                ],
-              ),
-            ),
-
-            SizedBox(height: TSizes.spaceBtwItems),
-
-            // Progress Section
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: TSizes.defaultSpace),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Progress',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: TColors.black,
-                    ),
-                  ),
-                  // Only show progress counter when filter is 'all'
-                  if (controller.shouldShowProgress)
-                    AnimatedContainer(
-                      duration: Duration(milliseconds: 300),
-                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: TColors.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: AnimatedSwitcher(
-                        duration: Duration(milliseconds: 300),
-                        child: Text(
-                          '${controller.completedCount}/${controller.totalCount} completed',
-                          key: ValueKey('${controller.completedCount}-${controller.totalCount}'),
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: TColors.primary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-
-            SizedBox(height: TSizes.spaceBtwItems),
-
-            // Achievement List
+            // PageView for swipeable content
             Expanded(
-              child: _buildAchievementList(controller),
+              child: PageView(
+                controller: controller.pageController,
+                onPageChanged: (index) => controller.changeTab(index),
+                physics: PageScrollPhysics(),
+                children: [
+                  // Periodic Tab Content
+                  _buildTabContent(controller, isDark),
+                  // Permanent Tab Content
+                  _buildTabContent(controller, isDark),
+                ],
+              ),
             ),
           ],
         );
@@ -137,7 +87,7 @@ class UserAchievementScreen extends StatelessWidget {
             BoxShadow(
               color: TColors.primary.withOpacity(0.3),
               blurRadius: 12,
-              offset: Offset(0, 6),
+              offset: const Offset(0, 6),
             ),
           ],
         ),
@@ -147,7 +97,7 @@ class UserAchievementScreen extends StatelessWidget {
           onPressed: () {
             Get.to(() => const LeaderboardScreen());
           },
-          child: Icon(
+          child: const Icon(
             Icons.leaderboard,
             color: Colors.white,
             size: 28,
@@ -157,16 +107,94 @@ class UserAchievementScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildAchievementList(UserAchievementController controller) {
+  Widget _buildTabContent(UserAchievementController controller, bool isDark) {
+    return Column(
+      children: [
+        // Filter Chips
+        Container(
+          height: 50,
+          margin: const EdgeInsets.only(left: TSizes.defaultSpace, top: TSizes.sm),
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            children: [
+              _buildFilterChip('All', 'all', controller, isDark),
+              const SizedBox(width: TSizes.sm),
+              _buildFilterChip('Locked', 'locked', controller, isDark),
+              const SizedBox(width: TSizes.sm),
+              _buildFilterChip('Unlocked', 'unlocked', controller, isDark),
+              const SizedBox(width: TSizes.sm),
+              _buildFilterChip('Bronze', 'bronze', controller, isDark),
+              const SizedBox(width: TSizes.sm),
+              _buildFilterChip('Silver', 'silver', controller, isDark),
+              const SizedBox(width: TSizes.sm),
+              _buildFilterChip('Gold', 'gold', controller, isDark),
+              const SizedBox(width: TSizes.defaultSpace),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: TSizes.spaceBtwItems),
+
+        // Progress Section
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: TSizes.defaultSpace),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Progress',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? TColors.white : TColors.black,
+                ),
+              ),
+              // Only show progress counter when filter is 'all'
+              if (controller.shouldShowProgress)
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: TColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    child: Text(
+                      '${controller.completedCount}/${controller.totalCount} completed',
+                      key: ValueKey('${controller.completedCount}-${controller.totalCount}'),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: TColors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: TSizes.spaceBtwItems),
+
+        // Achievement List
+        Expanded(
+          child: _buildAchievementList(controller, isDark),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAchievementList(UserAchievementController controller, bool isDark) {
     return Obx(() {
       final filteredAchievements = controller.filteredAchievements;
 
       if (filteredAchievements.isEmpty) {
-        return _buildEmptyState();
+        return _buildEmptyState(isDark);
       }
 
       return ListView.builder(
-        padding: EdgeInsets.symmetric(horizontal: TSizes.defaultSpace),
+        padding: const EdgeInsets.symmetric(horizontal: TSizes.defaultSpace),
         itemCount: filteredAchievements.length,
         itemBuilder: (context, index) {
           final achievementData = filteredAchievements[index];
@@ -174,20 +202,14 @@ class UserAchievementScreen extends StatelessWidget {
           return AnimatedContainer(
             duration: Duration(milliseconds: 300 + (index * 50)),
             curve: Curves.easeOutBack,
-            child: SlideTransition(
-              position: AlwaysStoppedAnimation(Offset.zero),
-              child: FadeTransition(
-                opacity: AlwaysStoppedAnimation(1.0),
-                child: _buildAchievementCard(achievementData, controller),
-              ),
-            ),
+            child: _buildAchievementCard(achievementData, controller, context, isDark),
           );
         },
       );
     });
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(bool isDark) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -195,23 +217,23 @@ class UserAchievementScreen extends StatelessWidget {
           Icon(
             Icons.emoji_events_outlined,
             size: 80,
-            color: Colors.grey[300],
+            color: isDark ? Colors.grey[700] : Colors.grey[300],
           ),
-          SizedBox(height: TSizes.spaceBtwItems),
+          const SizedBox(height: TSizes.spaceBtwItems),
           Text(
             'No achievements found',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w600,
-              color: Colors.grey[400],
+              color: isDark ? Colors.grey[400] : Colors.grey,
             ),
           ),
-          SizedBox(height: TSizes.sm),
+          const SizedBox(height: TSizes.sm),
           Text(
             'Try changing your filter settings',
             style: TextStyle(
               fontSize: 14,
-              color: Colors.grey[400],
+              color: isDark ? Colors.grey[500] : Colors.grey,
             ),
           ),
         ],
@@ -219,26 +241,30 @@ class UserAchievementScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildFilterChip(String label, String value, UserAchievementController controller) {
+  Widget _buildFilterChip(String label, String value, UserAchievementController controller, bool isDark) {
     return Obx(() {
       final isSelected = controller.selectedFilter.value == value;
       return GestureDetector(
         onTap: () => controller.changeFilter(value),
         child: AnimatedContainer(
-          duration: Duration(milliseconds: 200),
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            color: isSelected ? TColors.primary : Colors.white,
+            color: isSelected
+                ? TColors.primary
+                : isDark ? TColors.chipBackgroundDark : Colors.white,
             borderRadius: BorderRadius.circular(25),
             border: Border.all(
-              color: isSelected ? TColors.primary : Colors.grey[300]!,
+              color: isSelected
+                  ? TColors.primary
+                  : isDark ? TColors.cardBorderDark : Colors.grey[300]!,
               width: 1,
             ),
             boxShadow: isSelected ? [
               BoxShadow(
                 color: TColors.primary.withOpacity(0.2),
                 blurRadius: 8,
-                offset: Offset(0, 3),
+                offset: const Offset(0, 3),
               ),
             ] : [],
           ),
@@ -249,21 +275,25 @@ class UserAchievementScreen extends StatelessWidget {
                 Icon(
                   Icons.lock_outline,
                   size: 16,
-                  color: isSelected ? Colors.white : Colors.grey[600],
+                  color: isSelected
+                      ? Colors.white
+                      : isDark ? Colors.grey[400] : Colors.grey[600],
                 ),
-                SizedBox(width: 4),
+                const SizedBox(width: 4),
               ] else if (value != 'all' && value != 'unlocked') ...[
                 Icon(
                   Icons.emoji_events,
                   size: 16,
                   color: isSelected ? Colors.white : _getMedalColor(value),
                 ),
-                SizedBox(width: 4),
+                const SizedBox(width: 4),
               ],
               Text(
                 label,
                 style: TextStyle(
-                  color: isSelected ? Colors.white : Colors.grey[700],
+                  color: isSelected
+                      ? Colors.white
+                      : isDark ? Colors.grey[300] : Colors.grey[700],
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                   fontSize: 14,
                 ),
@@ -276,28 +306,30 @@ class UserAchievementScreen extends StatelessWidget {
   }
 
   Widget _buildAchievementCard(
-      Map<String, dynamic> achievementData,
-      UserAchievementController controller
+      AchievementDisplayData achievementData,
+      UserAchievementController controller,
+      BuildContext context,
+      bool isDark,
       ) {
-    AchievementModel achievement = achievementData['achievement'] as AchievementModel;
+    final achievement = achievementData.achievement;
     final progress = controller.getProgress(achievementData);
     final progressText = controller.getProgressText(achievementData);
     final medalType = controller.getMedalType(achievementData);
-    final isLocked = achievementData['isLocked'] as bool;
+    final isLocked = achievementData.isLocked;
 
     return Obx(() {
       final isExpanded = controller.isAchievementExpanded(achievement.achievementId);
 
       return Container(
-        margin: EdgeInsets.only(bottom: TSizes.spaceBtwItems),
+        margin: const EdgeInsets.only(bottom: TSizes.spaceBtwItems),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isDark ? TColors.cardDark : Colors.white,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.06),
+              color: (isDark ? Colors.black : Colors.black).withOpacity(isDark ? 0.3 : 0.06),
               blurRadius: 10,
-              offset: Offset(0, 3),
+              offset: const Offset(0, 3),
             ),
           ],
         ),
@@ -308,7 +340,7 @@ class UserAchievementScreen extends StatelessWidget {
               onTap: () => controller.toggleAchievement(achievement.achievementId),
               borderRadius: BorderRadius.circular(16),
               child: Padding(
-                padding: EdgeInsets.all(TSizes.lg),
+                padding: const EdgeInsets.all(TSizes.lg),
                 child: Row(
                   children: [
                     // Achievement Icon with modern design
@@ -335,9 +367,9 @@ class UserAchievementScreen extends StatelessWidget {
                         children: [
                           // Base icon
                           Icon(
-                            _getAchievementIcon(achievement.achievementTitle),
+                            achievement.iconData,
                             color: isLocked
-                                ? Colors.grey[400]
+                                ? (isDark ? Colors.grey[600] : Colors.grey[400])
                                 : _getMedalColor(medalType),
                             size: 32,
                           ),
@@ -348,7 +380,7 @@ class UserAchievementScreen extends StatelessWidget {
                                 color: Colors.black.withOpacity(0.3),
                                 borderRadius: BorderRadius.circular(18),
                               ),
-                              child: Icon(
+                              child: const Icon(
                                 Icons.lock,
                                 color: Colors.white,
                                 size: 20,
@@ -366,7 +398,7 @@ class UserAchievementScreen extends StatelessWidget {
                                   color: _getMedalColor(medalType),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
-                                child: Icon(
+                                child: const Icon(
                                   Icons.emoji_events,
                                   color: Colors.white,
                                   size: 12,
@@ -377,7 +409,7 @@ class UserAchievementScreen extends StatelessWidget {
                       ),
                     ),
 
-                    SizedBox(width: TSizes.spaceBtwItems),
+                    const SizedBox(width: TSizes.spaceBtwItems),
 
                     // Achievement Info
                     Expanded(
@@ -393,23 +425,23 @@ class UserAchievementScreen extends StatelessWidget {
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
                                     color: isLocked
-                                        ? Colors.grey[500]
-                                        : TColors.black,
+                                        ? (isDark ? Colors.grey[400] : Colors.grey[500])
+                                        : isDark ? TColors.white : TColors.black,
                                   ),
                                 ),
                               ),
                               AnimatedRotation(
-                                duration: Duration(milliseconds: 300),
+                                duration: const Duration(milliseconds: 300),
                                 turns: isExpanded ? 0.5 : 0.0,
                                 child: Icon(
                                   Icons.keyboard_arrow_down,
-                                  color: Colors.grey[400],
+                                  color: isDark ? Colors.grey[600] : Colors.grey[400],
                                 ),
                               ),
                             ],
                           ),
 
-                          SizedBox(height: TSizes.xs),
+                          const SizedBox(height: TSizes.xs),
 
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -418,7 +450,7 @@ class UserAchievementScreen extends StatelessWidget {
                                 'Progress',
                                 style: TextStyle(
                                   fontSize: 14,
-                                  color: Colors.grey[600],
+                                  color: isDark ? Colors.grey[400] : Colors.grey,
                                 ),
                               ),
                               Text(
@@ -426,7 +458,7 @@ class UserAchievementScreen extends StatelessWidget {
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: isLocked
-                                      ? Colors.grey[500]
+                                      ? (isDark ? Colors.grey[400] : Colors.grey[500])
                                       : TColors.primary,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -434,7 +466,7 @@ class UserAchievementScreen extends StatelessWidget {
                             ],
                           ),
 
-                          SizedBox(height: TSizes.sm),
+                          const SizedBox(height: TSizes.sm),
 
                           // Modern Progress Bar
                           Stack(
@@ -442,21 +474,25 @@ class UserAchievementScreen extends StatelessWidget {
                               Container(
                                 height: 8,
                                 decoration: BoxDecoration(
-                                  color: Colors.grey[200],
+                                  color: isDark ? TColors.darkContainer : Colors.grey[200],
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                               ),
                               AnimatedContainer(
-                                duration: Duration(milliseconds: 500),
-                                width: MediaQuery.of(Get.context!).size.width * 0.6 * progress,
+                                duration: const Duration(milliseconds: 500),
+                                width: TDeviceUtils.getScreenWidth(context) * 0.6 * progress,
                                 height: 8,
                                 decoration: BoxDecoration(
                                   gradient: isLocked
-                                      ? LinearGradient(colors: [Colors.grey[400]!, Colors.grey[400]!])
-                                      : LinearGradient(
+                                      ? LinearGradient(
+                                      colors: isDark
+                                          ? [Colors.grey[700]!, Colors.grey[700]!]
+                                          : [Colors.grey[400]!, Colors.grey[400]!]
+                                  )
+                                      : const LinearGradient(
                                     colors: [
                                       TColors.primary,
-                                      TColors.primary.withOpacity(0.8),
+                                      TColors.primary,
                                     ],
                                   ),
                                   borderRadius: BorderRadius.circular(4),
@@ -465,7 +501,7 @@ class UserAchievementScreen extends StatelessWidget {
                             ],
                           ),
 
-                          SizedBox(height: TSizes.xs),
+                          const SizedBox(height: TSizes.xs),
 
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -473,12 +509,12 @@ class UserAchievementScreen extends StatelessWidget {
                               Text(
                                 isLocked
                                     ? 'Locked'
-                                    : achievementData['currentLevel'] == 'none'
+                                    : achievementData.currentLevel == UserAchievementLevel.none
                                     ? 'No Level'
-                                    : '${achievementData['currentLevel']} Level',
+                                    : '${achievementData.currentLevel.displayName} Level',
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: Colors.grey[500],
+                                  color: isDark ? Colors.grey[400] : Colors.grey,
                                 ),
                               ),
                               Text(
@@ -486,7 +522,7 @@ class UserAchievementScreen extends StatelessWidget {
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: isLocked
-                                      ? Colors.grey[500]
+                                      ? (isDark ? Colors.grey[400] : Colors.grey[500])
                                       : TColors.primary,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -503,11 +539,11 @@ class UserAchievementScreen extends StatelessWidget {
 
             // Expanded Description with animation
             AnimatedSize(
-              duration: Duration(milliseconds: 400),
+              duration: const Duration(milliseconds: 400),
               curve: Curves.easeInOut,
               child: isExpanded
-                  ? _buildExpandedContent(achievementData, controller)
-                  : SizedBox.shrink(),
+                  ? _buildExpandedContent(achievementData, controller, isDark)
+                  : const SizedBox.shrink(),
             ),
           ],
         ),
@@ -516,103 +552,98 @@ class UserAchievementScreen extends StatelessWidget {
   }
 
   Widget _buildExpandedContent(
-      Map<String, dynamic> achievementData,
-      UserAchievementController controller) {
-
-    AchievementModel achievement = achievementData['achievement'] as AchievementModel;
-    final isLocked = achievementData['isLocked'] as bool;
+      AchievementDisplayData achievementData,
+      UserAchievementController controller,
+      bool isDark,
+      ) {
+    final achievement = achievementData.achievement;
+    final isLocked = achievementData.isLocked;
 
     return AnimatedContainer(
-      duration: Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 300),
       width: double.infinity,
-      padding: EdgeInsets.fromLTRB(TSizes.lg, 0, TSizes.lg, TSizes.lg),
+      padding: const EdgeInsets.fromLTRB(TSizes.lg, 0, TSizes.lg, TSizes.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             height: 1,
-            color: Colors.grey[200],
-            margin: EdgeInsets.only(bottom: TSizes.md),
+            color: isDark ? TColors.cardBorderDark : Colors.grey[200],
+            margin: const EdgeInsets.only(bottom: TSizes.md),
           ),
 
           // Description Section
-          FadeTransition(
-            opacity: AlwaysStoppedAnimation(1.0),
-            child: SlideTransition(
-              position: AlwaysStoppedAnimation(Offset.zero),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Description',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: isLocked
-                          ? Colors.grey[500]
-                          : TColors.black,
-                    ),
-                  ),
-                  SizedBox(height: TSizes.sm),
-                  Text(
-                    achievement.description,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isLocked
-                          ? Colors.grey[500]
-                          : Colors.grey[600],
-                      height: 1.5,
-                    ),
-                  ),
-                ],
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Description',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: isLocked
+                      ? (isDark ? Colors.grey[400] : Colors.grey[500])
+                      : isDark ? TColors.white : TColors.black,
+                ),
               ),
-            ),
+              const SizedBox(height: TSizes.sm),
+              Text(
+                achievement.description,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: isLocked
+                      ? (isDark ? Colors.grey[500] : Colors.grey[500])
+                      : isDark ? Colors.grey[400] : Colors.grey[600],
+                  height: 1.5,
+                ),
+              ),
+            ],
           ),
 
           // Levels Section
           if (achievement.levels.isNotEmpty) ...[
-            SizedBox(height: TSizes.md),
+            const SizedBox(height: TSizes.md),
             Text(
               'Levels',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
                 color: isLocked
-                    ? Colors.grey[500]
-                    : TColors.black,
+                    ? (isDark ? Colors.grey[400] : Colors.grey[500])
+                    : isDark ? TColors.white : TColors.black,
               ),
             ),
-            SizedBox(height: TSizes.sm),
+            const SizedBox(height: TSizes.sm),
 
             // Animated level cards
             ...achievement.levels.asMap().entries.map((entry) {
-              int index = entry.key;
-              var level = entry.value;
-              String currentLevel = achievementData['currentLevel'] as String;
-              bool isCurrentLevel = !isLocked && currentLevel == level.level;
-              bool isAchieved = !isLocked && controller.isLevelAchieved(achievementData, level.level);
+              final index = entry.key;
+              final level = entry.value;
+              final currentLevel = achievementData.currentLevel;
+              final isCurrentLevel = !isLocked && currentLevel == level.level;
+              final isAchieved = !isLocked && controller.isLevelAchieved(achievementData, level.level);
 
               return AnimatedContainer(
                 duration: Duration(milliseconds: 300 + (index * 100)),
-                margin: EdgeInsets.only(bottom: TSizes.xs),
-                padding: EdgeInsets.all(TSizes.md),
+                margin: const EdgeInsets.only(bottom: TSizes.xs),
+                padding: const EdgeInsets.all(TSizes.md),
                 decoration: BoxDecoration(
                   color: isLocked
-                      ? Colors.grey[100]
+                      ? (isDark ? TColors.darkContainer : Colors.grey[100])
                       : isCurrentLevel
-                      ? _getMedalColor(level.level.toLowerCase()).withOpacity(0.1)
+                      ? _getMedalColor(level.level.value.toLowerCase()).withOpacity(0.1)
                       : isAchieved
-                      ? _getMedalColor(level.level.toLowerCase()).withOpacity(0.05)
-                      : Colors.grey[50],
+                      ? _getMedalColor(level.level.value.toLowerCase()).withOpacity(0.05)
+                      : isDark ? TColors.darkContainer : Colors.grey[50],
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: isLocked
-                        ? Colors.grey[300]!
+                        ? (isDark ? Colors.grey[700]! : Colors.grey[300]!)
                         : isCurrentLevel
-                        ? _getMedalColor(level.level.toLowerCase()).withOpacity(0.3)
+                        ? _getMedalColor(level.level.value.toLowerCase()).withOpacity(0.3)
                         : isAchieved
-                        ? _getMedalColor(level.level.toLowerCase()).withOpacity(0.2)
-                        : Colors.grey[200]!,
+                        ? _getMedalColor(level.level.value.toLowerCase()).withOpacity(0.2)
+                        : isDark ? Colors.grey[700]! : Colors.grey[200]!,
                   ),
                 ),
                 child: Row(
@@ -623,19 +654,19 @@ class UserAchievementScreen extends StatelessWidget {
                       height: 32,
                       decoration: BoxDecoration(
                         color: isLocked
-                            ? Colors.grey[300]
-                            : _getMedalColor(level.level.toLowerCase()).withOpacity(0.1),
+                            ? (isDark ? Colors.grey[700] : Colors.grey[300])
+                            : _getMedalColor(level.level.value.toLowerCase()).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Icon(
                         Icons.emoji_events,
                         color: isLocked
-                            ? Colors.grey[500]
-                            : _getMedalColor(level.level.toLowerCase()),
+                            ? (isDark ? Colors.grey[500] : Colors.grey[500])
+                            : _getMedalColor(level.level.value.toLowerCase()),
                         size: 18,
                       ),
                     ),
-                    SizedBox(width: TSizes.sm),
+                    const SizedBox(width: TSizes.sm),
 
                     // Level info
                     Expanded(
@@ -645,22 +676,22 @@ class UserAchievementScreen extends StatelessWidget {
                           Row(
                             children: [
                               Text(
-                                '${level.level} Level',
+                                '${level.level.displayName} Level',
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                   color: isLocked
-                                      ? Colors.grey[500]
-                                      : TColors.black,
+                                      ? (isDark ? Colors.grey[400] : Colors.grey[500])
+                                      : isDark ? TColors.white : TColors.black,
                                 ),
                               ),
                               if (isLocked)
                                 Padding(
-                                  padding: EdgeInsets.only(left: 8),
+                                  padding: const EdgeInsets.only(left: 8),
                                   child: Icon(
                                     Icons.lock_outline,
                                     size: 14,
-                                    color: Colors.grey[400],
+                                    color: isDark ? Colors.grey[500] : Colors.grey[400],
                                   ),
                                 ),
                             ],
@@ -670,8 +701,8 @@ class UserAchievementScreen extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 12,
                               color: isLocked
-                                  ? Colors.grey[400]
-                                  : Colors.grey[600],
+                                  ? (isDark ? Colors.grey[500] : Colors.grey[400])
+                                  : isDark ? Colors.grey[400] : Colors.grey[600],
                             ),
                           ),
                         ],
@@ -683,12 +714,12 @@ class UserAchievementScreen extends StatelessWidget {
                       if (isAchieved)
                         Icon(
                           Icons.check_circle,
-                          color: _getMedalColor(level.level.toLowerCase()),
+                          color: _getMedalColor(level.level.value.toLowerCase()),
                           size: 20,
                         )
                       else if (isCurrentLevel)
                         Container(
-                          padding: EdgeInsets.all(4),
+                          padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
                             color: TColors.primary.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
@@ -702,7 +733,7 @@ class UserAchievementScreen extends StatelessWidget {
                       else
                         Icon(
                           Icons.radio_button_unchecked,
-                          color: Colors.grey[400],
+                          color: isDark ? Colors.grey[600] : Colors.grey[400],
                           size: 20,
                         ),
                     ],
@@ -716,33 +747,21 @@ class UserAchievementScreen extends StatelessWidget {
     );
   }
 
-  IconData _getAchievementIcon(String title) {
-    switch (title.toLowerCase()) {
-      case 'track blood glucose':
-        return Icons.water_drop_outlined;
-      case 'track blood pressure':
-        return Icons.monitor_heart_outlined;
-      case 'track body weight':
-        return Icons.fitness_center_outlined;
-      case 'exercise':
-        return Icons.directions_run_outlined;
-      case 'generate meal plan':
-        return Icons.restaurant_menu_outlined;
-      case 'track sleep':
-        return Icons.bedtime_outlined;
-      default:
-        return Icons.emoji_events_outlined;
-    }
+  /// 根据当前 tab 决定滑动方向
+  ScrollPhysics _getPagePhysics(UserAchievementController controller) {
+    // 在 PageView 中，我们不能完全禁止某个方向的滑动
+    // 但我们可以通过监听来处理
+    return PageScrollPhysics();
   }
 
   Color _getMedalColor(String medalType) {
     switch (medalType.toLowerCase()) {
       case 'gold':
-        return TColors.gold; // Modern gold
+        return TColors.gold;
       case 'silver':
-        return TColors.silver; // Modern silver
+        return TColors.silver;
       case 'bronze':
-        return TColors.bronze; // Modern bronze
+        return TColors.bronze;
       case 'locked':
         return Colors.grey[500]!;
       case 'unlocked':

@@ -1,4 +1,5 @@
 import '../../features/health_data_entry/models/health_data_model.dart';
+import '../constants/health_data_range.dart';
 
 class HealthDataValidator {
   HealthDataValidator._();
@@ -7,42 +8,29 @@ class HealthDataValidator {
   static Map<String, String> validateHealthDataForm(HealthDataModel data) {
     final errors = <String, String>{};
 
-    // Check if at least one health metric is recorded
     if (!_hasAtLeastOneMetric(data)) {
       errors['general'] = 'At least one health metric must be recorded';
       return errors;
     }
 
-    // Validate Blood Pressure if provided
     if (_hasBloodPressureData(data)) {
       final bpErrors = _validateBloodPressure(data);
-      if (bpErrors.isNotEmpty) {
-        errors['bloodPressure'] = bpErrors.join(', ');
-      }
+      if (bpErrors.isNotEmpty) errors['bloodPressure'] = bpErrors.join(', ');
     }
 
-    // Validate Blood Glucose if provided
     if (_hasBloodGlucoseData(data)) {
       final bgErrors = _validateBloodGlucose(data);
-      if (bgErrors.isNotEmpty) {
-        errors['bloodGlucose'] = bgErrors.join(', ');
-      }
+      if (bgErrors.isNotEmpty) errors['bloodGlucose'] = bgErrors.join(', ');
     }
 
-    // Validate Body Composition if provided
     if (_hasBodyCompositionData(data)) {
       final bcErrors = _validateBodyComposition(data);
-      if (bcErrors.isNotEmpty) {
-        errors['bodyComposition'] = bcErrors.join(', ');
-      }
+      if (bcErrors.isNotEmpty) errors['bodyComposition'] = bcErrors.join(', ');
     }
 
-    // Validate Physical Activity if provided
     if (_hasPhysicalActivityData(data)) {
       final paErrors = _validatePhysicalActivity(data);
-      if (paErrors.isNotEmpty) {
-        errors['physicalActivity'] = paErrors.join(', ');
-      }
+      if (paErrors.isNotEmpty) errors['physicalActivity'] = paErrors.join(', ');
     }
 
     return errors;
@@ -53,8 +41,10 @@ class HealthDataValidator {
     if (value == null || value <= 0) {
       return 'Please enter systolic blood pressure';
     }
-    if (value < 1 || value > 500) {
-      return 'Systolic blood pressure must be between 1 and 500 mmHg';
+    if (value < HealthDataRanges.minSystolic ||
+        value > HealthDataRanges.maxSystolic) {
+      return 'Systolic blood pressure must be between '
+          '${HealthDataRanges.minSystolic} and ${HealthDataRanges.maxSystolic} ${HealthDataRanges.unitBloodPressure}';
     }
     return null;
   }
@@ -64,8 +54,10 @@ class HealthDataValidator {
     if (value == null || value <= 0) {
       return 'Please enter diastolic blood pressure';
     }
-    if (value < 1 || value > 500) {
-      return 'Diastolic blood pressure must be between 1 and 500 mmHg';
+    if (value < HealthDataRanges.minDiastolic ||
+        value > HealthDataRanges.maxDiastolic) {
+      return 'Diastolic blood pressure must be between '
+          '${HealthDataRanges.minDiastolic} and ${HealthDataRanges.maxDiastolic} ${HealthDataRanges.unitBloodPressure}';
     }
     return null;
   }
@@ -75,8 +67,9 @@ class HealthDataValidator {
     if (value == null || value <= 0) {
       return 'Please enter pulse';
     }
-    if (value < 1 || value > 500) {
-      return 'Pulse must be between 1 and 500 bpm';
+    if (value < HealthDataRanges.minPulse || value > HealthDataRanges.maxPulse) {
+      return 'Pulse must be between '
+          '${HealthDataRanges.minPulse} and ${HealthDataRanges.maxPulse} ${HealthDataRanges.unitPulse}';
     }
     return null;
   }
@@ -86,8 +79,10 @@ class HealthDataValidator {
     if (value == null || value <= 0) {
       return 'Please enter blood glucose level';
     }
-    if (value < 0.0 || value > 50.0) {
-      return 'Blood glucose level must be between 0.0 and 50.0 mmol/L';
+    if (value < HealthDataRanges.minGlucoseMmolL ||
+        value > HealthDataRanges.maxGlucoseMmolL) {
+      return 'Blood glucose level must be between '
+          '${HealthDataRanges.minGlucoseMmolL} and ${HealthDataRanges.maxGlucoseMmolL} ${HealthDataRanges.unitGlucose}';
     }
     return null;
   }
@@ -95,8 +90,10 @@ class HealthDataValidator {
   /// Validate weight
   static String? validateWeight(double? value) {
     if (value != null && value > 0) {
-      if (value < 0.0 || value > 500.0) {
-        return 'Weight must be between 0.0 and 500.0 kg';
+      if (value < HealthDataRanges.minWeightKg ||
+          value > HealthDataRanges.maxWeightKg) {
+        return 'Weight must be between '
+            '${HealthDataRanges.minWeightKg} and ${HealthDataRanges.maxWeightKg} ${HealthDataRanges.unitWeight}';
       }
     }
     return null;
@@ -105,8 +102,10 @@ class HealthDataValidator {
   /// Validate body fat percentage
   static String? validateBodyFat(double? value) {
     if (value != null && value > 0) {
-      if (value < 0.0 || value > 99.0) {
-        return 'Body fat percentage must be between 0.0 and 99.0%';
+      if (value < HealthDataRanges.minBodyFatPercent ||
+          value > HealthDataRanges.maxBodyFatPercent) {
+        return 'Body fat percentage must be between '
+            '${HealthDataRanges.minBodyFatPercent} and ${HealthDataRanges.maxBodyFatPercent}${HealthDataRanges.unitBodyFat}';
       }
     }
     return null;
@@ -125,13 +124,15 @@ class HealthDataValidator {
     if (activityType.isNotEmpty && (value == null || value <= 0)) {
       return 'Please enter duration when activity type is provided';
     }
-    if (value != null && value < 0) {
-      return 'Duration must be greater than or equal to 0';
+    if (value != null &&
+        (value < 0 || value > HealthDataRanges.maxActivityDurationMin)) {
+      return 'Duration must be between 0 and '
+          '${HealthDataRanges.maxActivityDurationMin} ${HealthDataRanges.unitDuration}';
     }
     return null;
   }
 
-  // Private helper methods
+  // ===== Helper Methods =====
   static bool _hasAtLeastOneMetric(HealthDataModel data) {
     return _hasBloodPressureData(data) ||
         _hasBloodGlucoseData(data) ||
@@ -150,7 +151,8 @@ class HealthDataValidator {
   }
 
   static bool _hasBodyCompositionData(HealthDataModel data) {
-    return data.bodyComposition.weight > 0 || data.bodyComposition.bodyFat > 0;
+    return data.bodyComposition.weight > 0 ||
+        data.bodyComposition.bodyFat > 0;
   }
 
   static bool _hasPhysicalActivityData(HealthDataModel data) {

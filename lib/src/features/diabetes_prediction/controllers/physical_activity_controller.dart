@@ -1,64 +1,71 @@
-import 'package:diabetes_risk_prediction_and_health_management_system/src/common/loaders/loaders.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide NavigationMode;
 import 'package:get/get.dart';
 
+import '../../../common/loaders/loaders.dart';
+import '../../../data/repositories/health_log/health_log_repository.dart';
 import '../../../data/repositories/user/user_repository.dart';
-import '../../../utils/constants/colors.dart';
+import '../../../services/diabetes_hive_storage_manager.dart';
+import '../views/diabetes_input/diabetes_prediction_overview_screen.dart';
 import '../views/diabetes_input/stress_level_input_screen.dart';
+import '../views/diabetes_input/widgets/diabetes_prediction_input_screen.dart';
 
 class PhysicalActivityController extends GetxController {
   static PhysicalActivityController get instance => Get.find();
 
-  // Page Controller for navigation
-  final PageController pageController = PageController();
-
   // Observable variables
-  final RxInt currentStep = 0.obs;
-  final RxInt frequency = 0.obs; // Days per week (0-7)
-  final RxInt duration = 0.obs; // Minutes per session
-  final RxString intensity = ''.obs; // light, moderate, high
+  final RxInt duration = 0.obs; // Minutes per day
   final RxBool isLoading = false.obs;
+  final RxBool canGoBack = false.obs;
+  final RxBool shouldShowSyncButton = false.obs;
+  final Rx<NavigationMode> navigationMode = NavigationMode.flow.obs;
 
-  // User repository for data operations
+  // Repositories
   final UserRepository _userRepository = Get.put(UserRepository());
+  final HealthLogRepository _healthLogRepository = Get.put(HealthLogRepository());
+  final DiabetesHiveStorageManager _storageManager = DiabetesHiveStorageManager.instance;
+
+  String userId = '';
+  int? syncableDuration;
+  bool hasUserInput = false;
 
   @override
   void onInit() {
     super.onInit();
-    _loadExistingData();
+    _initialize();
+  }
+
+  /// Initialize controller
+  Future<void> _initialize() async {
+    // Get navigation mode from arguments if provided
+    if (Get.arguments != null && Get.arguments['mode'] != null) {
+      navigationMode.value = Get.arguments['mode'];
+    }
+
+    await _loadExistingData();
+    await _checkSyncAvailability();
+    await _checkNavigationState();
   }
 
   /// Check if user can proceed to next step
-  RxBool get canProceed {
-    switch (currentStep.value) {
-      case 0: // Frequency step
-        return (frequency.value >= 0).obs;
-      case 1: // Duration step
-        return (duration.value >= 0).obs;
-      case 2: // Intensity step
-        return intensity.value.isNotEmpty.obs;
-      // case 3: // Summary step
-      //   return (frequency.value >= 0 &&
-      //       duration.value >= 0 &&
-      //       intensity.value.isNotEmpty).obs;
-      default:
-        return false.obs;
-    }
-  }
+  RxBool get canProceed => (duration.value >= 0).obs;
 
   /// Load existing user data if available
-  void _loadExistingData() async {
+  Future<void> _loadExistingData() async {
     try {
       isLoading.value = true;
 
       // Get current user data
-      // You might need to extend UserProfileModel to include physical activity data
       final userData = await _userRepository.fetchUserDetails();
+      userId = userData.userId;
 
-      // Load existing data if available
-      // frequency.value = userData.profile.exerciseFrequency ?? 0;
-      // duration.value = userData.profile.exerciseDuration ?? 0;
-      // intensity.value = userData.profile.exerciseIntensity ?? '';
+      // Check cache first (priority)
+      final cachedData = _storageManager.getStepData(3);
+      if (cachedData != null) {
+        if (cachedData['duration'] != null && cachedData['duration'] >= 0) {
+          duration.value = cachedData['duration'];
+          hasUserInput = true;
+        }
+      }
 
     } catch (e) {
       print('Error loading existing data: $e');
@@ -67,416 +74,201 @@ class PhysicalActivityController extends GetxController {
     }
   }
 
-  /// Set exercise frequency (days per week)
-  void setFrequency(int days) {
-    frequency.value = days;
-    update();
+  /// Check if sync is available from health logs
+  /// Special: Calculate 7-day average and compare with user input
+  Future<void> _checkSyncAvailability() async {
+    try {
+      final sevenDaysAgo = DateTime.now().subtract(Duration(days: 7));
+      final activityLogs = await _healthLogRepository
+          .getPhysicalActivityLogsStream(
+          userId,
+          sevenDaysAgo,
+          DateTime.now()
+      )
+          .first;
+
+      if (activityLogs.isNotEmpty) {
+        // Calculate average daily duration
+        final totalDuration = activityLogs.fold<int>(
+            0,
+                (sum, log) => sum + log.physicalActivity.duration
+        );
+        final averageDuration = (totalDuration / activityLogs.length).round();
+
+        if (hasUserInput) {
+          // User has input, compare with 7-day average
+          if (averageDuration > 0 && averageDuration != duration.value) {
+            syncableDuration = averageDuration;
+            shouldShowSyncButton.value = true;
+          }
+        } else {
+          // User hasn't input, show sync if logs exist
+          if (averageDuration > 0) {
+            syncableDuration = averageDuration;
+            shouldShowSyncButton.value = true;
+          }
+        }
+      }
+    } catch (e) {
+      print('Error checking sync: $e');
+    }
   }
 
-  /// Set exercise duration (minutes per session)
-  void setDuration(int minutes) {
-    duration.value = minutes;
-    update();
+  /// Check navigation state
+  Future<void> _checkNavigationState() async {
+    if (navigationMode.value == NavigationMode.edit) {
+      // Edit mode: no back button
+      canGoBack.value = false;
+    } else {
+      // Flow mode: check progress
+      final lastStep = _storageManager.getLastCompletedStep();
+
+      // Can go back if previous steps are completed
+      canGoBack.value = lastStep >= 2;
+    }
   }
 
-  /// Set exercise intensity
-  void setIntensity(String level) {
-    intensity.value = level;
-    update();
-  }
+  /// Sync from health logs (7-day average)
+  Future<void> syncFromHealthLogs() async {
+    if (syncableDuration != null) {
+      duration.value = syncableDuration!;
+      hasUserInput = true;
+      shouldShowSyncButton.value = false;
 
-  /// Navigate to next step
-  void nextStep() {
-    if (!canProceed.value) return;
-
-    // if (currentStep.value < 2) {
-    //   currentStep.value++;
-    //   pageController.nextPage(
-    //     duration: const Duration(milliseconds: 300),
-    //     curve: Curves.easeInOut,
-    //   );
-    // } else {
-      // Complete and save
-      saveAndContinue();
-    // }
-  }
-
-  /// Navigate to previous step
-  void previousStep() {
-    if (currentStep.value > 0) {
-      currentStep.value--;
-      pageController.previousPage(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
+      TLoaders.successSnackBar(
+        title: 'Synced',
+        message: 'Activity duration synced from health logs (7-day average: ${syncableDuration} min/day)',
       );
     }
   }
 
-  /// Calculate total weekly minutes
-  int get weeklyMinutes => frequency.value * duration.value;
-
-  /// Calculate activity level based on WHO recommendations
-  String getActivityLevel() {
-    final totalMinutes = weeklyMinutes;
-
-    if (totalMinutes == 0) return 'Sedentary';
-
-    // WHO recommends at least 150 minutes of moderate-intensity
-    // or 75 minutes of vigorous-intensity physical activity per week
-    if (intensity.value == 'high') {
-      if (totalMinutes >= 75) return 'Very Active';
-      if (totalMinutes >= 37) return 'Active';
-      return 'Lightly Active';
-    } else if (intensity.value == 'moderate') {
-      if (totalMinutes >= 150) return 'Very Active';
-      if (totalMinutes >= 75) return 'Active';
-      return 'Lightly Active';
-    } else { // light intensity
-      if (totalMinutes >= 300) return 'Active';
-      if (totalMinutes >= 150) return 'Lightly Active';
-      return 'Minimally Active';
-    }
+  /// Set exercise duration (minutes per day)
+  void setDuration(int minutes) {
+    duration.value = minutes;
+    hasUserInput = true;
+    update();
   }
 
-  /// Get activity level color
-  Color getActivityLevelColor() {
-    switch (getActivityLevel()) {
-      case 'Sedentary':
-        return Colors.red;
-      case 'Minimally Active':
-        return Colors.deepOrange;
-      case 'Lightly Active':
-        return Colors.orange;
-      case 'Active':
-        return Colors.green;
-      case 'Very Active':
-        return TColors.primary;
-      default:
-        return TColors.darkGrey;
-    }
-  }
-
-  /// Get activity level icon
-  IconData getActivityLevelIcon() {
-    switch (getActivityLevel()) {
-      case 'Sedentary':
-        return Icons.event_seat;
-      case 'Minimally Active':
-        return Icons.directions_walk;
-      case 'Lightly Active':
-        return Icons.directions_bike;
-      case 'Active':
-        return Icons.directions_run;
-      case 'Very Active':
-        return Icons.fitness_center;
-      default:
-        return Icons.help_outline;
-    }
-  }
-
-  /// Get activity level description
-  String getActivityLevelDescription() {
-    switch (getActivityLevel()) {
-      case 'Sedentary':
-        return 'No Regular Physical Activity';
-      case 'Minimally Active':
-        return 'Some Light Physical Activity';
-      case 'Lightly Active':
-        return 'Regular Light to Moderate Activity';
-      case 'Active':
-        return 'Meets Physical Activity Guidelines';
-      case 'Very Active':
-        return 'Exceeds Physical Activity Guidelines';
-      default:
-        return 'Activity Level Unknown';
-    }
-  }
-
-  /// Get activity recommendation
-  String getActivityRecommendation() {
-    switch (getActivityLevel()) {
-      case 'Sedentary':
-        return 'Consider starting with light activities like walking 10-15 minutes daily. Gradually increase duration and intensity.';
-      case 'Minimally Active':
-        return 'Good start! Try to increase your activity to 150 minutes of moderate exercise per week for better health benefits.';
-      case 'Lightly Active':
-        return 'You\'re on the right track! Consider adding some vigorous activities or increasing duration for optimal health.';
-      case 'Active':
-        return 'Excellent! You meet the recommended guidelines. Maintain this level and consider strength training 2x per week.';
-      case 'Very Active':
-        return 'Outstanding! You exceed recommendations. Ensure adequate rest and recovery between intense sessions.';
-      default:
-        return 'Please complete all questions to get personalized recommendations.';
-    }
-  }
-
-  /// Calculate MET (Metabolic Equivalent of Task) score
-  double calculateMETScore() {
-    double intensityMET;
-
-    switch (intensity.value) {
-      case 'light':
-        intensityMET = 3.0; // Light intensity activities
-        break;
-      case 'moderate':
-        intensityMET = 5.0; // Moderate intensity activities
-        break;
-      case 'high':
-        intensityMET = 8.0; // High intensity activities
-        break;
-      default:
-        intensityMET = 0.0;
+  /// Handle close button - always go to overview with slide down
+  Future<void> handleClose(BuildContext context) async {
+    if (navigationMode.value == NavigationMode.flow) {
+      // Save to cache before closing
+      await _storageManager.updateStepData(3, {
+        'duration': duration.value,
+      });
     }
 
-    // MET-minutes per week = MET value × minutes per session × sessions per week
-    return intensityMET * duration.value * frequency.value;
+    // Navigate to overview with slide down transition
+    Get.off(
+          () => DiabetesPredictionOverviewScreen(),
+      transition: Transition.downToUp,
+      duration: Duration(milliseconds: 400),
+      curve: Curves.easeInOut,
+    );
   }
 
-  /// Get MET category
-  String getMETCategory() {
-    final metScore = calculateMETScore();
-
-    if (metScore == 0) return 'Inactive';
-    if (metScore < 500) return 'Low';
-    if (metScore < 1000) return 'Moderate';
-    return 'High';
-  }
-
-  /// Get diabetes risk assessment based on physical activity
-  Map<String, dynamic> getDiabetesRiskAssessment() {
-    final activityLevel = getActivityLevel();
-    final metScore = calculateMETScore();
-
-    String riskLevel = 'Unknown';
-    String riskDescription = '';
-    Color riskColor = TColors.darkGrey;
-
-    if (activityLevel == 'Sedentary') {
-      riskLevel = 'High Risk';
-      riskDescription = 'Sedentary lifestyle significantly increases diabetes risk';
-      riskColor = Colors.red;
-    } else if (activityLevel == 'Minimally Active') {
-      riskLevel = 'Moderate-High Risk';
-      riskDescription = 'Some activity helps, but more is needed for optimal protection';
-      riskColor = Colors.deepOrange;
-    } else if (activityLevel == 'Lightly Active') {
-      riskLevel = 'Moderate Risk';
-      riskDescription = 'Regular activity provides some protection against diabetes';
-      riskColor = Colors.orange;
-    } else if (activityLevel == 'Active') {
-      riskLevel = 'Low Risk';
-      riskDescription = 'Good activity level significantly reduces diabetes risk';
-      riskColor = Colors.green;
-    } else if (activityLevel == 'Very Active') {
-      riskLevel = 'Very Low Risk';
-      riskDescription = 'Excellent activity level provides strong protection';
-      riskColor = TColors.primary;
-    }
-
-    return {
-      'riskLevel': riskLevel,
-      'riskDescription': riskDescription,
-      'riskColor': riskColor,
-      'metScore': metScore,
-      'weeklyMinutes': weeklyMinutes,
-      'activityLevel': activityLevel,
-    };
-  }
-
-  /// Save data and continue to next screen
-  void saveAndContinue() async {
+  /// Save data and continue/return based on mode
+  Future<void> saveAndContinue() async {
     try {
       isLoading.value = true;
 
-      // Get current user data
-      final currentUser = await _userRepository.fetchUserDetails();
-
-      // You'll need to extend UserProfileModel to include physical activity fields
-      // or create a separate PhysicalActivityModel
-      /*
-      final updatedProfile = UserProfileModel(
-        // ... existing fields
-        exerciseFrequency: frequency.value,
-        exerciseDuration: duration.value,
-        exerciseIntensity: intensity.value,
-        weeklyExerciseMinutes: weeklyMinutes,
-        activityLevel: getActivityLevel(),
-        metScore: calculateMETScore(),
-        updatedAt: DateTime.now(),
-      );
-
-      await _userRepository.updateUserProfile(updatedProfile);
-      */
-
-      // For now, save as separate data
-      final activityData = {
-        'frequency': frequency.value,
+      // Save to Hive cache
+      await _storageManager.updateStepData(3, {
         'duration': duration.value,
-        'intensity': intensity.value,
-        'weeklyMinutes': weeklyMinutes,
-        'activityLevel': getActivityLevel(),
-        'metScore': calculateMETScore(),
-        'riskAssessment': getDiabetesRiskAssessment(),
-        'timestamp': DateTime.now(),
-      };
+      });
 
-      // Save to repository (you'll need to implement this method)
-      // await _userRepository.savePhysicalActivityData(activityData);
+      // Navigate based on mode
+      if (navigationMode.value == NavigationMode.edit) {
+        // Edit mode: return to overview with slide down
+        TLoaders.successSnackBar(
+          title: 'Saved',
+          message: 'Physical activity updated in cache',
+        );
 
-      // Show success message
-      // Get.snackbar(
-      //   'Success',
-      //   'Physical activity data saved successfully!',
-      //   snackPosition: SnackPosition.BOTTOM,
-      //   backgroundColor: TColors.primary,
-      //   colorText: Colors.white,
-      // );
-
-      // Navigate to next screen
-      Get.to(() => StressLevelInputScreen());
+        Get.off(
+              () => DiabetesPredictionOverviewScreen(),
+          transition: Transition.downToUp,
+          duration: Duration(milliseconds: 400),
+          curve: Curves.easeInOut,
+        );
+      } else {
+        // Flow mode: continue to next step
+        Get.to(() => StressLevelInputScreen());
+      }
 
     } catch (e) {
-      // Handle error
-      TLoaders.errorSnackBar(title: 'Error', message: 'Failed to save data. Please try again.');
+      TLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to save data. Please try again.',
+      );
       print('Error saving physical activity: $e');
     } finally {
       isLoading.value = false;
     }
   }
 
+  /// Calculate activity level category
+  String getActivityLevel() {
+    if (duration.value == 0) return 'Sedentary';
+    if (duration.value < 15) return 'Minimal';
+    if (duration.value < 30) return 'Light';
+    if (duration.value < 60) return 'Moderate';
+    return 'Active';
+  }
+
+  /// Get activity level color
+  Color getActivityLevelColor() {
+    if (duration.value == 0) return Colors.grey;
+    if (duration.value < 15) return Colors.orange;
+    if (duration.value < 30) return Colors.amber;
+    if (duration.value < 60) return Colors.lightGreen;
+    return Colors.green;
+  }
+
+  /// Get activity level description
+  String getActivityLevelDescription() {
+    switch (getActivityLevel()) {
+      case 'Sedentary':
+        return 'No regular physical activity';
+      case 'Minimal':
+        return 'Some light physical activity';
+      case 'Light':
+        return 'Regular light activity';
+      case 'Moderate':
+        return 'Regular moderate activity';
+      case 'Active':
+        return 'Very active lifestyle';
+      default:
+        return '';
+    }
+  }
+
+  /// Get WHO recommendation message
+  String getWHORecommendation() {
+    final weeklyMinutes = duration.value * 7;
+
+    if (weeklyMinutes < 150) {
+      final remaining = 150 - weeklyMinutes;
+      return 'Add $remaining more minutes per week to meet WHO guidelines (150 min/week)';
+    } else {
+      return 'Great! You meet WHO recommendations for physical activity';
+    }
+  }
+
+  /// Check if meets WHO guidelines
+  bool meetsWHOGuidelines() {
+    return (duration.value * 7) >= 150;
+  }
+
   /// Reset all values
   void reset() {
-    frequency.value = 0;
     duration.value = 0;
-    intensity.value = '';
-    currentStep.value = 0;
-    pageController.animateToPage(
-      0,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
+    hasUserInput = false;
     update();
-  }
-
-  /// Validate inputs
-  bool validateInputs() {
-    if (frequency.value < 0 || frequency.value > 7) {
-      Get.snackbar(
-        'Invalid Frequency',
-        'Exercise frequency must be between 0-7 days per week',
-        snackPosition: SnackPosition.BOTTOM,
-      );
-      return false;
-    }
-
-    if (duration.value < 0 || duration.value > 300) {
-      Get.snackbar(
-        'Invalid Duration',
-        'Exercise duration must be between 0-300 minutes',
-        snackPosition: SnackPosition.BOTTOM,
-      );
-      return false;
-    }
-
-    if (intensity.value.isNotEmpty &&
-        !['light', 'moderate', 'high'].contains(intensity.value)) {
-      Get.snackbar(
-        'Invalid Intensity',
-        'Please select a valid exercise intensity',
-        snackPosition: SnackPosition.BOTTOM,
-      );
-      return false;
-    }
-
-    return true;
-  }
-
-  /// Show detailed analysis dialog
-  void showDetailedAnalysis() {
-    final assessment = getDiabetesRiskAssessment();
-
-    Get.dialog(
-      AlertDialog(
-        backgroundColor: Get.theme.scaffoldBackgroundColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        title: Row(
-          children: [
-            Icon(
-              getActivityLevelIcon(),
-              color: assessment['riskColor'],
-              size: 24,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'Activity Analysis',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: assessment['riskColor'],
-              ),
-            ),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildAnalysisItem('Activity Level', assessment['activityLevel']),
-              _buildAnalysisItem('Weekly Minutes', '${assessment['weeklyMinutes']} min'),
-              _buildAnalysisItem('MET Score', '${assessment['metScore'].toStringAsFixed(1)}'),
-              _buildAnalysisItem('Diabetes Risk', assessment['riskLevel']),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: assessment['riskColor'].withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  assessment['riskDescription'],
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: assessment['riskColor'],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAnalysisItem(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            '$label:',
-            style: TextStyle(fontWeight: FontWeight.w500),
-          ),
-          Text(
-            value,
-            style: TextStyle(fontWeight: FontWeight.w600),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
   void onClose() {
-    pageController.dispose();
     super.onClose();
   }
 }

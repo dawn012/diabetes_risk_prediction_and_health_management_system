@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@types/stripe':
+        specifier: ^8.0.417
+        version: 8.0.417(@types/node@22.13.4)
       body-parser:
         specifier: ^1.20.3
         version: 1.20.3
@@ -32,6 +35,9 @@ importers:
       morgan:
         specifier: ^1.10.0
         version: 1.10.0
+      stripe:
+        specifier: ^19.2.0
+        version: 19.2.0(@types/node@22.13.4)
     devDependencies:
       '@types/body-parser':
         specifier: ^1.19.5
@@ -141,6 +147,10 @@ packages:
 
   '@types/serve-static@1.15.7':
     resolution: {integrity: sha512-W8Ym+h8nhuRwaKPaDw34QUkwsGi6Rc4yYqvKFo5rm2FUEhCFbzVWrxXUxuKK8TASjWsysJY0nsmNCGhCOIsrOw==}
+
+  '@types/stripe@8.0.417':
+    resolution: {integrity: sha512-PTuqskh9YKNENnOHGVJBm4sM0zE8B1jZw1JIskuGAPkMB+OH236QeN8scclhYGPA4nG6zTtPXgwpXdp+HPDTVw==}
+    deprecated: This is a stub types definition. stripe provides its own type definitions, so you do not need this installed.
 
   '@types/webidl-conversions@7.0.3':
     resolution: {integrity: sha512-CiJJvcRtIgzadHCYXw7dqEnMNRjhGZlYK05Mj9OyktqV8uVT8fD2BFOB7S1uwBE3Kj2Z+4UyPmFw/Ixgw/LAlA==}
@@ -618,6 +628,15 @@ packages:
     resolution: {integrity: sha512-RwNA9Z/7PrK06rYLIzFMlaF+l73iwpzsqRIFgbMLbTcLD6cOao82TaWefPXQvB2fOC4AjuYSEndS7N/mTCbkdQ==}
     engines: {node: '>= 0.8'}
 
+  stripe@19.2.0:
+    resolution: {integrity: sha512-strzN8luMGMC1LEleGKg7pJGXFx0kSS4y/uSjK8yPQV9SUBMtJVAp/v8XMQLRnMbXaSaWLrIaHcMlKcsizdRDQ==}
+    engines: {node: '>=16'}
+    peerDependencies:
+      '@types/node': '>=16'
+    peerDependenciesMeta:
+      '@types/node':
+        optional: true
+
   supports-color@5.5.0:
     resolution: {integrity: sha512-QjVjwdXIt408MIiAqCX4oUKsgU2EqAGzs2Ppkm4aQYbjm+ZEWEcW4SfFNTr4uMNZma0ey4f5lgLrkB0aX0QMow==}
     engines: {node: '>=4'}
@@ -791,6 +810,12 @@ snapshots:
       '@types/http-errors': 2.0.4
       '@types/node': 22.13.4
       '@types/send': 0.17.4
+
+  '@types/stripe@8.0.417(@types/node@22.13.4)':
+    dependencies:
+      stripe: 19.2.0(@types/node@22.13.4)
+    transitivePeerDependencies:
+      - '@types/node'
 
   '@types/webidl-conversions@7.0.3': {}
 
@@ -1281,6 +1306,12 @@ snapshots:
       memory-pager: 1.5.0
 
   statuses@2.0.1: {}
+
+  stripe@19.2.0(@types/node@22.13.4):
+    dependencies:
+      qs: 6.13.0
+    optionalDependencies:
+      '@types/node': 22.13.4
 
   supports-color@5.5.0:
     dependencies:

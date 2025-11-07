@@ -3,11 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Diatrack - Diabetes Management Community</title>
+  <title>Diatrack - Diabetes Management</title>
 
   <style>
+    .type-subscription { background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); }
+    .type-receipt { background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%); }
+    .type-payment { background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%); }
+    .type-community { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+
     body {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
         margin: 0;
@@ -51,7 +55,7 @@
         margin-bottom: 30px;
     }
 
-    .post-info {
+    .info-box {
         background: rgba(255, 255, 255, 0.15);
         border-radius: 15px;
         padding: 20px;
@@ -59,7 +63,7 @@
         border: 1px solid rgba(255, 255, 255, 0.1);
     }
 
-    .post-id {
+    .item-id {
         font-size: 24px;
         font-weight: bold;
         margin-bottom: 10px;
@@ -133,14 +137,15 @@
 </head>
 <body>
 <div class="container">
-  <div class="logo">💬</div>
-  <h1>Diatrack Community</h1>
-  <div class="subtitle">Diabetes Support & Discussion</div>
+  <div class="logo" id="page-logo">💬</div>
+  <h1 id="page-title">Diatrack</h1>
+  <div class="subtitle" id="page-subtitle">Diabetes Support & Discussion</div>
 
-  <div id="post-section" style="display: none;">
-    <div class="post-info">
-      <div>Community Post</div>
-      <div class="post-id" id="post-id"></div>
+  <div id="content-section" style="display: none;">
+    <div class="info-box">
+      <div id="content-type"></div>
+      <div class="item-id" id="item-id"></div>
+      <div id="additional-info"></div>
     </div>
   </div>
 
@@ -151,39 +156,85 @@
 
   <div class="status" id="status">
     <div class="spinner"></div>
-    <div class="loading">Opening Diatrack App...</div>
+    <div class="loading" id="loading-message">Opening Diatrack App...</div>
   </div>
 
   <div class="footer">
-    Please install the Diatrack mobile app to view this community post
+    Please install the Diatrack mobile app to view this content
   </div>
 </div>
 
 <script>
   class DiatrackDeepLinkHandler {
       constructor() {
-          this.postId = null;
+          this.itemId = null;
+          this.linkType = null;
           this.hasTriedApp = false;
           this.init();
       }
 
       init() {
-          this.extractPostId();
+          this.extractLinkInfo();
           this.setupEventListeners();
           this.attemptAppLaunch();
       }
 
-      extractPostId() {
+      extractLinkInfo() {
           const path = window.location.pathname;
-          // 支持两种URL格式：
-          // /community/post/{postId}
-          // /post/{postId}
-          const match = path.match(/\/(?:community\/)?post\/([^\/]+)/);
-          if (match && match[1]) {
-              this.postId = match[1];
-              document.getElementById('post-id').textContent = this.postId;
-              document.getElementById('post-section').style.display = 'block';
+          console.log('Current path:', path);
+
+          // 支持多种类型的链接
+          const patterns = [
+              // Community posts
+              { pattern: /\/(?:community\/)?post\/([^\/]+)/, type: 'community', logo: '💬', title: 'Diatrack Community', subtitle: 'Diabetes Support & Discussion' },
+              // Subscription management
+              { pattern: /\/subscription\/([^\/]+)/, type: 'subscription', logo: '📋', title: 'Subscription Details', subtitle: 'Manage Your Plan' },
+              // Receipt viewing
+              { pattern: /\/receipt\/([^\/]+)/, type: 'receipt', logo: '🧾', title: 'Payment Receipt', subtitle: 'View Your Transaction' },
+              // Payment handling
+              { pattern: /\/payment\/([^\/]+)/, type: 'payment', logo: '💳', title: 'Payment', subtitle: 'Complete Your Transaction' },
+              // Subscription renewal
+              { pattern: /\/subscription\/([^\/]+)\/renew/, type: 'renewal', logo: '🔄', title: 'Renew Subscription', subtitle: 'Continue Your Plan' },
+              // Subscription reactivation
+              { pattern: /\/subscription\/([^\/]+)\/reactivate/, type: 'reactivate', logo: '⚡', title: 'Reactivate Subscription', subtitle: 'Restart Your Plan' }
+          ];
+
+          for (const { pattern, type, logo, title, subtitle } of patterns) {
+              const match = path.match(pattern);
+              if (match && match[1]) {
+                  this.itemId = match[1];
+                  this.linkType = type;
+
+                  // 更新页面内容
+                  document.getElementById('page-logo').textContent = logo;
+                  document.getElementById('page-title').textContent = title;
+                  document.getElementById('page-subtitle').textContent = subtitle;
+                  document.getElementById('item-id').textContent = this.itemId;
+                  document.getElementById('content-type').textContent = this.getContentTypeText(type);
+                  document.getElementById('content-section').style.display = 'block';
+
+                  // 更新背景颜色基于类型
+                  document.body.className = `type-${type}`;
+
+                  console.log(`Detected ${type} link with ID: ${this.itemId}`);
+                  return;
+              }
           }
+
+          // 如果没有匹配到任何模式，显示默认页面
+          console.log('No specific deep link pattern matched');
+      }
+
+      getContentTypeText(type) {
+          const typeTexts = {
+              'community': 'Community Post',
+              'subscription': 'Subscription',
+              'receipt': 'Payment Receipt',
+              'payment': 'Payment',
+              'renewal': 'Subscription Renewal',
+              'reactivate': 'Subscription Reactivation'
+          };
+          return typeTexts[type] || 'Content';
       }
 
       setupEventListeners() {
@@ -197,32 +248,28 @@
               this.attemptAppLaunch();
           });
 
-          // 监听页面可见性变化
           document.addEventListener('visibilitychange', () => {
               if (document.hidden && this.hasTriedApp) {
-                  // 用户切换到了应用，认为成功
                   this.showSuccess();
               }
           });
       }
 
       attemptAppLaunch() {
-          if (!this.postId) {
-              this.showError('No post ID found in URL');
+          if (!this.itemId || !this.linkType) {
+              this.showError('No valid content found in URL');
               return;
           }
 
           this.showLoading('Opening Diatrack App...');
           this.hasTriedApp = true;
 
-          // 尝试两种 scheme
-          const deepLinkUrls = [
-            `diatrack://community/post/${this.postId}`,
-            `https://diabetes-health-system.web.app/community/post/${this.postId}`
-          ];
+          // 根据类型生成不同的 deep link
+          const deepLinkUrl = this.generateDeepLinkUrl();
+          const fallbackUrl = this.generateFallbackUrl();
 
-          // 先尝试自定义 scheme
-          this.openDeepLink(deepLinkUrls[0]);
+          // 尝试两种 scheme
+          this.openDeepLink(deepLinkUrl);
 
           // 3秒后检查是否还在页面
           setTimeout(() => {
@@ -232,18 +279,42 @@
           }, 3000);
       }
 
+      generateDeepLinkUrl() {
+          // 自定义 scheme
+          switch (this.linkType) {
+              case 'community':
+                  return `diatrack://community/post/${this.itemId}`;
+              case 'subscription':
+                  return `diatrack://subscription/${this.itemId}`;
+              case 'receipt':
+                  return `diatrack://receipt/${this.itemId}`;
+              case 'payment':
+                  return `diatrack://payment/${this.itemId}`;
+              case 'renewal':
+                  return `diatrack://subscription/${this.itemId}/renew`;
+              case 'reactivate':
+                  return `diatrack://subscription/${this.itemId}/reactivate`;
+              default:
+                  return `diatrack://${this.linkType}/${this.itemId}`;
+          }
+      }
+
+      generateFallbackUrl() {
+          // HTTPS fallback
+          return `https://diabetes-health-system.web.app${window.location.pathname}`;
+      }
+
       openApp() {
-          if (this.postId) {
-              const deepLinkUrl = `diatrack://community/post/${this.postId}`;
+          if (this.itemId && this.linkType) {
+              const deepLinkUrl = this.generateDeepLinkUrl();
               this.openDeepLink(deepLinkUrl);
           }
       }
 
       openDeepLink(url) {
-          // 方法1: 直接跳转
+          console.log('Opening deep link:', url);
           window.location.href = url;
 
-          // 方法2: 创建隐藏的 iframe (backup)
           setTimeout(() => {
               const iframe = document.createElement('iframe');
               iframe.style.display = 'none';
@@ -293,7 +364,7 @@
       }
 
       showButtons() {
-          if (this.postId) {
+          if (this.itemId) {
               document.getElementById('open-app-btn').style.display = 'inline-block';
           }
           document.getElementById('try-again-btn').style.display = 'inline-block';
@@ -307,14 +378,12 @@
 
   // 处理页面焦点变化
   let startTime = Date.now();
-
   window.addEventListener('blur', () => {
       startTime = Date.now();
   });
 
   window.addEventListener('focus', () => {
       const timeElapsed = Date.now() - startTime;
-      // 如果离开时间很短，可能是应用打开又切回来了
       if (timeElapsed < 2000) {
           document.getElementById('status').innerHTML =
               `<div class="success">✓ Welcome back! App launch detected.</div>`;

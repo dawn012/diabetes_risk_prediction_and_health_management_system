@@ -202,6 +202,8 @@ class ProfileScreen extends StatelessWidget {
                   ),
                 ),
               ),
+
+              const SizedBox(height: TSizes.spaceBtwItems),
             ],
           ),
         ),

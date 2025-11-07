@@ -1,8 +1,12 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide NavigationMode;
 import 'package:get/get.dart';
 
 import '../../../common/loaders/loaders.dart';
+import '../../../data/repositories/user/user_repository.dart';
+import '../../../services/diabetes_hive_storage_manager.dart';
+import '../views/diabetes_input/diabetes_prediction_overview_screen.dart';
 import '../views/diabetes_input/water_intake_input_screen.dart';
+import '../views/diabetes_input/widgets/diabetes_prediction_input_screen.dart';
 
 /// Controller for managing sleep duration input
 class SleepDurationController extends GetxController {
@@ -11,22 +15,77 @@ class SleepDurationController extends GetxController {
   // Sleep duration in hours (3.0 to 12.0)
   final sleepDuration = 7.5.obs;
 
-  // // Sleep factors that affect sleep quality
-  // final sleepFactors = <String>[].obs;
-
   // Loading state
   final isLoading = false.obs;
+  final RxBool canGoBack = false.obs;
+  final Rx<NavigationMode> navigationMode = NavigationMode.flow.obs;
+
+  // Repositories
+  final UserRepository _userRepository = Get.put(UserRepository());
+  final DiabetesHiveStorageManager _storageManager = DiabetesHiveStorageManager.instance;
+
+  String userId = '';
 
   @override
   void onInit() {
     super.onInit();
-    // Set default to recommended sleep duration
-    sleepDuration.value = 7.5;
+    _initialize();
+  }
+
+  /// Initialize controller
+  Future<void> _initialize() async {
+    // Get navigation mode from arguments if provided
+    if (Get.arguments != null && Get.arguments['mode'] != null) {
+      navigationMode.value = Get.arguments['mode'];
+    }
+
+    await _loadExistingData();
+    await _checkNavigationState();
+  }
+
+  /// Load existing user data if available
+  Future<void> _loadExistingData() async {
+    try {
+      isLoading.value = true;
+
+      // Get current user data
+      final userData = await _userRepository.fetchUserDetails();
+      userId = userData.userId;
+
+      // Check cache first (priority)
+      final cachedData = _storageManager.getStepData(5);
+      if (cachedData != null) {
+        if (cachedData['sleepDuration'] != null &&
+            cachedData['sleepDuration'] >= 3.0 &&
+            cachedData['sleepDuration'] <= 12.0) {
+          sleepDuration.value = cachedData['sleepDuration'];
+        }
+      }
+
+    } catch (e) {
+      print('Error loading existing sleep data: $e');
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  /// Check navigation state
+  Future<void> _checkNavigationState() async {
+    if (navigationMode.value == NavigationMode.edit) {
+      // Edit mode: no back button
+      canGoBack.value = false;
+    } else {
+      // Flow mode: check progress
+      final lastStep = _storageManager.getLastCompletedStep();
+
+      // Can go back if previous steps are completed
+      canGoBack.value = lastStep >= 4;
+    }
   }
 
   /// Set sleep duration
   void setSleepDuration(double duration) {
-    sleepDuration.value = duration;
+    if (duration >= 3 && duration <= 12) sleepDuration.value = duration;
   }
 
   /// Check if can proceed (always true since sleep duration is always valid)
@@ -76,14 +135,10 @@ class SleepDurationController extends GetxController {
 
     if (duration < 5.0) {
       return 'Severely Insufficient Sleep';
-    } else if (duration < 6.0) {
-      return 'Insufficient Sleep';
     } else if (duration < 7.0) {
-      return 'Below Recommended';
+      return 'Insufficient Sleep';
     } else if (duration <= 9.0) {
       return 'Optimal Sleep Duration';
-    } else if (duration <= 10.0) {
-      return 'Above Recommended';
     } else {
       return 'Excessive Sleep Duration';
     }
@@ -101,56 +156,6 @@ class SleepDurationController extends GetxController {
       return 'Excessive';
     }
   }
-
-  // /// Get health recommendations based on sleep duration
-  // List<String> getHealthRecommendations() {
-  //   final duration = sleepDuration.value;
-  //   final recommendations = <String>[];
-  //
-  //   if (duration < 6.0) {
-  //     recommendations.addAll([
-  //       'Try to increase sleep duration to 7-9 hours',
-  //       'Maintain consistent bedtime and wake-up times',
-  //       'Create a relaxing bedtime routine',
-  //       'Limit caffeine and screen time before bed',
-  //     ]);
-  //   } else if (duration > 9.5) {
-  //     recommendations.addAll([
-  //       'Consider if you might be oversleeping',
-  //       'Evaluate sleep quality rather than just quantity',
-  //       'Check for underlying sleep disorders',
-  //       'Maintain regular sleep schedule',
-  //     ]);
-  //   } else {
-  //     recommendations.addAll([
-  //       'Great job maintaining healthy sleep duration!',
-  //       'Continue your current sleep routine',
-  //       'Focus on sleep quality and consistency',
-  //     ]);
-  //   }
-  //
-  //   // Add factor-specific recommendations
-  //   if (sleepFactors.contains('Stress')) {
-  //     recommendations.add('Practice relaxation techniques before bed');
-  //   }
-  //   if (sleepFactors.contains('Screen Time')) {
-  //     recommendations.add('Avoid screens 1 hour before bedtime');
-  //   }
-  //   if (sleepFactors.contains('Caffeine')) {
-  //     recommendations.add('Limit caffeine intake after 2 PM');
-  //   }
-  //   if (sleepFactors.contains('Noise')) {
-  //     recommendations.add('Consider using earplugs or white noise machine');
-  //   }
-  //   if (sleepFactors.contains('Temperature')) {
-  //     recommendations.add('Keep bedroom cool (65-68°F/18-20°C)');
-  //   }
-  //   if (sleepFactors.contains('Work Schedule')) {
-  //     recommendations.add('Try to maintain consistent sleep schedule even with irregular work hours');
-  //   }
-  //
-  //   return recommendations;
-  // }
 
   /// Calculate sleep score (0-100)
   int getSleepScore() {
@@ -173,43 +178,59 @@ class SleepDurationController extends GetxController {
     return score;
   }
 
-  /// Save data and continue to next step
+  /// Handle close button - always go to overview with slide down
+  Future<void> handleClose(BuildContext context) async {
+    if (navigationMode.value == NavigationMode.flow) {
+      // Save to cache before closing
+      await _storageManager.updateStepData(5, {
+        'sleepDuration': sleepDuration.value,
+      });
+    }
+
+    // Navigate to overview with slide down transition
+    Get.off(
+          () => DiabetesPredictionOverviewScreen(),
+      transition: Transition.downToUp,
+      duration: Duration(milliseconds: 400),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  /// Save data and continue/return based on mode
   Future<void> saveAndContinue() async {
     try {
       isLoading.value = true;
 
-      // Simulate API call or data processing
-      await Future.delayed(const Duration(milliseconds: 800));
+      // Save to Hive cache
+      await _storageManager.updateStepData(5, {
+        'sleepDuration': sleepDuration.value,
+      });
 
-      // Here you would typically:
-      // 1. Validate the data
-      // 2. Save to local storage or send to API
-      // 3. Navigate to next screen
+      // Navigate based on mode
+      if (navigationMode.value == NavigationMode.edit) {
+        // Edit mode: return to overview with slide down
+        TLoaders.successSnackBar(
+          title: 'Saved',
+          message: 'Sleep duration updated in cache',
+        );
 
-      final sleepData = {
-        'duration': sleepDuration.value,
-        'formattedDuration': getFormattedDuration(),
-        'qualityCategory': getSleepQualityCategory(),
-        'qualityScore': getSleepScore(),
-        'timestamp': DateTime.now().toIso8601String(),
-      };
-
-      print('Sleep Duration Data: $sleepData'); // For debugging
-
-      // Navigate to next screen
-      Get.to(() => WaterIntakeInputScreen());
-
-      // Get.snackbar(
-      //   'Success',
-      //   'Sleep duration data saved successfully!',
-      //   snackPosition: SnackPosition.TOP,
-      //   backgroundColor: Colors.green,
-      //   colorText: Colors.white,
-      //   duration: const Duration(seconds: 2),
-      // );
+        Get.off(
+              () => DiabetesPredictionOverviewScreen(),
+          transition: Transition.downToUp,
+          duration: Duration(milliseconds: 400),
+          curve: Curves.easeInOut,
+        );
+      } else {
+        // Flow mode: continue to next step
+        Get.to(() => const WaterIntakeInputScreen());
+      }
 
     } catch (e) {
-      TLoaders.errorSnackBar(title: 'Error', message: 'Failed to save data. Please try again.');
+      TLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to save sleep duration data. Please try again.',
+      );
+      print('Error saving sleep duration: $e');
     } finally {
       isLoading.value = false;
     }

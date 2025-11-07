@@ -211,15 +211,14 @@ class TUserProfileValidator {
     return null;
   }
 
-  /// Validate stress level
-  static String? validateStressLevel(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      // return 'Please select your stress level.';
-      return null;
+  /// Validate stress level (1-10 scale)
+  static String? validateStressLevel(int? value) {
+    if (value == null) {
+      return 'Please select your stress level.';
     }
 
-    if (!['low', 'medium', 'high'].contains(value.toLowerCase())) {
-      return 'Invalid stress level selection.';
+    if (value < 1 || value > 10) {
+      return 'Stress level must be between 1 and 10.';
     }
 
     return null;

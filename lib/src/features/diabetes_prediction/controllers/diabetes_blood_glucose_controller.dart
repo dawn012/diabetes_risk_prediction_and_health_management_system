@@ -1,10 +1,14 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide NavigationMode;
 import 'package:get/get.dart';
 import 'dart:math' as math;
 
 import '../../../common/loaders/loaders.dart';
+import '../../../data/repositories/health_log/health_log_repository.dart';
 import '../../../data/repositories/user/user_repository.dart';
+import '../../../services/diabetes_hive_storage_manager.dart';
+import '../views/diabetes_input/diabetes_prediction_overview_screen.dart';
 import '../views/diabetes_input/physical_activity_input_screen.dart';
+import '../views/diabetes_input/widgets/diabetes_prediction_input_screen.dart';
 
 class DiabetesBloodGlucoseController extends GetxController {
   static DiabetesBloodGlucoseController get instance => Get.find();
@@ -13,35 +17,137 @@ class DiabetesBloodGlucoseController extends GetxController {
   final Rx<double> currentValue = 100.0.obs;
   final RxString measurementType = 'mg/dL'.obs;
   final RxBool isLoading = false.obs;
+  final RxBool canGoBack = false.obs;
+  final RxBool shouldShowSyncButton = false.obs;
+  final Rx<NavigationMode> navigationMode = NavigationMode.flow.obs;
 
-  // User repository for data operations
+  // Repositories
   final UserRepository _userRepository = Get.put(UserRepository());
+  final HealthLogRepository _healthLogRepository = Get.put(HealthLogRepository());
+  final DiabetesHiveStorageManager _storageManager = DiabetesHiveStorageManager.instance;
+
+  final List<double> mmolLabels = [2.8, 5.5, 11.0, 22.0];
+  String userId = '';
+  double? syncableGlucose;
+  bool hasUserInput = false;
 
   @override
   void onInit() {
     super.onInit();
-    _loadExistingData();
+    _initialize();
+  }
+
+  /// Initialize controller
+  Future<void> _initialize() async {
+    // Get navigation mode from arguments if provided
+    if (Get.arguments != null && Get.arguments['mode'] != null) {
+      navigationMode.value = Get.arguments['mode'];
+    }
+
+    await _loadExistingData();
+    await _checkSyncAvailability();
+    await _checkNavigationState();
   }
 
   /// Check if user can proceed
   RxBool get canProceed => (currentValue.value > 0).obs;
 
   /// Load existing user data if available
-  void _loadExistingData() async {
+  Future<void> _loadExistingData() async {
     try {
       isLoading.value = true;
 
-      // Get current user data - you might need to extend UserProfileModel
-      // to include blood glucose data, or create a separate model
       final userData = await _userRepository.fetchUserDetails();
+      userId = userData.userId;
 
-      // If you have blood glucose data stored somewhere, load it here
-      // currentValue.value = userData.profile.bloodGlucose ?? 100.0;
+      // Check cache first (priority)
+      final cachedData = _storageManager.getStepData(2);
+      if (cachedData != null) {
+        if (cachedData['glucose'] != null && cachedData['glucose'] > 0) {
+          currentValue.value = cachedData['glucose'];
+          hasUserInput = true;
+        }
+        if (cachedData['unit'] != null) {
+          measurementType.value = cachedData['unit'];
+        }
+      }
 
     } catch (e) {
       print('Error loading existing data: $e');
     } finally {
       isLoading.value = false;
+    }
+  }
+
+  /// Check if sync is available from health logs
+  Future<void> _checkSyncAvailability() async {
+    try {
+      final threeDaysAgo = DateTime.now().subtract(Duration(days: 3));
+      final glucoseLogs = await _healthLogRepository.getBloodGlucoseLogsStream(
+          userId,
+          threeDaysAgo,
+          DateTime.now()
+      ).first;
+
+      if (glucoseLogs.isNotEmpty) {
+        final latestGlucose = glucoseLogs.first.bloodGlucose.glucoseLevel;
+        // Convert mmol/L to mg/dL
+        final glucoseMgDl = latestGlucose * 18.0;
+
+        // Get current value in mg/dL for comparison
+        final currentMgDl = measurementType.value == 'mmol/L'
+            ? mmolToMgdl(currentValue.value)
+            : currentValue.value;
+
+        if (hasUserInput) {
+          // User has input, compare with latest log
+          if (glucoseMgDl > 0 && glucoseMgDl != currentMgDl) {
+            syncableGlucose = glucoseMgDl;
+            shouldShowSyncButton.value = true;
+          }
+        } else {
+          // User hasn't input, show sync if logs exist
+          if (glucoseMgDl > 0) {
+            syncableGlucose = glucoseMgDl;
+            shouldShowSyncButton.value = true;
+          }
+        }
+      }
+    } catch (e) {
+      print('Error checking sync: $e');
+    }
+  }
+
+  /// Check navigation state
+  Future<void> _checkNavigationState() async {
+    if (navigationMode.value == NavigationMode.edit) {
+      // Edit mode: no back button
+      canGoBack.value = false;
+    } else {
+      // Flow mode: check progress
+      final lastStep = _storageManager.getLastCompletedStep();
+
+      // Can go back if previous steps are completed
+      canGoBack.value = lastStep >= 1;
+    }
+  }
+
+  /// Sync from health logs
+  Future<void> syncFromHealthLogs() async {
+    if (syncableGlucose != null) {
+      // Convert to current unit if needed
+      if (measurementType.value == 'mmol/L') {
+        currentValue.value = mgdlToMmol(syncableGlucose!);
+      } else {
+        currentValue.value = syncableGlucose!;
+      }
+      hasUserInput = true;
+      shouldShowSyncButton.value = false;
+
+      TLoaders.successSnackBar(
+        title: 'Synced',
+        message: 'Blood glucose synced from health logs',
+      );
     }
   }
 
@@ -63,6 +169,7 @@ class DiabetesBloodGlucoseController extends GetxController {
   /// Update glucose value
   void updateGlucoseValue(double value) {
     currentValue.value = value;
+    hasUserInput = true;
     update();
   }
 
@@ -120,62 +227,35 @@ class DiabetesBloodGlucoseController extends GetxController {
       // Map 50-400 to 0-270 degrees
       percentage = (currentValue.value - 50) / (400 - 50);
     } else {
-      // Map 3.0-22.0 to 0-270 degrees
-      percentage = (currentValue.value - 3.0) / (22.0 - 3.0);
+      // Map 2.8-22.0 to 0-270 degrees
+      percentage = (currentValue.value - 2.8) / (22.0 - 2.8);
     }
 
     percentage = percentage.clamp(0.0, 1.0);
     return (percentage * 270 - 135) * math.pi / 180; // -135 to 135 degrees
   }
 
-  /// Get detailed glucose analysis
-  // Map<String, dynamic> getGlucoseAnalysis() {
-  //   final status = getGlucoseStatus();
-  //   final color = getGlucoseColor();
-  //
-  //   String recommendation = '';
-  //   String riskLevel = '';
-  //
-  //   if (measurementType.value == 'mg/dL') {
-  //     if (currentValue.value < 70) {
-  //       recommendation = 'Consider eating something sweet immediately';
-  //       riskLevel = 'Low Blood Sugar';
-  //     } else if (currentValue.value <= 99) {
-  //       recommendation = 'Maintain current lifestyle habits';
-  //       riskLevel = 'Healthy Range';
-  //     } else if (currentValue.value <= 125) {
-  //       recommendation = 'Monitor diet and exercise regularly';
-  //       riskLevel = 'Pre-diabetic Range';
-  //     } else {
-  //       recommendation = 'Consult healthcare provider';
-  //       riskLevel = 'Diabetic Range';
-  //     }
-  //   } else {
-  //     if (currentValue.value < 3.9) {
-  //       recommendation = 'Consider eating something sweet immediately';
-  //       riskLevel = 'Low Blood Sugar';
-  //     } else if (currentValue.value <= 5.5) {
-  //       recommendation = 'Maintain current lifestyle habits';
-  //       riskLevel = 'Healthy Range';
-  //     } else if (currentValue.value <= 6.9) {
-  //       recommendation = 'Monitor diet and exercise regularly';
-  //       riskLevel = 'Pre-diabetic Range';
-  //     } else {
-  //       recommendation = 'Consult healthcare provider';
-  //       riskLevel = 'Diabetic Range';
-  //     }
-  //   }
-  //
-  //   return {
-  //     'status': status,
-  //     'color': color,
-  //     'recommendation': recommendation,
-  //     'riskLevel': riskLevel,
-  //   };
-  // }
+  /// Handle close button
+  Future<void> handleClose(BuildContext context) async {
+    if (navigationMode.value == NavigationMode.flow) {
+      // Save to cache before closing
+      await _storageManager.updateStepData(2, {
+        'glucose': currentValue.value,
+        'unit': measurementType.value,
+      });
+    }
+
+    // Navigate to overview with slide down transition
+    Get.off(
+          () => DiabetesPredictionOverviewScreen(),
+      transition: Transition.downToUp,
+      duration: Duration(milliseconds: 400),
+      curve: Curves.easeInOut,
+    );
+  }
 
   /// Save data and continue to next screen
-  void saveAndContinue() async {
+  Future<void> saveAndContinue() async {
     if (!canProceed.value) return;
 
     try {
@@ -186,43 +266,31 @@ class DiabetesBloodGlucoseController extends GetxController {
           ? mmolToMgdl(currentValue.value)
           : currentValue.value;
 
-      // You'll need to extend your UserProfileModel or create a separate model
-      // to store blood glucose data. For now, I'll show how it could work:
+      // Save to Hive cache
+      await _storageManager.updateStepData(2, {
+        'glucose': glucoseInMgDl,
+        'unit': 'mg/dL', // Always store in mg/dL for consistency
+      });
 
-      /*
-      // Get current user data
-      final currentUser = await _userRepository.fetchUserDetails();
+      // Navigate based on mode
+      if (navigationMode.value == NavigationMode.edit) {
+        // Edit mode: return to overview with slide down
+        TLoaders.successSnackBar(
+          title: 'Saved',
+          message: 'Blood glucose updated in cache',
+        );
 
-      // Update the profile with blood glucose data
-      // You might need to add bloodGlucose field to UserProfileModel
-      final updatedProfile = UserProfileModel(
-        // ... existing fields
-        bloodGlucose: glucoseInMgDl,
-        updatedAt: DateTime.now(),
-      );
-
-      // Save to repository
-      await _userRepository.updateUserProfile(updatedProfile);
-      */
-
-      // For now, just save locally or to a separate collection
-      // await _userRepository.saveBloodGlucoseReading({
-      //   'value': glucoseInMgDl,
-      //   'unit': 'mg/dL',
-      //   'originalUnit': measurementType.value,
-      //   'originalValue': currentValue.value,
-      //   'timestamp': DateTime.now(),
-      //   'status': getGlucoseStatus(),
-      // });
-
-      // Show success message
-      // TLoaders.successSnackBar(title: 'Success', message: 'Blood glucose level saved successfully!');
-
-      // Navigate to next screen
-      Get.to(() => PhysicalActivityInputScreen());
-
+        Get.off(
+              () => DiabetesPredictionOverviewScreen(),
+          transition: Transition.downToUp,
+          duration: Duration(milliseconds: 400),
+          curve: Curves.easeInOut,
+        );
+      } else {
+        // Flow mode: continue to next step
+        Get.to(() => PhysicalActivityInputScreen());
+      }
     } catch (e) {
-      // Handle error
       TLoaders.errorSnackBar(title: 'Error', message: 'Failed to save data. Please try again.');
       print('Error saving blood glucose: $e');
     } finally {
@@ -230,72 +298,11 @@ class DiabetesBloodGlucoseController extends GetxController {
     }
   }
 
-  /// Show detailed analysis
-  // void showAnalysis() {
-  //   final analysis = getGlucoseAnalysis();
-  //
-  //   Get.dialog(
-  //     AlertDialog(
-  //       backgroundColor: Get.theme.scaffoldBackgroundColor,
-  //       shape: RoundedRectangleBorder(
-  //         borderRadius: BorderRadius.circular(16),
-  //       ),
-  //       title: Text(
-  //         'Glucose Analysis',
-  //         style: TextStyle(
-  //           fontWeight: FontWeight.bold,
-  //           color: analysis['color'],
-  //         ),
-  //       ),
-  //       content: Column(
-  //         mainAxisSize: MainAxisSize.min,
-  //         crossAxisAlignment: CrossAxisAlignment.start,
-  //         children: [
-  //           Text('Status: ${analysis['status']}'),
-  //           const SizedBox(height: 8),
-  //           Text('Risk Level: ${analysis['riskLevel']}'),
-  //           const SizedBox(height: 8),
-  //           Text('Recommendation: ${analysis['recommendation']}'),
-  //         ],
-  //       ),
-  //       actions: [
-  //         TextButton(
-  //           onPressed: () => Get.back(),
-  //           child: Text('OK'),
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
-
   /// Reset values to default
   void reset() {
     currentValue.value = measurementType.value == 'mg/dL' ? 100.0 : 5.5;
+    hasUserInput = false;
     update();
-  }
-
-  /// Validate input ranges
-  bool validateInputs() {
-    if (measurementType.value == 'mg/dL') {
-      if (currentValue.value < 50 || currentValue.value > 400) {
-        Get.snackbar(
-          'Invalid Reading',
-          'Blood glucose must be between 50-400 mg/dL',
-          snackPosition: SnackPosition.BOTTOM,
-        );
-        return false;
-      }
-    } else {
-      if (currentValue.value < 3.0 || currentValue.value > 22.0) {
-        Get.snackbar(
-          'Invalid Reading',
-          'Blood glucose must be between 3.0-22.0 mmol/L',
-          snackPosition: SnackPosition.BOTTOM,
-        );
-        return false;
-      }
-    }
-    return true;
   }
 
   @override

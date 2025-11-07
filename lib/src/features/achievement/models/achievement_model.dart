@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 
+import '../../../utils/constants/enums.dart';
 import '../../../utils/constants/firebase_field_names.dart';
 import 'achievement_level_model.dart';
 
@@ -7,22 +9,29 @@ class AchievementModel {
   final String achievementId;
   final String achievementTitle;
   final String description;
-  final String achievementType;
-  final String imagePath;
+  final AchievementType achievementType;
   final List<AchievementLevelModel> levels;
   final bool isActive;
   final DateTime createdAt;
+  final int iconCodePoint; // 存储 IconData 的 codePoint
 
-  AchievementModel({
+  const AchievementModel({
     required this.achievementId,
     required this.achievementTitle,
     required this.description,
     required this.achievementType,
-    required this.imagePath,
     required this.levels,
     required this.isActive,
-    required this.createdAt
+    required this.createdAt,
+    this.iconCodePoint = 0xf01a, // Icons.emoji_events.codePoint
   });
+
+  /// 获取 IconData
+  IconData get iconData => IconData(
+    iconCodePoint,
+    fontFamily: 'MaterialIcons',
+    fontPackage: null
+  );
 
   /// Static function to create an empty achievement model
   static AchievementModel empty() {
@@ -30,11 +39,36 @@ class AchievementModel {
       achievementId: '',
       achievementTitle: '',
       description: '',
-      achievementType: '',
-      imagePath: '',
+      achievementType: AchievementType.periodic,
       levels: [],
       isActive: false,
-      createdAt: DateTime(0),
+      createdAt: DateTime.now(),
+      iconCodePoint: Icons.emoji_events_outlined.codePoint, // 默认图标
+    );
+  }
+
+  /// Create a copy with updated fields
+  AchievementModel copyWith({
+    String? achievementId,
+    String? achievementTitle,
+    String? description,
+    AchievementType? achievementType,
+    List<AchievementLevelModel>? levels,
+    bool? isActive,
+    DateTime? createdAt,
+    int? iconCodePoint,
+    String? iconFontFamily,
+    String? iconFontPackage,
+  }) {
+    return AchievementModel(
+      achievementId: achievementId ?? this.achievementId,
+      achievementTitle: achievementTitle ?? this.achievementTitle,
+      description: description ?? this.description,
+      achievementType: achievementType ?? this.achievementType,
+      levels: levels ?? this.levels,
+      isActive: isActive ?? this.isActive,
+      createdAt: createdAt ?? this.createdAt,
+      iconCodePoint: iconCodePoint ?? this.iconCodePoint,
     );
   }
 
@@ -44,11 +78,11 @@ class AchievementModel {
       FirebaseFieldNames.achievementId: achievementId,
       FirebaseFieldNames.achievementTitle: achievementTitle,
       FirebaseFieldNames.description: description,
-      FirebaseFieldNames.achievementType: achievementType,
-      FirebaseFieldNames.imagePath: imagePath,
+      FirebaseFieldNames.achievementType: achievementType.value,
       FirebaseFieldNames.levels: levels.map((e) => e.toJson()).toList(),
       FirebaseFieldNames.isActive: isActive,
-      FirebaseFieldNames.createdAt: Timestamp.fromDate(createdAt),
+      FirebaseFieldNames.createdAt: createdAt.millisecondsSinceEpoch,
+      FirebaseFieldNames.iconCodePoint: iconCodePoint,
     };
   }
 
@@ -61,16 +95,26 @@ class AchievementModel {
         achievementId: data[FirebaseFieldNames.achievementId] ?? '',
         achievementTitle: data[FirebaseFieldNames.achievementTitle] ?? '',
         description: data[FirebaseFieldNames.description] ?? '',
-        achievementType: data[FirebaseFieldNames.achievementType] ?? '',
-        imagePath: data[FirebaseFieldNames.imagePath] ?? '',
+        achievementType: AchievementType.fromString(
+            data[FirebaseFieldNames.achievementType] ?? 'periodic'),
         levels: (data[FirebaseFieldNames.levels] as List<dynamic>?)
             ?.map((e) => AchievementLevelModel.fromMap(e as Map<String, dynamic>))
-            .toList() ?? [],
+            .toList() ??
+            [],
         isActive: data[FirebaseFieldNames.isActive] ?? false,
-        createdAt: (data[FirebaseFieldNames.createdAt] as Timestamp).toDate(),
+        createdAt: data[FirebaseFieldNames.createdAt] != null
+            ? DateTime.fromMillisecondsSinceEpoch(
+            data[FirebaseFieldNames.createdAt])
+            : DateTime.now(),
+        iconCodePoint: data[FirebaseFieldNames.iconCodePoint] ?? Icons.emoji_events.codePoint,
       );
     } else {
       return AchievementModel.empty();
     }
+  }
+
+  @override
+  String toString() {
+    return 'AchievementModel{achievementId: $achievementId, title: $achievementTitle, type: ${achievementType.displayName}}';
   }
 }

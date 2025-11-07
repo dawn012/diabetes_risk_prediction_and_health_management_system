@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:icons_plus/icons_plus.dart';
 
 import '../../../../utils/constants/admin_colors.dart';
+import '../../../../utils/constants/enums.dart';
 import '../../../../utils/helpers/helper_functions.dart';
 import '../../../achievement/models/achievement_model.dart';
 import '../../controllers/achievement_management_controller.dart';
@@ -255,14 +256,7 @@ class AchievementDetailDialog extends StatelessWidget {
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(11),
-                  child: achievement.imagePath.isNotEmpty
-                      ? Image.network(
-                    achievement.imagePath,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) =>
-                        _buildDefaultIcon(darkMode, isWeb),
-                  )
-                      : _buildDefaultIcon(darkMode, isWeb),
+                  child: _buildDefaultIcon(darkMode, isWeb),
                 ),
               ),
               SizedBox(width: 16),
@@ -311,8 +305,8 @@ class AchievementDetailDialog extends StatelessWidget {
               Expanded(
                 child: _buildInfoItem(
                   'Type',
-                  achievement.achievementType.capitalizeFirst!,
-                  achievement.achievementType == 'monthly' ? Iconsax.calendar_bold : Iconsax.award_bold,
+                  achievement.achievementType.displayName,
+                  achievement.achievementType == AchievementType.periodic ? Iconsax.calendar_bold : Iconsax.award_bold,
                   darkMode,
                 ),
               ),
@@ -352,7 +346,7 @@ class AchievementDetailDialog extends StatelessWidget {
       color: TAdminColors.primary.withOpacity(0.1),
       child: Center(
         child: Icon(
-          achievement.achievementType == 'monthly'
+          achievement.achievementType == AchievementType.periodic
               ? Iconsax.calendar_bold
               : Iconsax.award_bold,
           size: isWeb ? 32 : 24,
@@ -452,7 +446,7 @@ class AchievementDetailDialog extends StatelessWidget {
                       Row(
                         children: [
                           Text(
-                            level.level.capitalizeFirst!,
+                            level.level.displayName,
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -490,34 +484,6 @@ class AchievementDetailDialog extends StatelessWidget {
                     ],
                   ),
                 ),
-
-                // // Completion count for this level
-                // Container(
-                //   padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                //   decoration: BoxDecoration(
-                //     color: TAdminColors.info.withOpacity(0.1),
-                //     borderRadius: BorderRadius.circular(16),
-                //   ),
-                //   child: Row(
-                //     mainAxisSize: MainAxisSize.min,
-                //     children: [
-                //       Icon(
-                //         Iconsax.people_bold,
-                //         size: 12,
-                //         color: TAdminColors.info,
-                //       ),
-                //       SizedBox(width: 4),
-                //       Text(
-                //         '${controller.getLevelCompletions(achievement.achievementId, level.level)}',
-                //         style: TextStyle(
-                //           fontSize: 12,
-                //           fontWeight: FontWeight.w600,
-                //           color: TAdminColors.info,
-                //         ),
-                //       ),
-                //     ],
-                //   ),
-                // ),
               ],
             ),
           );
@@ -544,7 +510,7 @@ class AchievementDetailDialog extends StatelessWidget {
             children: [
               Expanded(
                 child: _buildStatCard(
-                  (achievement.achievementType == 'monthly') ? 'Total Participants' : 'Total Completion',
+                  (achievement.achievementType == AchievementType.periodic) ? 'Total Participants' : 'Total Completion',
                   '$totalCompletions',
                   Iconsax.people_bold,
                   TAdminColors.primary,
@@ -555,7 +521,7 @@ class AchievementDetailDialog extends StatelessWidget {
               SizedBox(width: 16),
               Expanded(
                 child: _buildStatCard(
-                  (achievement.achievementType == 'monthly') ? 'Today Participants' : 'This Month Completion',
+                  (achievement.achievementType == AchievementType.periodic) ? 'Today Participants' : 'This Month Completion',
                   '$recentCompletions',
                   Iconsax.calendar_1_bold,
                   TAdminColors.success,
@@ -566,7 +532,7 @@ class AchievementDetailDialog extends StatelessWidget {
             ],
           ),
 
-          if (achievement.achievementType == 'monthly' && achievement.levels.length > 1) ...[
+          if (achievement.achievementType == AchievementType.periodic && achievement.levels.length > 1) ...[
             SizedBox(height: 16),
             Divider(color: TAdminColors.getBorderColor(darkMode)),
             SizedBox(height: 16),
@@ -584,7 +550,7 @@ class AchievementDetailDialog extends StatelessWidget {
 
             Column(
               children: achievement.levels.map((level) {
-                final levelCompletions = controller.getLevelCompletions(achievement.achievementId, level.level);
+                final levelCompletions = controller.getLevelCompletions(achievement.achievementId, level.level.value);
                 final percentage = totalCompletions > 0 ? (levelCompletions / totalCompletions * 100) : 0;
 
                 return Container(
@@ -604,7 +570,7 @@ class AchievementDetailDialog extends StatelessWidget {
                           SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              level.level.capitalizeFirst!,
+                              level.level.displayName,
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
@@ -694,60 +660,52 @@ class AchievementDetailDialog extends StatelessWidget {
     );
   }
 
-  Color _getLevelColor(String level, String achievementType) {
-    if (achievementType == 'monthly') {
-      switch (level.toLowerCase()) {
-        case 'bronze':
+  Color _getLevelColor(AchievementLevel level, AchievementType achievementType) {
+    if (achievementType == AchievementType.periodic) {
+      switch (level) {
+        case AchievementLevel.bronze:
           return const Color(0xFFCD7F32);
-        case 'silver':
+        case AchievementLevel.silver:
           return const Color(0xFFC0C0C0);
-        case 'gold':
+        case AchievementLevel.gold:
           return const Color(0xFFFFD700);
-        case 'platinum':
-          return const Color(0xFFE5E4E2);
         default:
           return TAdminColors.primary;
       }
     } else {
-      switch (level.toLowerCase()) {
-        case 'beginner':
+      switch (level) {
+        case AchievementLevel.bronze:
           return TAdminColors.success;
-        case 'intermediate':
+        case AchievementLevel.silver:
           return TAdminColors.warning;
-        case 'advanced':
+        case AchievementLevel.gold:
           return TAdminColors.error;
-        case 'expert':
-          return TAdminColors.primary;
         default:
           return TAdminColors.info;
       }
     }
   }
 
-  IconData _getLevelIcon(String level, String achievementType) {
-    if (achievementType == 'monthly') {
-      switch (level.toLowerCase()) {
-        case 'bronze':
+  IconData _getLevelIcon(AchievementLevel level, AchievementType achievementType) {
+    if (achievementType == AchievementType.periodic) {
+      switch (level) {
+        case AchievementLevel.bronze:
           return Iconsax.medal_bold;
-        case 'silver':
+        case AchievementLevel.silver:
           return Iconsax.medal_star_bold;
-        case 'gold':
+        case AchievementLevel.gold:
           return Iconsax.crown_1_bold;
-        case 'platinum':
-          return Iconsax.cup_bold;
         default:
           return Iconsax.award_bold;
       }
     } else {
-      switch (level.toLowerCase()) {
-        case 'beginner':
+      switch (level) {
+        case AchievementLevel.bronze:
           return Iconsax.flag_bold;
-        case 'intermediate':
+        case AchievementLevel.silver:
           return Iconsax.star_bold;
-        case 'advanced':
+        case AchievementLevel.gold:
           return Iconsax.medal_bold;
-        case 'expert':
-          return Iconsax.crown_bold;
         default:
           return Iconsax.award_bold;
       }

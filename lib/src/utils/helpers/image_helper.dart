@@ -1,9 +1,12 @@
 import 'dart:io';
 
 import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:image_picker/image_picker.dart';
+
+import '../../common/widgets/camera/custom_camera_screen.dart';
 
 class ImageHelper {
   ImageHelper._();
@@ -49,6 +52,22 @@ class ImageHelper {
       return null;
     } catch (e) {
       print('Error taking photo: $e');
+      return null;
+    }
+  }
+
+  /// Open custom camera screen
+  static Future<File?> openCustomCamera() async {
+    try {
+      final result = await Get.to<File?>(
+            () => CustomCameraScreen(),
+        transition: Transition.cupertino,
+        fullscreenDialog: true,
+      );
+
+      return result;
+    } catch (e) {
+      print('Error opening custom camera: $e');
       return null;
     }
   }

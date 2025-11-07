@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:icons_plus/icons_plus.dart';
+
+import '../../../common/widgets/appbar/appbar.dart';
 import '../../../utils/constants/colors.dart';
 import '../../../utils/helpers/helper_functions.dart';
 import '../controllers/subscription_controller.dart';
 import '../models/subscription_plan_model.dart';
+import '../models/user_subscription_model.dart';
 import 'payment_method_selection_screen.dart';
 
 class SubscriptionPlanScreen extends StatelessWidget {
@@ -16,13 +20,8 @@ class SubscriptionPlanScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: darkMode ? TColors.black : TColors.white,
-      appBar: AppBar(
+      appBar: TAppBar(
         backgroundColor: TColors.primary,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Get.back(),
-        ),
         title: Text(
           'Premium',
           style: TextStyle(
@@ -31,19 +30,8 @@ class SubscriptionPlanScreen extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
-        centerTitle: true,
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                TColors.primary,
-                TColors.primary.withOpacity(0.8),
-              ],
-            ),
-          ),
-        ),
+        showBackArrow: true,
+        iconTheme: IconThemeData(color: TColors.white),
       ),
       body: Obx(() {
         if (controller.isLoading.value) {
@@ -52,23 +40,32 @@ class SubscriptionPlanScreen extends StatelessWidget {
           );
         }
 
+        // Check if user has active subscription
+        final hasActiveSubscription =
+            controller.activeSubscription.value != null;
+
         return SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header Section
-              const Text(
-                'Choose the Right Plan\nfor You',
+              Text(
+                hasActiveSubscription
+                    ? 'Manage Your Premium\nSubscription'
+                    : 'Choose the Right Plan\nfor You',
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
                   height: 1.2,
+                  color: darkMode ? TColors.white : TColors.black,
                 ),
               ),
               const SizedBox(height: 12),
               Text(
-                'With lots of unique and useful features,\nyou can easily manage your diabetes\neasily without any problem.',
+                hasActiveSubscription
+                    ? 'You are currently enjoying premium features.\nYour subscription details are shown below.'
+                    : 'With lots of unique and useful features,\nyou can easily manage your diabetes\neasily without any problem.',
                 style: TextStyle(
                   fontSize: 16,
                   color: darkMode ? Colors.grey[400] : Colors.grey[600],
@@ -77,6 +74,15 @@ class SubscriptionPlanScreen extends StatelessWidget {
               ),
               const SizedBox(height: 32),
 
+              // Active Subscription Banner (if exists)
+              if (hasActiveSubscription) ...[
+                _buildActiveSubscriptionBanner(
+                  controller.activeSubscription.value!,
+                  darkMode,
+                ),
+                const SizedBox(height: 24),
+              ],
+
               // Single Premium Plan
               if (controller.subscriptionPlans.isNotEmpty)
                 AnimatedContainer(
@@ -84,33 +90,107 @@ class SubscriptionPlanScreen extends StatelessWidget {
                   margin: const EdgeInsets.only(bottom: 16),
                   child: _PlanCard(
                     plan: controller.subscriptionPlans.first,
-                    isSelected: true, // Always selected since it's the only plan
+                    isSelected: true,
                     darkMode: darkMode,
-                    onTap: () {
-                    }, // No need to change selection
+                    onTap: () {},
                   ),
                 ),
 
+              const SizedBox(height: 24),
+
+              // Non-Refundable Notice
+              _buildNonRefundableNotice(darkMode),
+
               const SizedBox(height: 32),
 
-              // Get Premium Button
+              // Check for pending subscription notice
+              if (controller.hasPendingSubscription.value) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: TColors.warning.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: TColors.warning.withOpacity(0.3),
+                    ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Iconsax.clock_bold,
+                        color: TColors.warning,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Pending Subscription',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                                color: TColors.warning,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'You have a pending subscription that is being processed. Please wait for it to complete before creating a new subscription.',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: darkMode ? Colors.grey[400] : Colors.grey[700],
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+
+              // Action Button
               AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 width: double.infinity,
                 height: 56,
-                child: ElevatedButton(
-                  onPressed: () => Get.to(() => const PaymentMethodScreen()),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: TColors.primary,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
+                child: hasActiveSubscription
+                    ? OutlinedButton.icon(
+                  onPressed: () => controller.showCancelSubscriptionDialog(context),
+                  icon: Icon(Iconsax.close_circle_bold),
+                  label: const Text('Cancel Subscription'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: TColors.error,
+                    side: BorderSide(color: TColors.error, width: 2),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  child: const Text(
-                    'Get the premium',
-                    style: TextStyle(
+                )
+                    : ElevatedButton(
+                  onPressed: controller.hasPendingSubscription.value
+                      ? null
+                      : () => Get.to(() => const PaymentMethodScreen()),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: TColors.primary,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    disabledBackgroundColor: darkMode ? Colors.grey[800] : Colors.grey[300],
+                    disabledForegroundColor: darkMode ? Colors.grey[600] : Colors.grey[500],
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: Text(
+                    controller.hasPendingSubscription.value
+                        ? 'Processing Subscription...'
+                        : 'Get the premium',
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                     ),
@@ -122,6 +202,221 @@ class SubscriptionPlanScreen extends StatelessWidget {
         );
       }),
     );
+  }
+
+  Widget _buildActiveSubscriptionBanner(
+      UserSubscriptionModel subscription,
+      bool darkMode,
+      ) {
+    final daysRemaining =
+        subscription.endDateTime.difference(DateTime.now()).inDays;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            TColors.success.withOpacity(0.1),
+            TColors.primary.withOpacity(0.1),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: TColors.primary.withOpacity(0.3),
+          width: 2,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: TColors.primary.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Iconsax.crown_1_bold,
+              color: TColors.primary,
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Active Premium',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: darkMode ? TColors.white : TColors.black,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$daysRemaining days remaining',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: darkMode ? Colors.grey[400] : Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Icon(
+            Iconsax.tick_circle_bold,
+            color: TColors.success,
+            size: 32,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNonRefundableNotice(bool darkMode) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: TColors.warning.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: TColors.warning.withOpacity(0.3),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Iconsax.info_circle_bold,
+            color: TColors.warning,
+            size: 24,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Non-Refundable Purchase',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: TColors.warning,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'This is a digital product. All subscription purchases are final and non-refundable once activated.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: darkMode ? Colors.grey[400] : Colors.grey[700],
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCancelDialog(
+      BuildContext context,
+      SubscriptionController controller,
+      bool darkMode,
+      ) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: darkMode ? TColors.dark : TColors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Icon(
+              Iconsax.warning_2_bold,
+              color: TColors.error,
+              size: 24,
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Cancel Subscription?',
+              style: TextStyle(
+                color: darkMode ? TColors.white : TColors.black,
+                fontSize: 18,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to cancel your premium subscription? You will lose access to all premium features immediately.',
+          style: TextStyle(
+            color: darkMode ? Colors.grey[400] : Colors.grey[700],
+            fontSize: 14,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: Text(
+              'Keep Premium',
+              style: TextStyle(
+                color: darkMode ? TColors.white : TColors.black,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Get.back();
+              _cancelSubscription(controller);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: TColors.error,
+              foregroundColor: TColors.white,
+            ),
+            child: const Text('Cancel Subscription'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _cancelSubscription(SubscriptionController controller) async {
+    try {
+      final activeSubscription = controller.activeSubscription.value;
+      if (activeSubscription != null) {
+        await controller.subscriptionRepo.cancelSubscription(
+          activeSubscription.subscriptionId,
+        );
+
+        Get.snackbar(
+          'Success',
+          'Your subscription has been cancelled',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: TColors.success,
+          colorText: TColors.white,
+          icon: Icon(Iconsax.tick_circle_bold, color: TColors.white),
+        );
+
+        // Refresh subscription status
+        await controller.refreshSubscriptionStatus();
+      }
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'Failed to cancel subscription: $e',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: TColors.error,
+        colorText: TColors.white,
+        icon: Icon(Iconsax.close_circle_bold, color: TColors.white),
+      );
+    }
   }
 }
 
@@ -171,8 +466,6 @@ class _PlanCardState extends State<_PlanCard>
 
   @override
   Widget build(BuildContext context) {
-    final isPremium = widget.plan.planName.toLowerCase() == 'premium';
-
     return GestureDetector(
       onTapDown: (_) => _animationController.forward(),
       onTapUp: (_) {
@@ -213,7 +506,6 @@ class _PlanCardState extends State<_PlanCard>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Plan Header
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -263,14 +555,18 @@ class _PlanCardState extends State<_PlanCard>
                                   style: TextStyle(
                                     fontSize: 32,
                                     fontWeight: FontWeight.bold,
-                                    color: widget.darkMode ? Colors.white : Colors.black,
+                                    color: widget.darkMode
+                                        ? Colors.white
+                                        : Colors.black,
                                   ),
                                 ),
                                 TextSpan(
-                                  text: ' Per month',
+                                  text: ' / ${widget.plan.durationDays} days',
                                   style: TextStyle(
                                     fontSize: 14,
-                                    color: widget.darkMode ? Colors.grey[400] : Colors.grey[600],
+                                    color: widget.darkMode
+                                        ? Colors.grey[400]
+                                        : Colors.grey[600],
                                   ),
                                 ),
                               ],
@@ -292,10 +588,7 @@ class _PlanCardState extends State<_PlanCard>
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 24),
-
-                  // Features
                   ...widget.plan.features.map((feature) {
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 12),
@@ -319,7 +612,9 @@ class _PlanCardState extends State<_PlanCard>
                               feature,
                               style: TextStyle(
                                 fontSize: 14,
-                                color: widget.darkMode ? Colors.grey[300] : Colors.grey[700],
+                                color: widget.darkMode
+                                    ? Colors.grey[300]
+                                    : Colors.grey[700],
                                 height: 1.4,
                               ),
                             ),

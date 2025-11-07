@@ -201,9 +201,10 @@ class PostRepository extends GetxController {
     }
   }
 
-  /// Fetch posts with pagination and filtering
+  /// Fetch posts with pagination, filtering, and search
   Stream<List<PostModel>> fetchPosts({
     String? postType,
+    String? searchQuery,
     bool isDisable = false,
     int limit = 10,
     DocumentSnapshot<Map<String, dynamic>>? startAfter,
@@ -211,21 +212,61 @@ class PostRepository extends GetxController {
     Query<Map<String, dynamic>> query = _db
         .collection(FirebaseCollectionNames.posts)
         .where(FirebaseFieldNames.isDisable, isEqualTo: isDisable)
-        .orderBy(FirebaseFieldNames.createdAt, descending: true)
-        .limit(limit);
+        .orderBy(FirebaseFieldNames.createdAt, descending: true);
 
+    // Filter by post type
     if (postType != null && postType != 'all') {
       query = query.where(FirebaseFieldNames.postType, isEqualTo: postType);
     }
 
+    // Add pagination
     if (startAfter != null) {
       query = query.startAfterDocument(startAfter);
     }
 
-    return query.snapshots().map((snapshot) {
-      return snapshot.docs
+    query = query.limit(limit);
+
+    return query.snapshots().asyncMap((snapshot) async {
+      var posts = snapshot.docs
           .map((doc) => PostModel.fromSnapshot(doc))
           .toList();
+
+      // Client-side search filtering for both content and username
+      if (searchQuery != null && searchQuery.isNotEmpty) {
+        final lowerQuery = searchQuery.toLowerCase();
+
+        // Get all unique poster IDs
+        final posterIds = posts.map((p) => p.posterId).toSet().toList();
+
+        // Fetch user data for all posters in parallel
+        final userDocs = await Future.wait(
+            posterIds.map((id) =>
+                _db.collection(FirebaseCollectionNames.users).doc(id).get()
+            )
+        );
+
+        // Create a map of userId to username
+        final userMap = <String, String>{};
+        for (var doc in userDocs) {
+          if (doc.exists) {
+            final data = doc.data();
+            if (data != null) {
+              userMap[doc.id] = (data[FirebaseFieldNames.username] ?? '')
+                  .toString()
+                  .toLowerCase();
+            }
+          }
+        }
+
+        // Filter posts by content or username
+        posts = posts.where((post) {
+          final contentMatch = post.postContent.toLowerCase().contains(lowerQuery);
+          final usernameMatch = userMap[post.posterId]?.contains(lowerQuery) ?? false;
+          return contentMatch || usernameMatch;
+        }).toList();
+      }
+
+      return posts;
     });
   }
 
@@ -455,15 +496,105 @@ class PostRepository extends GetxController {
     }
   }
 
-  /// Get single post by ID
+  /// 🆕 Fetch more posts for pagination (non-streaming)
+  Future<List<PostModel>?> fetchMorePosts({
+    required String lastPostId,
+    String? postType,
+    String? searchQuery,
+    int limit = 10,
+  }) async {
+    try {
+      // 获取最后一个帖子的文档快照
+      final lastDoc = await _db
+          .collection(FirebaseCollectionNames.posts)
+          .doc(lastPostId)
+          .get();
+
+      if (!lastDoc.exists) {
+        return null;
+      }
+
+      // 构建查询
+      Query<Map<String, dynamic>> query = _db
+          .collection(FirebaseCollectionNames.posts)
+          .where(FirebaseFieldNames.isDisable, isEqualTo: false)
+          .orderBy(FirebaseFieldNames.createdAt, descending: true);
+
+      // Filter by post type
+      if (postType != null && postType != 'all') {
+        query = query.where(FirebaseFieldNames.postType, isEqualTo: postType);
+      }
+
+      // 从最后一个文档之后开始
+      query = query.startAfterDocument(lastDoc).limit(limit);
+
+      // 获取快照
+      final snapshot = await query.get();
+
+      if (snapshot.docs.isEmpty) {
+        return [];
+      }
+
+      var posts = snapshot.docs
+          .map((doc) => PostModel.fromSnapshot(doc))
+          .toList();
+
+      // 应用搜索过滤（如果有）
+      if (searchQuery != null && searchQuery.isNotEmpty) {
+        final lowerQuery = searchQuery.toLowerCase();
+
+        // Get all unique poster IDs
+        final posterIds = posts.map((p) => p.posterId).toSet().toList();
+
+        // Fetch user data for all posters in parallel
+        final userDocs = await Future.wait(
+            posterIds.map((id) =>
+                _db.collection(FirebaseCollectionNames.users).doc(id).get()
+            )
+        );
+
+        // Create a map of userId to username
+        final userMap = <String, String>{};
+        for (var doc in userDocs) {
+          if (doc.exists) {
+            final data = doc.data();
+            if (data != null) {
+              userMap[doc.id] = (data[FirebaseFieldNames.username] ?? '')
+                  .toString()
+                  .toLowerCase();
+            }
+          }
+        }
+
+        // Filter posts by content or username
+        posts = posts.where((post) {
+          final contentMatch = post.postContent.toLowerCase().contains(lowerQuery);
+          final usernameMatch = userMap[post.posterId]?.contains(lowerQuery) ?? false;
+          return contentMatch || usernameMatch;
+        }).toList();
+      }
+
+      return posts;
+    } catch (e) {
+      print('❌ Error fetching more posts: $e');
+      return null;
+    }
+  }
+
+  /// 🆕 Get single post by ID (already exists, but ensure it's there)
   Future<PostModel?> getPost(String postId) async {
     try {
-      final doc = await _db.collection(FirebaseCollectionNames.posts).doc(postId).get();
+      final doc = await _db
+          .collection(FirebaseCollectionNames.posts)
+          .doc(postId)
+          .get();
+
       if (doc.exists) {
         return PostModel.fromSnapshot(doc);
       }
       return null;
     } catch (e) {
+      print('❌ Error getting post: $e');
       return null;
     }
   }
@@ -491,12 +622,12 @@ class PostRepository extends GetxController {
     }
   }
 
-  /// Fetch current user's posts with pagination and filtering
+  /// Fetch current user's posts with pagination, filtering, and search
   Stream<List<PostModel>> fetchMyPosts({
     String? postType,
     bool? isDisabled,
     String? searchQuery,
-    String sortBy = 'createdAt', // createdAt, likes, commentCount
+    String sortBy = 'createdAt',
     bool descending = true,
     int limit = 10,
     DocumentSnapshot<Map<String, dynamic>>? startAfter,
@@ -517,29 +648,50 @@ class PostRepository extends GetxController {
       query = query.where(FirebaseFieldNames.isDisable, isEqualTo: isDisabled);
     }
 
-    // Apply sorting
-    query = query.orderBy(sortBy, descending: descending).limit(limit);
+    // Apply sorting - convert field names to Firebase field names
+    String sortField;
+    switch (sortBy) {
+      case 'updatedAt':
+        sortField = FirebaseFieldNames.updatedAt;
+        break;
+      case 'likes':
+        sortField = FirebaseFieldNames.likes;
+        break;
+      case 'commentCount':
+        sortField = FirebaseFieldNames.commentCount;
+        break;
+      case 'createdAt':
+      default:
+        sortField = FirebaseFieldNames.createdAt;
+        break;
+    }
+
+    query = query.orderBy(sortField, descending: descending);
 
     // Add pagination
     if (startAfter != null) {
       query = query.startAfterDocument(startAfter);
     }
 
+    query = query.limit(limit);
+
     return query.snapshots().map((snapshot) {
       var posts = snapshot.docs
           .map((doc) => PostModel.fromSnapshot(doc))
           .toList();
 
-      // Apply search filter if provided
+      // Apply search filter if provided (search by post content only for my posts)
       if (searchQuery != null && searchQuery.isNotEmpty) {
+        final lowerQuery = searchQuery.toLowerCase();
         posts = posts.where((post) =>
-            post.postContent.toLowerCase().contains(searchQuery.toLowerCase())
+            post.postContent.toLowerCase().contains(lowerQuery)
         ).toList();
       }
 
       return posts;
     });
   }
+
 
   /// Get my posts statistics
   Future<Map<String, dynamic>> getMyPostsStats() async {

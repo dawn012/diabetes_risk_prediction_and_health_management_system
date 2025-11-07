@@ -16,14 +16,14 @@ import '../../health_data_entry/health_data_entry_screen.dart';
 
 class HealthDataListScreen extends StatelessWidget {
   final String title;
-  final List<HealthDataModel> healthDataList;
   final HealthDataType healthDataType;
+  final String? filterType; // 'good', 'high', 'low', 'all', etc.
 
   const HealthDataListScreen({
     super.key,
     required this.title,
-    required this.healthDataList,
     required this.healthDataType,
+    this.filterType,
   });
 
   @override
@@ -51,10 +51,108 @@ class HealthDataListScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: healthDataList.isEmpty
-          ? _buildEmptyState(context, darkMode)
-          : _buildDataList(context, darkMode),
+      body: _buildBody(context, darkMode),
     );
+  }
+
+  Widget _buildBody(BuildContext context, bool darkMode) {
+    // Get the appropriate controller based on health data type
+    switch (healthDataType) {
+      case HealthDataType.bloodGlucose:
+        final controller = Get.find<BloodGlucoseController>();
+        return Obx(() {
+          final healthDataList = _getFilteredList(controller.getFilteredData());
+          return healthDataList.isEmpty
+              ? _buildEmptyState(context, darkMode)
+              : _buildDataList(context, darkMode, healthDataList);
+        });
+
+      case HealthDataType.bloodPressure:
+        final controller = Get.find<BloodPressureController>();
+        return Obx(() {
+          final healthDataList = _getFilteredList(controller.getFilteredData());
+          return healthDataList.isEmpty
+              ? _buildEmptyState(context, darkMode)
+              : _buildDataList(context, darkMode, healthDataList);
+        });
+
+      case HealthDataType.bodyComposition:
+        final controller = Get.find<WeightController>();
+        return Obx(() {
+          final healthDataList = _getFilteredList(controller.getFilteredData());
+          return healthDataList.isEmpty
+              ? _buildEmptyState(context, darkMode)
+              : _buildDataList(context, darkMode, healthDataList);
+        });
+
+      case HealthDataType.physicalActivity:
+        final controller = Get.find<ExerciseController>();
+        return Obx(() {
+          final healthDataList = _getFilteredList(controller.getFilteredData());
+          return healthDataList.isEmpty
+              ? _buildEmptyState(context, darkMode)
+              : _buildDataList(context, darkMode, healthDataList);
+        });
+    }
+  }
+
+  /// Apply additional filtering based on filterType
+  List<HealthDataModel> _getFilteredList(List<HealthDataModel> data) {
+    if (filterType == null || filterType == 'all') {
+      return data;
+    }
+
+    switch (healthDataType) {
+      case HealthDataType.bloodGlucose:
+        final controller = Get.find<BloodGlucoseController>();
+        switch (filterType) {
+          case 'good':
+            return data.where((d) =>
+            controller.getGlucoseLevel(d.bloodGlucose.glucoseLevel) == GlucoseLevel.good
+            ).toList();
+          case 'high':
+            return data.where((d) =>
+            controller.getGlucoseLevel(d.bloodGlucose.glucoseLevel) == GlucoseLevel.high
+            ).toList();
+          case 'low':
+            return data.where((d) =>
+            controller.getGlucoseLevel(d.bloodGlucose.glucoseLevel) == GlucoseLevel.low
+            ).toList();
+        }
+        break;
+
+      case HealthDataType.bloodPressure:
+        final controller = Get.find<BloodPressureController>();
+        switch (filterType) {
+          case 'normal':
+            return data.where((d) =>
+            controller.getBPLevel(d.bloodPressure.systolic, d.bloodPressure.diastolic) == 'normal'
+            ).toList();
+          case 'elevated':
+            return data.where((d) =>
+            controller.getBPLevel(d.bloodPressure.systolic, d.bloodPressure.diastolic) == 'elevated'
+            ).toList();
+          case 'high':
+            return data.where((d) =>
+            controller.getBPLevel(d.bloodPressure.systolic, d.bloodPressure.diastolic) == 'high'
+            ).toList();
+          case 'low':
+            return data.where((d) =>
+            controller.getBPLevel(d.bloodPressure.systolic, d.bloodPressure.diastolic) == 'low'
+            ).toList();
+        }
+        break;
+
+      case HealthDataType.bodyComposition:
+      // Add weight filtering logic if needed
+        break;
+
+      case HealthDataType.physicalActivity:
+      // Add activity filtering logic if needed
+        break;
+    }
+
+    return data;
   }
 
   /// Empty State Widget
@@ -89,7 +187,7 @@ class HealthDataListScreen extends StatelessWidget {
   }
 
   /// Data List Widget
-  Widget _buildDataList(BuildContext context, bool darkMode) {
+  Widget _buildDataList(BuildContext context, bool darkMode, List<HealthDataModel> healthDataList) {
     // Group data by date
     final groupedData = <String, List<HealthDataModel>>{};
 
@@ -322,8 +420,7 @@ class HealthDataListScreen extends StatelessWidget {
         break;
       case HealthDataType.physicalActivity:
         if (Get.isRegistered<ExerciseController>()) {
-          // Exercise controller doesn't have delete method yet
-          // TODO: Add delete method to ExerciseController
+          Get.find<ExerciseController>().deleteHealthRecord(logId);
         }
         break;
     }
@@ -333,23 +430,19 @@ class HealthDataListScreen extends StatelessWidget {
   Color _getHealthDataColor(HealthDataModel data, HealthDataType type) {
     switch (type) {
       case HealthDataType.bloodGlucose:
-        final glucose = data.bloodGlucose.glucoseLevel;
-        if (glucose < 4.0) return TColors.glucoseLow;
-        if (glucose > 10.0) return TColors.glucoseHigh;
-        return TColors.glucoseGood;
+        final controller = Get.find<BloodGlucoseController>();
+        return controller.getGlucoseLevelColor(data.bloodGlucose.glucoseLevel);
 
       case HealthDataType.bloodPressure:
-        final systolic = data.bloodPressure.systolic;
-        final diastolic = data.bloodPressure.diastolic;
-        if (systolic < 90 || diastolic < 60) return TColors.bpLow;
-        if (systolic < 120 && diastolic < 80) return TColors.bpNormal;
-        if (systolic < 130 && diastolic < 80) return TColors.bpElevated;
-        return TColors.bpHigh;
+        final controller = Get.find<BloodPressureController>();
+        return controller.getBPLevelColor(
+            data.bloodPressure.systolic,
+            data.bloodPressure.diastolic
+        );
 
       case HealthDataType.bodyComposition:
-      // Simple BMI-based color coding
         final weight = data.bodyComposition.weight;
-        final height = data.bodyComposition.bodyFat / 100; // Convert cm to m
+        final height = data.bodyComposition.bodyFat / 100;
         if (weight > 0 && height > 0) {
           final bmi = weight / (height * height);
           if (bmi < 18.5) return TColors.weightUnderweight;
@@ -363,13 +456,13 @@ class HealthDataListScreen extends StatelessWidget {
         final intensity = data.physicalActivity.intensityLevel;
         switch (intensity) {
           case IntensityLevel.low:
-            return TColors.exerciseLowIntensity;
+            return TColors.info;
           case IntensityLevel.moderate:
-            return TColors.exerciseModerateIntensity;
+            return TColors.warning;
           case IntensityLevel.high:
-            return TColors.exerciseHighIntensity;
+            return TColors.error;
           default:
-            return TColors.exerciseDefault;
+            return TColors.primary;
         }
     }
   }

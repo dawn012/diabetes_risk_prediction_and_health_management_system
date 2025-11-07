@@ -155,6 +155,51 @@ class UserRepository extends GetxController {
     }
   }
 
+  /// Stream to listen to user details changes in real-time
+  Stream<UserModel> streamUserDetails() {
+    try {
+      final currentUserId = AuthenticationRepository.instance.authUser?.uid;
+      if (currentUserId == null) throw 'User not authenticated';
+
+      return _db
+          .collection(FirebaseCollectionNames.users)
+          .doc(currentUserId)
+          .snapshots()
+          .map((snapshot) {
+        if (snapshot.exists) {
+          return UserModel.fromSnapshot(snapshot);
+        } else {
+          return UserModel.empty();
+        }
+      });
+    } on FirebaseException catch (e) {
+      throw TFirebaseException(e.code).message;
+    } catch (e) {
+      throw TTexts.commonErrorMessage;
+    }
+  }
+
+  /// Stream to listen to specific user by ID
+  Stream<UserModel> streamUserDetailsById(String userId) {
+    try {
+      return _db
+          .collection(FirebaseCollectionNames.users)
+          .doc(userId)
+          .snapshots()
+          .map((snapshot) {
+        if (snapshot.exists) {
+          return UserModel.fromSnapshot(snapshot);
+        } else {
+          return UserModel.empty();
+        }
+      });
+    } on FirebaseException catch (e) {
+      throw TFirebaseException(e.code).message;
+    } catch (e) {
+      throw TTexts.commonErrorMessage;
+    }
+  }
+
   /// Upload user profile image to Firebase Storage
   Future<String> uploadImage(String path, XFile image) async {
     try {

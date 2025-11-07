@@ -563,55 +563,34 @@ class BloodGlucoseController extends GetxController {
   }
 
   void showAllRecords() {
-    final filteredData = getFilteredData();
-    Get.to(() => HealthDataListScreen(
+    Get.to(() => const HealthDataListScreen(
       title: 'All Records',
-      healthDataList: filteredData,
       healthDataType: HealthDataType.bloodGlucose,
+      filterType: 'all',
     ));
   }
 
   void showGoodRecords() {
-    final filteredData = getFilteredData();
-    final goodRecords = filteredData
-        .where((data) =>
-    getGlucoseLevel(data.bloodGlucose.glucoseLevel) ==
-        GlucoseLevel.good)
-        .toList();
-
-    Get.to(() => HealthDataListScreen(
+    Get.to(() => const HealthDataListScreen(
       title: 'Good Records',
-      healthDataList: goodRecords,
       healthDataType: HealthDataType.bloodGlucose,
+      filterType: 'good',
     ));
   }
 
   void showHighRecords() {
-    final filteredData = getFilteredData();
-    final highRecords = filteredData
-        .where((data) =>
-    getGlucoseLevel(data.bloodGlucose.glucoseLevel) ==
-        GlucoseLevel.high)
-        .toList();
-
-    Get.to(() => HealthDataListScreen(
+    Get.to(() => const HealthDataListScreen(
       title: 'High Records',
-      healthDataList: highRecords,
       healthDataType: HealthDataType.bloodGlucose,
+      filterType: 'high',
     ));
   }
 
   void showLowRecords() {
-    final filteredData = getFilteredData();
-    final lowRecords = filteredData
-        .where((data) =>
-    getGlucoseLevel(data.bloodGlucose.glucoseLevel) == GlucoseLevel.low)
-        .toList();
-
-    Get.to(() => HealthDataListScreen(
+    Get.to(() => const HealthDataListScreen(
       title: 'Low Records',
-      healthDataList: lowRecords,
       healthDataType: HealthDataType.bloodGlucose,
+      filterType: 'low',
     ));
   }
 

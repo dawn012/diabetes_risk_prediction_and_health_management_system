@@ -1,36 +1,86 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide NavigationMode;
 import 'package:get/get.dart';
 
 import '../../../../utils/constants/colors.dart';
+import '../../../../utils/constants/health_data_range.dart';
 import '../../../../utils/helpers/helper_functions.dart';
 import '../../controllers/stress_level_controller.dart';
 import 'widgets/diabetes_prediction_input_screen.dart';
+import 'widgets/stress_info_dialog.dart';
 
 class StressLevelInputScreen extends StatelessWidget {
-  const StressLevelInputScreen({super.key});
+  const StressLevelInputScreen({
+    super.key,
+    this.initialStressLevel,
+    this.mode = NavigationMode.flow,
+  });
+
+  final int? initialStressLevel;
+  final NavigationMode mode;
 
   @override
   Widget build(BuildContext context) {
     final controller = Get.put(StressLevelController());
     final darkMode = THelperFunctions.isDarkMode(context);
 
+    // 如果有传入初始值，在构建时设置
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.navigationMode.value = mode;
+      if (initialStressLevel != null) {
+        controller.setStressLevel(initialStressLevel!);
+      }
+    });
+
     return Obx(() => DiabetesPredictionInputScreen(
       title: 'Stress Level',
-      progressValue: 0.5, // 4/8 steps completed
-      showBackButton: true,
+      progressValue: 0.5,
+      // 4/8 steps completed
+      showBackButton: controller.canGoBack.value,
+      showCloseButton: true,
+      // onClose: () => controller.handleClose(context),
       canProceed: controller.canProceed.value,
       isLoading: controller.isLoading.value,
       continueButtonText: 'Continue',
       onContinue: () => controller.saveAndContinue(),
+      onSave: () => controller.saveAndContinue(),
+      navigationMode: controller.navigationMode.value,
       content: SingleChildScrollView(
         child: Column(
           children: [
-            SectionHeader(
-              title: 'How stressed do you feel?',
-              subtitle: 'Rate your stress level in the past month',
-              questionNumber: 'Step 4 of 8',
-              icon: Icons.psychology,
-              iconColor: TColors.primary,
+            // Section Header with Info Button
+            Stack(
+              children: [
+                SectionHeader(
+                  title: 'How stressed do you feel?',
+                  subtitle: 'Rate your stress level in the past month',
+                  questionNumber: 'Step 4 of 8',
+                  icon: Icons.psychology,
+                  iconColor: TColors.primary,
+                ),
+                // Info button positioned at top-right
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: TColors.primary.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      onPressed: () => StressInfoDialog.show(),
+                      icon: Icon(
+                        Icons.info_outline,
+                        color: TColors.primary,
+                        size: 24,
+                      ),
+                      tooltip: 'Learn about stress levels',
+                      style: IconButton.styleFrom(
+                        padding: EdgeInsets.all(12),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
 
             const SizedBox(height: 40),
@@ -57,7 +107,9 @@ class StressLevelInputScreen extends StatelessWidget {
                     height: 140,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: controller.getStressLevelColor().withOpacity(0.1),
+                      color: controller
+                          .getStressLevelColor()
+                          .withOpacity(0.1),
                       border: Border.all(
                         color: controller.getStressLevelColor(),
                         width: 4,
@@ -84,7 +136,9 @@ class StressLevelInputScreen extends StatelessWidget {
                             '/10',
                             style: TextStyle(
                               fontSize: 14,
-                              color: darkMode ? TColors.darkGrey : TColors.darkerGrey,
+                              color: darkMode
+                                  ? TColors.darkGrey
+                                  : TColors.darkerGrey,
                             ),
                           ),
                         ],
@@ -99,7 +153,9 @@ class StressLevelInputScreen extends StatelessWidget {
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: controller.getStressLevelColor().withOpacity(0.1),
+                      color: controller
+                          .getStressLevelColor()
+                          .withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Center(
@@ -110,6 +166,7 @@ class StressLevelInputScreen extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                           color: controller.getStressLevelColor(),
                         ),
+                        textAlign: TextAlign.center,
                       ),
                     ),
                   )),
@@ -119,10 +176,11 @@ class StressLevelInputScreen extends StatelessWidget {
                   // Slider
                   Obx(() => CustomSlider(
                     value: controller.stressLevel.value.toDouble(),
-                    min: 1,
-                    max: 10,
+                    min: HealthDataRanges.minStressLevel.toDouble(),
+                    max: HealthDataRanges.maxStressLevel.toDouble(),
                     divisions: 9,
-                    onChanged: (value) => controller.setStressLevel(value.toInt()),
+                    onChanged: (value) =>
+                        controller.setStressLevel(value.toInt()),
                     activeColor: controller.getStressLevelColor(),
                     darkMode: darkMode,
                   )),
@@ -131,7 +189,7 @@ class StressLevelInputScreen extends StatelessWidget {
 
                   // Scale indicators
                   RangeIndicators(
-                    labels: ['1 (No Stress)', '10 (Extreme)'],
+                    labels: ['${HealthDataRanges.minStressLevel} (No Stress)', '${HealthDataRanges.maxStressLevel} (Extreme)'],
                     darkMode: darkMode,
                   ),
                 ],
@@ -139,100 +197,9 @@ class StressLevelInputScreen extends StatelessWidget {
             ),
 
             const SizedBox(height: 32),
-
-            // Stress Sources Section
-            InputContainer(
-              darkMode: darkMode,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Common Stress Sources',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: darkMode ? TColors.white : TColors.black,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Select what causes you stress (optional)',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: darkMode ? TColors.darkGrey : TColors.darkerGrey,
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Stress sources chips
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    children: [
-                      _buildStressSourceChip('Work/Career', Icons.work, controller, darkMode),
-                      _buildStressSourceChip('Studies', Icons.school, controller, darkMode),
-                      _buildStressSourceChip('Family', Icons.family_restroom, controller, darkMode),
-                      _buildStressSourceChip('Health', Icons.local_hospital, controller, darkMode),
-                      _buildStressSourceChip('Finances', Icons.attach_money, controller, darkMode),
-                      _buildStressSourceChip('Relationships', Icons.favorite, controller, darkMode),
-                      _buildStressSourceChip('Future', Icons.psychology_alt, controller, darkMode),
-                      _buildStressSourceChip('Social', Icons.groups, controller, darkMode),
-                    ],
-                  ),
-                ],
-              ),
-            ),
           ],
         ),
       ),
     ));
-  }
-
-  Widget _buildStressSourceChip(String label, IconData icon, StressLevelController controller, bool darkMode) {
-    return Obx(() {
-      final isSelected = controller.stressSources.contains(label);
-      return GestureDetector(
-        onTap: () => controller.toggleStressSource(label),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? TColors.primary.withOpacity(0.1)
-                : darkMode ? TColors.darkerGrey.withOpacity(0.5) : TColors.grey.withOpacity(0.3),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: isSelected
-                  ? TColors.primary
-                  : Colors.transparent,
-              width: isSelected ? 2 : 1,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                size: 16,
-                color: isSelected
-                    ? TColors.primary
-                    : darkMode ? TColors.white : TColors.black,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: isSelected
-                      ? TColors.primary
-                      : darkMode ? TColors.white : TColors.black,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    });
   }
 }

@@ -7,7 +7,7 @@ class PostModel {
   final String postId;
   final String posterId;
   final String postContent;
-  final PostType postType; // enum
+  final PostType postType;
   final List<String> mediaUrls; // Support multiple media files
   final List<String> likes;
   final List<CommentModel>? comments; // Nested comments

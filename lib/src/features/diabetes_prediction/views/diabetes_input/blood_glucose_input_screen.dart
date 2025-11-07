@@ -1,27 +1,54 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide NavigationMode;
 import 'package:get/get.dart';
 import 'dart:math' as math;
 
 import '../../../../utils/constants/colors.dart';
+import '../../../../utils/constants/health_data_range.dart';
 import '../../../../utils/helpers/helper_functions.dart';
 import '../../controllers/diabetes_blood_glucose_controller.dart';
 import 'widgets/diabetes_prediction_input_screen.dart';
 
 class BloodGlucoseInputScreen extends StatelessWidget {
-  const BloodGlucoseInputScreen({super.key});
+  const BloodGlucoseInputScreen({
+    super.key,
+    this.initialGlucoseValue,
+    this.initialMeasurementType,
+    this.mode = NavigationMode.flow,
+  });
+
+  final double? initialGlucoseValue;
+  final String? initialMeasurementType;
+  final NavigationMode mode;
 
   @override
   Widget build(BuildContext context) {
     final controller = Get.put(DiabetesBloodGlucoseController());
     final darkMode = THelperFunctions.isDarkMode(context);
 
+    // 如果有传入初始值，在构建时设置
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.navigationMode.value = mode;
+      if (initialMeasurementType != null) {
+        controller.setMeasurementType(initialMeasurementType!);
+      }
+      if (initialGlucoseValue != null) {
+        controller.updateGlucoseValue(initialGlucoseValue!);
+      }
+    });
+
     return Obx(() => DiabetesPredictionInputScreen(
       title: 'Blood Glucose',
       progressValue: 0.25, // 2/8 steps completed
-      showBackButton: true,
+      showBackButton: controller.canGoBack.value,
+      showCloseButton: true,
+      // onClose: () => controller.handleClose(context),
       canProceed: controller.canProceed.value,
       isLoading: controller.isLoading.value,
       onContinue: () => controller.saveAndContinue(),
+      onSave: () => controller.saveAndContinue(),
+      showSyncButton: controller.shouldShowSyncButton.value,
+      onSync: () => controller.syncFromHealthLogs(),
+      navigationMode: controller.navigationMode.value,
       content: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -33,14 +60,14 @@ class BloodGlucoseInputScreen extends StatelessWidget {
               icon: Icons.bloodtype,
               iconColor: TColors.primary,
             ),
-        
+
             const SizedBox(height: 48),
-        
+
             // Measurement Type Selector
             _buildMeasurementTypeSelector(context, controller, darkMode),
-        
+
             const SizedBox(height: 40),
-        
+
             // Glucose Meter Design
             _buildGlucoseMeter(context, controller, darkMode),
           ],
@@ -239,11 +266,25 @@ class BloodGlucoseInputScreen extends StatelessWidget {
           // Fine Adjustment Slider
           Obx(() => CustomSlider(
             value: controller.currentValue.value,
-            min: controller.measurementType.value == 'mg/dL' ? 50.0 : 2.8,
-            max: controller.measurementType.value == 'mg/dL' ? 400.0 : 22.0,
-            divisions: controller.measurementType.value == 'mg/dL' ? 350 : 190,
+            min: controller.measurementType.value == 'mg/dL'
+                ? controller.mmolToMgdl(HealthDataRanges.minGlucoseMmolL)
+                : HealthDataRanges.minGlucoseMmolL,
+            max: controller.measurementType.value == 'mg/dL'
+                ? controller.mmolToMgdl(HealthDataRanges.maxGlucoseMmolL)
+                : HealthDataRanges.maxGlucoseMmolL,
+            divisions: (
+                (
+                    (controller.measurementType.value == 'mg/dL'
+                        ? controller.mmolToMgdl(HealthDataRanges.maxGlucoseMmolL)
+                        : HealthDataRanges.maxGlucoseMmolL)
+                        -
+                        (controller.measurementType.value == 'mg/dL'
+                            ? controller.mmolToMgdl(HealthDataRanges.minGlucoseMmolL)
+                            : HealthDataRanges.minGlucoseMmolL)
+                ) * 10
+            ).toInt(),
             onChanged: (value) => controller.updateGlucoseValue(value),
-            activeColor: controller.getGlucoseColor(),
+            activeColor: TColors.primary,
             darkMode: darkMode,
           )),
 
@@ -252,13 +293,11 @@ class BloodGlucoseInputScreen extends StatelessWidget {
           // Range Indicators
           Obx(() => RangeIndicators(
             labels: controller.measurementType.value == 'mg/dL'
-                ? ['50', '100', '200', '400']
-                : ['3.0', '5.5', '11.0', '22.0'],
-            colors: controller.measurementType.value == 'mg/dL'
-                ? [TColors.third, Colors.green, Colors.orange, Colors.red]
-                : [TColors.third, Colors.green, Colors.orange, Colors.red],
+                ? controller.mmolLabels.map((e) => controller.mmolToMgdl(e).toStringAsFixed(0)).toList()
+                : controller.mmolLabels.map((e) => e.toStringAsFixed(1)).toList(),
+            colors: [TColors.third, Colors.green, Colors.orange, Colors.red],
             darkMode: darkMode,
-          )),
+          ))
         ],
       ),
     );

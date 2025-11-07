@@ -2,8 +2,10 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:hive_flutter/adapters.dart';
 
 import 'app.dart';
 import 'firebase_options.dart';
@@ -16,6 +18,10 @@ void main() async {
 
   /// -- GetX Local Storage
   await GetStorage.init();
+
+  /// Initialize Hive
+  await Hive.initFlutter();
+  // Register adapters (done automatically by DiabetesHiveStorageManager)
 
   /// -- Await Splash until other items load
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
@@ -45,6 +51,12 @@ void main() async {
   /// -- Initialize FCM
   final fcmService = FCMService();
   await fcmService.initialize();
+
+  /// -- Initialize Stripe
+  Stripe.publishableKey = 'pk_test_51RxrvGFLRUQjWHbT4A7B9QNPwDdjKCbYAOZgvVQqXKdZp1Wg4vWgjCQXfDAnSSZCqIwwsBrhBndCz6nPS9oER7gU00oHcguBrs';
+  Stripe.urlScheme = 'com.diatrack.app'; // For redirects
+
+  await Stripe.instance.applySettings();
 
   /// -- 启动角色监听
   final authRepo = Get.find<AuthenticationRepository>();

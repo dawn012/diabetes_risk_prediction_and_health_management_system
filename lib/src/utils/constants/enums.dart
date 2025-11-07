@@ -27,6 +27,13 @@ enum BatchActionType {
   delete,
 }
 
+enum RankChange {
+  up,
+  down,
+  same,
+  new_entry,
+}
+
 enum PostType {
   general('General Discussion'),
   tips('Tips & Tricks'),
@@ -191,5 +198,135 @@ enum IntensityLevel {
           (e) => e.value == value.toLowerCase(),
       orElse: () => IntensityLevel.moderate,
     );
+  }
+}
+
+/// Achievement type enum
+enum AchievementType {
+  periodic('periodic', 'Periodic'),
+  permanent('permanent', 'Permanent');
+
+  final String value;
+  final String displayName;
+
+  const AchievementType(this.value, this.displayName);
+
+  static AchievementType fromString(String value) {
+    return AchievementType.values.firstWhere(
+          (e) => e.value == value.toLowerCase(),
+      orElse: () => AchievementType.periodic,
+    );
+  }
+}
+
+/// Achievement level enum
+enum AchievementLevel {
+  bronze('bronze', 'Bronze'),
+  silver('silver', 'Silver'),
+  gold('gold', 'Gold');
+
+  final String value;
+  final String displayName;
+
+  const AchievementLevel(this.value, this.displayName);
+
+  static AchievementLevel fromString(String value) {
+    return AchievementLevel.values.firstWhere(
+          (e) => e.value == value.toLowerCase(),
+      orElse: () => AchievementLevel.bronze,
+    );
+  }
+}
+
+/// User achievement current level (includes none)
+enum UserAchievementLevel {
+  none('none', 'None'),
+  bronze('bronze', 'Bronze'),
+  silver('silver', 'Silver'),
+  gold('gold', 'Gold');
+
+  final String value;
+  final String displayName;
+
+  const UserAchievementLevel(this.value, this.displayName);
+
+  static UserAchievementLevel fromString(String value) {
+    return UserAchievementLevel.values.firstWhere(
+          (e) => e.value == value.toLowerCase(),
+      orElse: () => UserAchievementLevel.none,
+    );
+  }
+}
+
+/// User achievement status enum
+enum AchievementStatus {
+  inProgress('in progress', 'In Progress'),
+  completed('completed', 'Completed');
+
+  final String value;
+  final String displayName;
+
+  const AchievementStatus(this.value, this.displayName);
+
+  static AchievementStatus fromString(String value) {
+    return AchievementStatus.values.firstWhere(
+          (e) => e.value == value.toLowerCase(),
+      orElse: () => AchievementStatus.inProgress,
+    );
+  }
+}
+
+/// Payment transaction status
+enum PaymentStatus {
+  succeeded('succeeded', 'Succeeded'),
+  failed('failed', 'Failed'),
+  pending('pending', 'Pending');
+
+  final String value;
+  final String displayName;
+
+  const PaymentStatus(this.value, this.displayName);
+
+  static PaymentStatus fromString(String value) {
+    return PaymentStatus.values.firstWhere(
+          (e) => e.value == value.toLowerCase(),
+      orElse: () => PaymentStatus.pending,
+    );
+  }
+}
+
+/// User subscription status
+enum SubscriptionStatus {
+  active('active', 'Active'),
+  pending('pending', 'Pending'),
+  failed('failed', 'Failed'),
+  expired('expired', 'Expired'),
+  cancelled('cancelled', 'Cancelled');
+
+  final String value;
+  final String displayName;
+
+  const SubscriptionStatus(this.value, this.displayName);
+
+  static SubscriptionStatus fromString(String value) {
+    return SubscriptionStatus.values.firstWhere(
+          (e) => e.value == value.toLowerCase(),
+      orElse: () => SubscriptionStatus.active,
+    );
+  }
+
+  Color get color {
+    switch (this) {
+      case SubscriptionStatus.active:
+        return TColors.success;
+      case SubscriptionStatus.pending:
+        return TColors.info;
+      case SubscriptionStatus.expired:
+        return TColors.warning;
+      case SubscriptionStatus.failed:
+        return TColors.error;
+      case SubscriptionStatus.cancelled:
+        return TColors.darkGrey;
+    }
   }
 }

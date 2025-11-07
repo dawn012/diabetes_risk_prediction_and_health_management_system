@@ -6,8 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:icons_plus/icons_plus.dart';
 
+import 'src/features/achievement/views/leaderboard_screen.dart';
 import 'src/features/community/views/community_menu.dart';
-import 'src/features/diabetes_prediction/views/diabetes_input/diabetes_assessment_start_screen.dart';
+import 'src/features/diabetes_prediction/controllers/diabetes_prediction_flow_manager.dart';
 import 'src/features/meal_recommendation/views/meal_recommendation_form.dart';
 import 'src/features/personalization/views/settings/settings.dart';
 import 'src/utils/constants/colors.dart';
@@ -219,7 +220,8 @@ class _AddMenu extends StatelessWidget {
             children: [
               _buildShortcutButton("Predict Risk", Icons.analytics_outlined, () {
                 Get.back();
-                Get.to(() => const DiabetesAssessmentStartScreen());
+                final flowManager = Get.put(DiabetesPredictionFlowManager());
+                flowManager.enterPredictionFlow();
               }),
               _buildShortcutButton("Reminder", Icons.notifications_outlined, () {
                 Get.back();
@@ -237,7 +239,7 @@ class _AddMenu extends StatelessWidget {
               }),
               _buildShortcutButton("Leaderboard", Icons.leaderboard_outlined, () {
                 Get.back();
-
+                Get.to(() => const LeaderboardScreen());
               }),
             ],
           ),

@@ -1,90 +1,354 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import '../../../utils/constants/colors.dart';
+import '../../../common/loaders/loaders.dart';
+import '../../../data/repositories/achievement/leaderboard_repository.dart';
+import '../../../data/repositories/user/user_repository.dart';
+import '../../../utils/constants/enums.dart';
+import '../models/leaderboard_model.dart';
 
 class LeaderboardController extends GetxController {
   static LeaderboardController get instance => Get.find();
 
+  // Repositories
+  final _leaderboardRepo = Get.put(LeaderboardRepository());
+  final _userRepo = UserRepository.instance;
+
+  // PageController for swipe gesture
+  late final PageController pageController = PageController(initialPage: selectedTab.value);
+
+  // 为每个tab创建独立的ScrollController
+  final scrollControllerThisMonth = ScrollController();
+  final scrollControllerLastMonth = ScrollController();
+
+  // Timer for auto-refresh
+  Timer? _refreshTimer;
+
   // Observable variables
-  var isLoading = false.obs;
-  var selectedTab = 0.obs; // 0: This Month, 1: Last Month
-  var users = <UserModel>[].obs;
-  var leaderboardData = <LeaderboardModel>[].obs;
-  var currentUser = Rx<UserModel?>(null);
-  var currentUserRankData = Rx<LeaderboardModel?>(null);
+  final selectedTab = 0.obs;
+  final isLoading = false.obs;
+  final leaderboardData = <LeaderboardModel>[].obs;
+  final currentUserRankData = Rxn<LeaderboardModel>();
+  final isCurrentUserVisible = false.obs;
+
+  // 缓存数据 - 分别存储两个月份的数据
+  List<LeaderboardModel>? _thisMonthCache;
+  LeaderboardModel? _thisMonthUserCache;
+
+  List<LeaderboardModel>? _lastMonthCache;
+  LeaderboardModel? _lastMonthUserCache;
+
+  // 标记是否已经初始加载过
+  bool _hasLoadedThisMonth = false;
+  bool _hasLoadedLastMonth = false;
+
+  // 获取当前活动的ScrollController
+  ScrollController get activeScrollController {
+    return selectedTab.value == 0 ? scrollControllerThisMonth : scrollControllerLastMonth;
+  }
 
   @override
   void onInit() {
     super.onInit();
-    loadLeaderboardData();
+    // Listen to page changes for tab synchronization
+    pageController.addListener(_handlePageChange);
+
+    // 为两个ScrollController都添加监听
+    scrollControllerThisMonth.addListener(_scrollListener);
+    scrollControllerLastMonth.addListener(_scrollListener);
+
+    // 初始加载当前月份
+    loadLeaderboard(showLoading: true);
+
+    // 设置每5分钟自动刷新（仅针对 This Month）
+    _setupAutoRefresh();
   }
 
-  void changeTab(int index) {
-    selectedTab.value = index;
-    loadLeaderboardData();
+  @override
+  void onClose() {
+    pageController.removeListener(_handlePageChange);
+    pageController.dispose();
+
+    scrollControllerThisMonth.removeListener(_scrollListener);
+    scrollControllerThisMonth.dispose();
+
+    scrollControllerLastMonth.removeListener(_scrollListener);
+    scrollControllerLastMonth.dispose();
+
+    _refreshTimer?.cancel();
+    super.onClose();
   }
 
-  Future<void> loadLeaderboardData() async {
-    try {
-      isLoading.value = true;
-
-      // Simulate API call delay
-      await Future.delayed(Duration(milliseconds: 800));
-
-      // Sample data - replace with actual API call
-      users.value = getSampleUsers();
-
-      // Set current user (example: user with userId "current_user")
-      currentUser.value = users.firstWhereOrNull((user) => user.userId == "current_user");
-
-      // Generate leaderboard data with ranking comparisons
-      leaderboardData.value = generateLeaderboardData();
-
-      // Find current user's ranking data
-      currentUserRankData.value = leaderboardData.firstWhereOrNull(
-              (data) => data.user.userId == "current_user"
-      );
-
-    } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Failed to load leaderboard data',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red,
-        colorText: TColors.white,
-      );
-    } finally {
-      isLoading.value = false;
+  /// Handle page changes and sync with tab selection
+  void _handlePageChange() {
+    if (pageController.page != null && !pageController.position.isScrollingNotifier.value) {
+      final newPage = pageController.page!.round();
+      if (newPage != selectedTab.value) {
+        selectedTab.value = newPage;
+        // 切换tab时加载数据（如果还没加载过）
+        _onTabChanged();
+      }
     }
   }
 
-  Future<void> refreshData() async {
-    await loadLeaderboardData();
+  /// 设置自动刷新（每5分钟，仅针对 This Month）
+  void _setupAutoRefresh() {
+    _refreshTimer = Timer.periodic(const Duration(minutes: 5), (timer) {
+      // 只在 This Month tab 且不在加载状态时静默刷新
+      if (selectedTab.value == 0 && !isLoading.value) {
+        loadLeaderboard(showLoading: false, forceRefresh: true);
+      }
+    });
   }
 
-  List<LeaderboardModel> generateLeaderboardData() {
-    List<LeaderboardModel> data = [];
+  void _scrollListener() {
+    _checkCurrentUserVisibility();
+  }
 
-    // Sort users by totalScore in descending order
-    users.sort((a, b) => b.totalScore.compareTo(a.totalScore));
+  void updateScrollPosition(double position) {
+    _checkCurrentUserVisibility();
+  }
 
-    for (int i = 0; i < users.length; i++) {
-      final user = users[i];
-      final currentRank = i + 1;
+  void _checkCurrentUserVisibility() {
+    if (currentUserRankData.value == null) {
+      isCurrentUserVisible.value = false;
+      return;
+    }
 
-      // Generate random previous rank for demo (in real app, get from API)
-      int? previousRank;
-      RankChange? rankChange;
+    final currentUser = currentUserRankData.value!;
 
-      if (selectedTab.value == 0) { // This month - compare with last month
-        // Random previous rank for demo
-        final prevRank = currentRank + ([-3, -2, -1, 0, 1, 2, 3]..shuffle()).first;
-        if (prevRank > 0 && prevRank <= users.length + 5) {
-          previousRank = prevRank;
-          if (prevRank > currentRank) {
+    if (currentUser.currentRank <= 20) {
+      final userIndex = leaderboardData.indexWhere((item) => item.isCurrentUser);
+
+      if (userIndex == -1) {
+        isCurrentUserVisible.value = false;
+        return;
+      }
+
+      final itemHeight = 60.0;
+      final itemPosition = userIndex * itemHeight;
+
+      final scrollController = activeScrollController;
+      final scrollPosition = scrollController.hasClients
+          ? scrollController.position.pixels
+          : 0.0;
+      final viewportHeight = scrollController.hasClients
+          ? scrollController.position.viewportDimension
+          : 0.0;
+
+      final isVisible = itemPosition >= scrollPosition &&
+          itemPosition <= scrollPosition + viewportHeight;
+
+      isCurrentUserVisible.value = isVisible;
+    } else {
+      isCurrentUserVisible.value = false;
+    }
+  }
+
+  /// 当tab切换时调用
+  void _onTabChanged() {
+    if (selectedTab.value == 0) {
+      // This Month - 如果有缓存就用缓存
+      if (_hasLoadedThisMonth && _thisMonthCache != null) {
+        _loadFromCache(_thisMonthCache!, _thisMonthUserCache);
+      } else {
+        loadLeaderboard(showLoading: true);
+      }
+    } else {
+      // Last Month - 如果有缓存就用缓存
+      if (_hasLoadedLastMonth && _lastMonthCache != null) {
+        _loadFromCache(_lastMonthCache!, _lastMonthUserCache);
+      } else {
+        loadLeaderboard(showLoading: true);
+      }
+    }
+  }
+
+  /// 从缓存加载数据
+  void _loadFromCache(List<LeaderboardModel> cachedData, LeaderboardModel? cachedUser) {
+    leaderboardData.value = cachedData;
+    currentUserRankData.value = cachedUser;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkCurrentUserVisibility();
+    });
+  }
+
+  /// 保存到缓存
+  void _saveToCache(List<LeaderboardModel> data, LeaderboardModel? userData) {
+    if (selectedTab.value == 0) {
+      // This Month
+      _thisMonthCache = List.from(data);
+      _thisMonthUserCache = userData;
+      _hasLoadedThisMonth = true;
+    } else {
+      // Last Month
+      _lastMonthCache = List.from(data);
+      _lastMonthUserCache = userData;
+      _hasLoadedLastMonth = true;
+    }
+  }
+
+  Future<void> loadLeaderboard({
+    bool showLoading = true,
+    bool forceRefresh = false
+  }) async {
+    try {
+      // 如果不是强制刷新，且已有缓存，直接使用缓存
+      if (!forceRefresh) {
+        if (selectedTab.value == 0 && _hasLoadedThisMonth && _thisMonthCache != null) {
+          _loadFromCache(_thisMonthCache!, _thisMonthUserCache);
+          return;
+        }
+        if (selectedTab.value == 1 && _hasLoadedLastMonth && _lastMonthCache != null) {
+          _loadFromCache(_lastMonthCache!, _lastMonthUserCache);
+          return;
+        }
+      }
+
+      // 只在需要时显示loading
+      if (showLoading) {
+        isLoading.value = true;
+      }
+
+      final currentUserId = _leaderboardRepo.currentUserId;
+      if (currentUserId.isEmpty) {
+        TLoaders.errorSnackBar(
+          title: 'Error',
+          message: 'User not authenticated',
+        );
+        return;
+      }
+
+      List<Map<String, dynamic>> leaderboardRawData;
+      Map<String, int>? lastMonthRanks;
+
+      if (selectedTab.value == 0) {
+        // This Month
+        leaderboardRawData = await _leaderboardRepo.fetchCurrentMonthLeaderboard();
+        lastMonthRanks = await _getLastMonthRanksMap();
+      } else {
+        // Last Month
+        leaderboardRawData = await _leaderboardRepo.fetchLastMonthLeaderboard();
+
+        if (leaderboardRawData.isEmpty) {
+          leaderboardData.clear();
+          currentUserRankData.value = null;
+          _saveToCache([], null);
+          return;
+        }
+      }
+
+      // Convert to LeaderboardModel
+      final data = <LeaderboardModel>[];
+
+      for (var userData in leaderboardRawData) {
+        final userId = userData['userId'] as String;
+        final currentRank = userData['rank'] as int;
+
+        // Determine rank change
+        RankChange? rankChange;
+        int? previousRank;
+
+        if (selectedTab.value == 0 && lastMonthRanks != null) {
+          if (lastMonthRanks.containsKey(userId)) {
+            previousRank = lastMonthRanks[userId];
+            if (previousRank! > currentRank) {
+              rankChange = RankChange.up;
+            } else if (previousRank < currentRank) {
+              rankChange = RankChange.down;
+            } else {
+              rankChange = RankChange.same;
+            }
+          } else {
+            rankChange = RankChange.new_entry;
+          }
+        }
+
+        data.add(LeaderboardModel(
+          user: LeaderboardUserModel(
+            userId: userId,
+            userName: userData['username'] as String,
+            totalScore: userData['totalScore'] as int,
+            profileImg: userData['profileImg'] as String? ?? '',
+          ),
+          currentRank: currentRank,
+          previousRank: previousRank,
+          rankChange: rankChange,
+          isCurrentUser: userId == currentUserId,
+        ));
+      }
+
+      leaderboardData.value = data;
+
+      // Find current user
+      LeaderboardModel? currentUser;
+      final currentUserIndex = data.indexWhere((item) => item.isCurrentUser);
+      if (currentUserIndex != -1) {
+        currentUser = data[currentUserIndex];
+        currentUserRankData.value = currentUser;
+      } else {
+        if (selectedTab.value == 0) {
+          currentUser = await _loadCurrentUserNotInLeaderboard(currentUserId);
+          currentUserRankData.value = currentUser;
+        } else {
+          currentUserRankData.value = null;
+        }
+      }
+
+      // 保存到缓存
+      _saveToCache(data, currentUser);
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _checkCurrentUserVisibility();
+      });
+    } catch (e) {
+      TLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to load leaderboard: ${e.toString()}',
+      );
+    } finally {
+      if (showLoading) {
+        isLoading.value = false;
+      }
+    }
+  }
+
+  Future<Map<String, int>> _getLastMonthRanksMap() async {
+    try {
+      final lastMonthData = await _leaderboardRepo.fetchLastMonthLeaderboard();
+      final ranksMap = <String, int>{};
+
+      for (var data in lastMonthData) {
+        ranksMap[data['userId'] as String] = data['rank'] as int;
+      }
+
+      return ranksMap;
+    } catch (e) {
+      return {};
+    }
+  }
+
+  Future<LeaderboardModel?> _loadCurrentUserNotInLeaderboard(String userId) async {
+    try {
+      final userDoc = await _userRepo.fetchUserDetailsById(userId);
+
+      // 如果用户分数为0，不显示排名
+      if (userDoc.totalScore == 0) {
+        return null;
+      }
+
+      final userRank = await _leaderboardRepo.getCurrentUserRank(userId);
+
+      if (userRank > 0) {
+        final lastMonthRank = await _leaderboardRepo.getLastMonthUserRank(userId);
+
+        RankChange? rankChange;
+        if (lastMonthRank != null) {
+          if (lastMonthRank > userRank) {
             rankChange = RankChange.up;
-          } else if (prevRank < currentRank) {
+          } else if (lastMonthRank < userRank) {
             rankChange = RankChange.down;
           } else {
             rankChange = RankChange.same;
@@ -92,249 +356,48 @@ class LeaderboardController extends GetxController {
         } else {
           rankChange = RankChange.new_entry;
         }
-      }
 
-      data.add(LeaderboardModel(
-        user: user,
-        currentRank: currentRank,
-        previousRank: previousRank,
-        rankChange: rankChange,
-        isCurrentUser: user.userId == "current_user",
-      ));
+        return LeaderboardModel(
+          user: LeaderboardUserModel(
+            userId: userId,
+            userName: userDoc.username,
+            totalScore: userDoc.totalScore,
+            profileImg: userDoc.profileImg,
+          ),
+          currentRank: userRank,
+          previousRank: lastMonthRank,
+          rankChange: rankChange,
+          isCurrentUser: true,
+        );
+      }
+      return null;
+    } catch (e) {
+      print('Error loading current user data: $e');
+      return null;
+    }
+  }
+
+  /// Change tab with page animation
+  void changeTab(int index) {
+    if (index == selectedTab.value) return;
+
+    selectedTab.value = index;
+
+    // Animate to the selected page
+    if (pageController.hasClients) {
+      pageController.animateToPage(
+        index,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
     }
 
-    return data.take(20).toList(); // Take top 20
+    // 切换后加载对应tab的数据（会自动使用缓存）
+    _onTabChanged();
   }
 
-  List<UserModel> getSampleUsers() {
-    return [
-      UserModel(
-        userId: "user_1",
-        userName: "Vatani",
-        userType: "premium",
-        email: "vatani@example.com",
-        password: "",
-        phone: "1234567890",
-        profileImg: "https://i.pravatar.cc/150?img=1",
-        joinDate: DateTime.now().subtract(Duration(days: 30)),
-        totalScore: 1952,
-        isVerify: true,
-        loginAttempt: 0,
-        lastAttemptTime: DateTime.now(),
-        accountAvailable: true,
-      ),
-      UserModel(
-        userId: "user_2",
-        userName: "Jonathan",
-        userType: "premium",
-        email: "jonathan@example.com",
-        password: "",
-        phone: "1234567891",
-        profileImg: "https://i.pravatar.cc/150?img=2",
-        joinDate: DateTime.now().subtract(Duration(days: 25)),
-        totalScore: 1631,
-        isVerify: true,
-        loginAttempt: 0,
-        lastAttemptTime: DateTime.now(),
-        accountAvailable: true,
-      ),
-      UserModel(
-        userId: "current_user", // This will be highlighted as current user
-        userName: "Iman",
-        userType: "regular",
-        email: "iman@example.com",
-        password: "",
-        phone: "1234567892",
-        profileImg: "https://i.pravatar.cc/150?img=3",
-        joinDate: DateTime.now().subtract(Duration(days: 20)),
-        totalScore: 2078,
-        isVerify: true,
-        loginAttempt: 0,
-        lastAttemptTime: DateTime.now(),
-        accountAvailable: true,
-      ),
-      UserModel(
-        userId: "user_4",
-        userName: "Paul",
-        userType: "regular",
-        email: "paul@example.com",
-        password: "",
-        phone: "1234567893",
-        profileImg: "https://i.pravatar.cc/150?img=4",
-        joinDate: DateTime.now().subtract(Duration(days: 15)),
-        totalScore: 1243,
-        isVerify: true,
-        loginAttempt: 0,
-        lastAttemptTime: DateTime.now(),
-        accountAvailable: true,
-      ),
-      UserModel(
-        userId: "user_5",
-        userName: "Robert",
-        userType: "regular",
-        email: "robert@example.com",
-        password: "",
-        phone: "1234567894",
-        profileImg: "https://i.pravatar.cc/150?img=5",
-        joinDate: DateTime.now().subtract(Duration(days: 12)),
-        totalScore: 1109,
-        isVerify: true,
-        loginAttempt: 0,
-        lastAttemptTime: DateTime.now(),
-        accountAvailable: true,
-      ),
-      UserModel(
-        userId: "user_6",
-        userName: "Gwen",
-        userType: "premium",
-        email: "gwen@example.com",
-        password: "",
-        phone: "1234567895",
-        profileImg: "https://i.pravatar.cc/150?img6",
-        joinDate: DateTime.now().subtract(Duration(days: 10)),
-        totalScore: 954,
-        isVerify: true,
-        loginAttempt: 0,
-        lastAttemptTime: DateTime.now(),
-        accountAvailable: true,
-      ),
-      UserModel(
-        userId: "user_7",
-        userName: "Emma",
-        userType: "regular",
-        email: "emma@example.com",
-        password: "",
-        phone: "1234567896",
-        profileImg: "https://i.pravatar.cc/150?img=7",
-        joinDate: DateTime.now().subtract(Duration(days: 8)),
-        totalScore: 913,
-        isVerify: true,
-        loginAttempt: 0,
-        lastAttemptTime: DateTime.now(),
-        accountAvailable: true,
-      ),
-      UserModel(
-        userId: "user_8",
-        userName: "Sophia",
-        userType: "premium",
-        email: "sophia@example.com",
-        password: "",
-        phone: "1234567897",
-        profileImg: "https://i.pravatar.cc/150?img=8",
-        joinDate: DateTime.now().subtract(Duration(days: 7)),
-        totalScore: 876,
-        isVerify: true,
-        loginAttempt: 0,
-        lastAttemptTime: DateTime.now(),
-        accountAvailable: true,
-      ),
-      UserModel(
-        userId: "user_9",
-        userName: "Mia",
-        userType: "regular",
-        email: "mia@example.com",
-        password: "",
-        phone: "1234567898",
-        profileImg: "https://i.pravatar.cc/150?img=9",
-        joinDate: DateTime.now().subtract(Duration(days: 6)),
-        totalScore: 698,
-        isVerify: true,
-        loginAttempt: 0,
-        lastAttemptTime: DateTime.now(),
-        accountAvailable: true,
-      ),
-      UserModel(
-        userId: "user_10",
-        userName: "John",
-        userType: "regular",
-        email: "john@example.com",
-        password: "",
-        phone: "1234567899",
-        profileImg: "https://i.pravatar.cc/150?img=10",
-        joinDate: DateTime.now().subtract(Duration(days: 5)),
-        totalScore: 649,
-        isVerify: true,
-        loginAttempt: 0,
-        lastAttemptTime: DateTime.now(),
-        accountAvailable: true,
-      ),
-      UserModel(
-        userId: "user_11",
-        userName: "You",
-        userType: "premium",
-        email: "you@example.com",
-        password: "",
-        phone: "1234567890",
-        profileImg: "https://i.pravatar.cc/150?img=11",
-        joinDate: DateTime.now().subtract(Duration(days: 4)),
-        totalScore: 432,
-        isVerify: true,
-        loginAttempt: 0,
-        lastAttemptTime: DateTime.now(),
-        accountAvailable: true,
-      ),
-    ];
+  /// 手动刷新（pull to refresh用）
+  Future<void> refreshLeaderboard() async {
+    await loadLeaderboard(showLoading: false, forceRefresh: true);
   }
-}
-
-// Leaderboard Model
-class LeaderboardModel {
-  final UserModel user;
-  final int currentRank;
-  final int? previousRank;
-  final RankChange? rankChange;
-  final bool isCurrentUser;
-
-  LeaderboardModel({
-    required this.user,
-    required this.currentRank,
-    this.previousRank,
-    this.rankChange,
-    required this.isCurrentUser,
-  });
-
-  int get rankDifference {
-    if (previousRank == null) return 0;
-    return previousRank! - currentRank;
-  }
-}
-
-enum RankChange {
-  up,
-  down,
-  same,
-  new_entry,
-}
-
-// User Model
-class UserModel {
-  final String userId;
-  final String userName;
-  final String userType;
-  final String email;
-  final String password;
-  final String phone;
-  final String profileImg;
-  final DateTime joinDate;
-  final int totalScore;
-  final bool isVerify;
-  final int loginAttempt;
-  final DateTime lastAttemptTime;
-  final bool accountAvailable;
-
-  UserModel({
-    required this.userId,
-    required this.userName,
-    required this.userType,
-    required this.email,
-    required this.password,
-    required this.phone,
-    required this.profileImg,
-    required this.joinDate,
-    required this.totalScore,
-    required this.isVerify,
-    required this.loginAttempt,
-    required this.lastAttemptTime,
-    required this.accountAvailable,
-  });
 }

@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:icons_plus/icons_plus.dart';
 import 'package:intl/intl.dart';
+
+import '../constants/colors.dart';
+import '../constants/sizes.dart';
 
 class THelperFunctions extends GetxController {
   THelperFunctions._();
@@ -53,6 +58,33 @@ class THelperFunctions extends GetxController {
             ],
           );
         });
+  }
+
+  /* -- CLIPBOARD -- */
+  static void copyToClipboard(String text) {
+    Clipboard.setData(ClipboardData(text: text));
+    _showCopySnackBar();
+  }
+
+  static void _showCopySnackBar() {
+    ScaffoldMessenger.of(Get.context!).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Iconsax.tick_circle_bold, color: TColors.white, size: 20),
+            const SizedBox(width: TSizes.sm),
+            const Text('Copied to clipboard'),
+          ],
+        ),
+        backgroundColor: TColors.success,
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        margin: const EdgeInsets.all(TSizes.md),
+      ),
+    );
   }
 
   // 这个方法用于截断一段文字，使其长度不超过指定的最大长度 maxLength。

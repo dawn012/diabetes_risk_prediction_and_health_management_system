@@ -1,546 +1,498 @@
+import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:image/image.dart' as img;
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as path;
+import 'package:cloud_functions/cloud_functions.dart';
 
-/// Model for meal photo data
-class MealPhoto {
-  final String originalPath;
-  final String? processedPath;
-  final int originalSize;
-  final int? processedSize;
-  final DateTime uploadTime;
-  final bool isProcessing;
+import '../../../common/loaders/loaders.dart';
+import '../../../utils/helpers/image_helper.dart';
+import '../../../utils/helpers/meal_photo_helper.dart';
+import '../models/diet_assessment_report_model.dart';
+import '../models/meal_analysis_result_model.dart';
+import '../models/meal_photo_record_model.dart';
+import '../../../services/diabetes_hive_storage_manager.dart';
+import '../views/diabetes_input/widgets/diabetes_prediction_input_screen.dart';
 
-  MealPhoto({
-    required this.originalPath,
-    this.processedPath,
-    required this.originalSize,
-    this.processedSize,
-    required this.uploadTime,
-    this.isProcessing = false,
-  });
-
-  MealPhoto copyWith({
-    String? originalPath,
-    String? processedPath,
-    int? originalSize,
-    int? processedSize,
-    DateTime? uploadTime,
-    bool? isProcessing,
-  }) {
-    return MealPhoto(
-      originalPath: originalPath ?? this.originalPath,
-      processedPath: processedPath ?? this.processedPath,
-      originalSize: originalSize ?? this.originalSize,
-      processedSize: processedSize ?? this.processedSize,
-      uploadTime: uploadTime ?? this.uploadTime,
-      isProcessing: isProcessing ?? this.isProcessing,
-    );
-  }
-
-  String getSizeFormatted() {
-    final size = processedSize ?? originalSize;
-    if (size < 1024) return '${size}B';
-    if (size < 1024 * 1024) return '${(size / 1024).toStringAsFixed(1)}KB';
-    return '${(size / (1024 * 1024)).toStringAsFixed(1)}MB';
-  }
-}
-
-/// Controller for managing meal photos upload and processing
 class MealPhotosController extends GetxController {
   static MealPhotosController get instance => Get.find();
 
-  // Image picker instance
-  final ImagePicker _picker = ImagePicker();
+  final DiabetesHiveStorageManager _storageManager = DiabetesHiveStorageManager.instance;
+  final _functions = FirebaseFunctions.instance;
 
-  // Meal photos list
-  final mealPhotos = <MealPhoto>[].obs;
-
-  // Validation and processing states
+  // Observable variables
+  final mealPhotos = <MealPhotoRecord>[].obs;
   final isProcessing = false.obs;
   final isProcessingAPI = false.obs;
-  final apiProcessed = false.obs;
-  final apiError = ''.obs;
+  final dietAssessment = Rx<DietAssessmentReport?>(null);
   final validationErrors = <String>[].obs;
+  final Rx<NavigationMode> navigationMode = NavigationMode.flow.obs;
 
-  // Configuration constants
+  // Configuration
   static const int minPhotos = 7;
   static const int maxPhotos = 9;
-  static const int maxTotalSizeMB = 10;
-  static const int targetSize = 250;
-  static const int maxFileSizeMB = 5;
-
-  static const List<String> supportedFormats = ['jpg', 'jpeg', 'png'];
+  static const int maxDaysOld = 3;
 
   @override
   void onInit() {
     super.onInit();
-    // Clear any existing data
-    resetData();
+    _initialize();
   }
 
-  /// Check if assessment can be completed
-  bool get canCompleteAssessment =>
-      apiProcessed.value &&
+  /// Initialize controller
+  Future<void> _initialize() async {
+    // Get navigation mode from arguments if provided
+    if (Get.arguments != null && Get.arguments['mode'] != null) {
+      navigationMode.value = Get.arguments['mode'];
+    }
+
+    await _loadFromCache();
+  }
+
+  /// Load meal photos and results from Hive cache
+  Future<void> _loadFromCache() async {
+    try {
+      final cache = _storageManager.getCachedAssessment();
+
+      if (cache != null) {
+        // Load meal photos
+        if (cache.mealPhotos != null) {
+          // Validate photos still exist
+          final validPhotos = <MealPhotoRecord>[];
+          final threeDaysAgo = DateTime.now().subtract(Duration(days: maxDaysOld));
+
+          for (final photo in cache.mealPhotos!) {
+            final file = File(photo.localPath);
+            if (file.existsSync() && photo.uploadTime.isAfter(threeDaysAgo)) {
+              validPhotos.add(photo);
+            }
+          }
+
+          mealPhotos.value = validPhotos;
+
+          // If some photos were removed, update cache
+          if (validPhotos.length != cache.mealPhotos!.length) {
+            await _saveToCache();
+          }
+        }
+
+        // Load diet assessment
+        dietAssessment.value = cache.dietAssessment;
+
+        _validatePhotos();
+      }
+    } catch (e) {
+      print('Error loading from cache: $e');
+    }
+  }
+
+  /// Save meal photos and results to Hive cache
+  Future<void> _saveToCache() async {
+    try {
+      // 自动判断是否完成：照片数量足够 + 全部已处理 + 有评估结果
+      final bool shouldMarkComplete =
           mealPhotos.length >= minPhotos &&
-          !hasValidationErrors;
+              allPhotosProcessed &&
+              dietAssessment.value != null;
 
-  /// Check if there are validation errors
-  bool get hasValidationErrors => validationErrors.isNotEmpty;
+      await _storageManager.updateStepData(8, {
+        'mealPhotos': mealPhotos.toList(),
+        'mealPhotosProcessed': allPhotosProcessed,
+        'dietAssessment': dietAssessment.value,
+      }, markComplete: shouldMarkComplete);
+    } catch (e) {
+      print('Error saving to cache: $e');
+    }
+  }
 
-  /// Pick single image from camera or gallery
+  void _validatePhotos() {
+    validationErrors.clear();
+
+    if (mealPhotos.length < minPhotos) {
+      validationErrors.add(
+        'Need at least $minPhotos photos (currently: ${mealPhotos.length})',
+      );
+    }
+
+    final threeDaysAgo = DateTime.now().subtract(Duration(days: maxDaysOld));
+    final oldPhotos = mealPhotos.where((p) => p.uploadTime.isBefore(threeDaysAgo)).length;
+
+    if (oldPhotos > 0) {
+      validationErrors.add('$oldPhotos photos are older than $maxDaysOld days');
+    }
+  }
+
   Future<void> pickImage(ImageSource source) async {
     try {
       if (mealPhotos.length >= maxPhotos) {
-        _showError('Maximum $maxPhotos photos allowed');
+        TLoaders.errorSnackBar(
+          title: 'Limit Reached',
+          message: 'Maximum $maxPhotos photos allowed',
+        );
         return;
       }
 
-      final XFile? image = await _picker.pickImage(
-        source: source,
-        maxWidth: 1024,
-        maxHeight: 1024,
-        imageQuality: 85,
-      );
-
-      if (image != null) {
-        await _processSelectedImage(image);
-      }
-    } catch (e) {
-      _showError('Failed to pick image: $e');
-    }
-  }
-
-  /// Pick multiple images from gallery
-  Future<void> pickMultipleImages() async {
-    try {
-      final remainingSlots = maxPhotos - mealPhotos.length;
-      if (remainingSlots <= 0) {
-        _showError('Maximum $maxPhotos photos allowed');
-        return;
-      }
-
-      final List<XFile> images = await _picker.pickMultiImage(
-        maxWidth: 1024,
-        maxHeight: 1024,
-        imageQuality: 85,
-      );
-
-      if (images.isNotEmpty) {
-        final selectedImages = images.take(remainingSlots).toList();
-
-        if (images.length > remainingSlots) {
-          _showWarning(
-              'Only first $remainingSlots photos selected due to limit');
-        }
-
-        for (final image in selectedImages) {
-          await _processSelectedImage(image);
-        }
-      }
-    } catch (e) {
-      _showError('Failed to pick images: $e');
-    }
-  }
-
-  /// Process selected image
-  Future<void> _processSelectedImage(XFile image) async {
-    try {
       isProcessing.value = true;
 
-      // Validate file format
-      final extension = path.extension(image.path).toLowerCase().replaceAll(
-          '.', '');
-      if (!supportedFormats.contains(extension)) {
-        _showError('Unsupported format: $extension');
-        return;
+      File? image;
+      if (source == ImageSource.camera) {
+        image = await ImageHelper.openCustomCamera();
+      } else {
+        image = await ImageHelper.pickImage();
       }
 
-      // Get file info
-      final file = File(image.path);
-      final fileSize = await file.length();
-
-      // Validate file size
-      if (fileSize > maxFileSizeMB * 1024 * 1024) {
-        _showError(
-            'File too large: ${(fileSize / (1024 * 1024)).toStringAsFixed(
-                1)}MB (max: ${maxFileSizeMB}MB)');
-        return;
+      if (image != null) {
+        await _processAndSaveImage(image);
       }
-
-      // Create initial photo object
-      final photo = MealPhoto(
-        originalPath: image.path,
-        originalSize: fileSize,
-        uploadTime: DateTime.now(),
-        isProcessing: true,
-      );
-
-      mealPhotos.add(photo);
-      _validatePhotos();
-
-      // Process image (resize and convert to webp)
-      final processedPhoto = await _processImage(photo);
-
-      // Update the photo in list
-      final index = mealPhotos.indexWhere((p) =>
-      p.originalPath == photo.originalPath);
-      if (index != -1) {
-        mealPhotos[index] = processedPhoto;
-      }
-
-      _validatePhotos();
     } catch (e) {
-      _showError('Failed to process image: $e');
+      TLoaders.errorSnackBar(title: 'Error', message: 'Failed to pick image: $e');
     } finally {
       isProcessing.value = false;
     }
   }
 
-  /// Process image (resize and convert to WebP)
-  Future<MealPhoto> _processImage(MealPhoto photo) async {
+  Future<void> pickMultipleImages() async {
     try {
-      // Read original image
-      final originalFile = File(photo.originalPath);
-      final bytes = await originalFile.readAsBytes();
-      final image = img.decodeImage(bytes);
-
-      if (image == null) {
-        throw Exception('Failed to decode image');
-      }
-
-      // Resize image to target size while maintaining aspect ratio
-      final resized = img.copyResize(
-        image,
-        width: targetSize,
-        height: targetSize,
-        maintainAspect: true,
-      );
-
-      // Convert to WebP format
-      final webpBytes = img.encodeJpg(resized, quality: 80);
-
-      // Save processed image
-      final directory = await getTemporaryDirectory();
-      final fileName = 'meal_${DateTime
-          .now()
-          .millisecondsSinceEpoch}.webp';
-      final processedFile = File(path.join(directory.path, fileName));
-      await processedFile.writeAsBytes(webpBytes);
-
-      return photo.copyWith(
-        processedPath: processedFile.path,
-        processedSize: webpBytes.length,
-        isProcessing: false,
-      );
-    } catch (e) {
-      throw Exception('Image processing failed: $e');
-    }
-  }
-
-  /// Remove photo by index
-  void removePhoto(int index) {
-    if (index >= 0 && index < mealPhotos.length) {
-      final photo = mealPhotos[index];
-
-      // Delete processed file if exists
-      if (photo.processedPath != null) {
-        final processedFile = File(photo.processedPath!);
-        if (processedFile.existsSync()) {
-          processedFile.deleteSync();
-        }
-      }
-
-      mealPhotos.removeAt(index);
-      _validatePhotos();
-
-      // Reset API status if needed
-      if (apiProcessed.value) {
-        apiProcessed.value = false;
-        apiError.value = '';
-      }
-    }
-  }
-
-  /// Validate all photos and update validation errors
-  void _validatePhotos() {
-    validationErrors.clear();
-
-    // Check minimum photos
-    if (mealPhotos.length < minPhotos) {
-      validationErrors.add(
-          'Need at least $minPhotos photos (currently: ${mealPhotos.length})');
-    }
-
-    // Check maximum photos
-    if (mealPhotos.length > maxPhotos) {
-      validationErrors.add(
-          'Too many photos (max: $maxPhotos, current: ${mealPhotos.length})');
-    }
-
-    // Check total size
-    final totalSizeMB = getTotalSizeInMB();
-    if (totalSizeMB > maxTotalSizeMB) {
-      validationErrors.add('Total size too large: ${totalSizeMB.toStringAsFixed(
-          1)}MB (max: ${maxTotalSizeMB}MB)');
-    }
-
-    // Check for processing images
-    final processingCount = mealPhotos
-        .where((photo) => photo.isProcessing)
-        .length;
-    if (processingCount > 0) {
-      validationErrors.add('$processingCount photos still processing...');
-    }
-
-    // Check for old photos (past 3 days)
-    final threeDaysAgo = DateTime.now().subtract(const Duration(days: 3));
-    final oldPhotosCount = mealPhotos
-        .where((photo) => photo.uploadTime.isBefore(threeDaysAgo))
-        .length;
-    if (oldPhotosCount > 0) {
-      validationErrors.add('$oldPhotosCount photos are older than 3 days');
-    }
-  }
-
-  /// Get total size of all photos in MB
-  double getTotalSizeInMB() {
-    int totalBytes = 0;
-    for (final photo in mealPhotos) {
-      totalBytes += photo.processedSize ?? photo.originalSize;
-    }
-    return totalBytes / (1024 * 1024);
-  }
-
-  /// Get formatted total size string
-  String getTotalSizeFormatted() {
-    final totalSizeMB = getTotalSizeInMB();
-    if (totalSizeMB < 1) {
-      return '${(totalSizeMB * 1024).toStringAsFixed(0)}KB';
-    }
-    return '${totalSizeMB.toStringAsFixed(1)}MB';
-  }
-
-  /// Process photos with API
-  Future<void> processPhotosWithAPI() async {
-    try {
-      // Validate before processing
-      _validatePhotos();
-      if (hasValidationErrors) {
-        _showError('Please fix validation errors before processing');
-        return;
-      }
-
-      isProcessingAPI.value = true;
-      apiError.value = '';
-
-      // Prepare photos for API
-      final List<Map<String, dynamic>> photoData = [];
-
-      for (int i = 0; i < mealPhotos.length; i++) {
-        final photo = mealPhotos[i];
-        final filePath = photo.processedPath ?? photo.originalPath;
-        final file = File(filePath);
-
-        if (await file.exists()) {
-          final bytes = await file.readAsBytes();
-          photoData.add({
-            'id': i,
-            'filename': 'meal_$i.webp',
-            'data': bytes,
-            'size': bytes.length,
-            'uploadTime': photo.uploadTime.toIso8601String(),
-          });
-        }
-      }
-
-      // Simulate API call (replace with actual API call)
-      final result = await _callNutritionAPI(photoData);
-
-      if (result['success']) {
-        apiProcessed.value = true;
-        Get.snackbar(
-          'Success',
-          'Photos processed successfully!',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
+      final remainingSlots = maxPhotos - mealPhotos.length;
+      if (remainingSlots <= 0) {
+        TLoaders.errorSnackBar(
+          title: 'Limit Reached',
+          message: 'Maximum $maxPhotos photos allowed',
         );
-      } else {
-        throw Exception(result['error'] ?? 'API processing failed');
-      }
-    } catch (e) {
-      apiError.value = 'Failed to process photos: $e';
-      _showError(apiError.value);
-    } finally {
-      isProcessingAPI.value = false;
-    }
-  }
-
-  /// Simulate API call for nutrition analysis
-  Future<Map<String, dynamic>> _callNutritionAPI(
-      List<Map<String, dynamic>> photoData) async {
-    // Simulate network delay
-    await Future.delayed(const Duration(seconds: 3));
-
-    // Simulate random success/failure for demo
-    // In real implementation, this would be actual API call
-    if (photoData.length >= minPhotos) {
-      return {
-        'success': true,
-        'data': {
-          'totalMeals': photoData.length,
-          'nutritionAnalysis': {
-            'totalCalories': 2150,
-            'avgCaloriesPerMeal': 2150 / photoData.length,
-            'macronutrients': {
-              'carbs': 45.2,
-              'protein': 25.8,
-              'fat': 29.0,
-            },
-            'riskFactors': [
-              'High sodium content detected in 3 meals',
-              'Low fiber intake observed',
-              'Excessive sugar in beverages',
-            ],
-          },
-          'processedAt': DateTime.now().toIso8601String(),
-        }
-      };
-    } else {
-      return {
-        'success': false,
-        'error': 'Insufficient photos for analysis'
-      };
-    }
-  }
-
-  /// Complete the assessment
-  Future<void> completeAssessment() async {
-    try {
-      if (!canCompleteAssessment) {
-        _showError(
-            'Cannot complete assessment. Please ensure all requirements are met.');
         return;
       }
 
-      isProcessingAPI.value = true;
+      isProcessing.value = true;
+      final images = await ImageHelper.pickMultipleMedia(limit: remainingSlots);
 
-      // Prepare final data
-      final assessmentData = {
-        'mealPhotos': {
-          'totalPhotos': mealPhotos.length,
-          'totalSizeMB': getTotalSizeInMB(),
-          'photos': mealPhotos.map((photo) =>
-          {
-            'originalSize': photo.originalSize,
-            'processedSize': photo.processedSize ?? photo.originalSize,
-            'uploadTime': photo.uploadTime.toIso8601String(),
-          }).toList(),
-        },
-        'apiProcessed': apiProcessed.value,
-        'completedAt': DateTime.now().toIso8601String(),
-      };
+      if (images.isNotEmpty) {
+        if (images.length > remainingSlots) {
+          TLoaders.warningSnackBar(
+            title: 'Notice',
+            message: 'Only first $remainingSlots photos will be added',
+          );
+        }
 
-      // Simulate final processing
-      await Future.delayed(const Duration(seconds: 2));
-
-      print('Assessment Data: $assessmentData'); // For debugging
-
-      // Navigate to results or next screen
-      Get.snackbar(
-        'Assessment Complete!',
-        'Your diabetes risk assessment has been completed successfully.',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
-        duration: const Duration(seconds: 3),
-      );
-
-      // Clean up temporary files
-      await _cleanupTempFiles();
-
-      // Navigate to results screen
-      // Get.toNamed('/assessment-results', arguments: assessmentData);
-      Get.back(); // For now, just go back
-
-    } catch (e) {
-      _showError('Failed to complete assessment: $e');
-    } finally {
-      isProcessingAPI.value = false;
-    }
-  }
-
-  /// Clean up temporary processed files
-  Future<void> _cleanupTempFiles() async {
-    try {
-      for (final photo in mealPhotos) {
-        if (photo.processedPath != null) {
-          final file = File(photo.processedPath!);
-          if (await file.exists()) {
-            await file.delete();
+        for (final image in images.take(remainingSlots)) {
+          if (ImageHelper.isImageFile(image.path)) {
+            await _processAndSaveImage(image);
           }
         }
       }
     } catch (e) {
-      print('Warning: Failed to cleanup temp files: $e');
+      TLoaders.errorSnackBar(title: 'Error', message: 'Failed to pick images: $e');
+    } finally {
+      isProcessing.value = false;
     }
   }
 
-  /// Show error message
-  void _showError(String message) {
-    Get.snackbar(
-      'Error',
-      message,
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.red,
-      colorText: Colors.white,
-      duration: const Duration(seconds: 4),
-    );
+  Future<void> _processAndSaveImage(File imageFile) async {
+    try {
+      final processedFile = await MealPhotoHelper.compressImageForMealPhoto(imageFile);
+
+      if (processedFile == null) {
+        throw Exception('Failed to process image');
+      }
+
+      if (!MealPhotoHelper.isMealPhotoSizeValid(processedFile)) {
+        final sizeMB = MealPhotoHelper.getSizeInMB(processedFile);
+        TLoaders.errorSnackBar(
+          title: 'File Too Large',
+          message: 'Image must be less than 1MB (current: ${sizeMB.toStringAsFixed(2)}MB)',
+        );
+        return;
+      }
+
+      final photo = MealPhotoRecord(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        localPath: processedFile.path,
+        fileSize: processedFile.lengthSync(),
+        uploadTime: DateTime.now(),
+        needsProcessing: true, // Mark as needing processing
+      );
+
+      mealPhotos.add(photo);
+
+      await _saveToCache();
+      _validatePhotos();
+
+      TLoaders.successSnackBar(
+        title: 'Success',
+        message: 'Photo added (${MealPhotoHelper.getFormattedSize(processedFile)})',
+      );
+    } catch (e) {
+      TLoaders.errorSnackBar(title: 'Error', message: 'Failed to process image: $e');
+    }
   }
 
-  /// Show warning message
-  void _showWarning(String message) {
-    Get.snackbar(
-      'Warning',
-      message,
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.orange,
-      colorText: Colors.white,
-      duration: const Duration(seconds: 3),
-    );
+  Future<void> removePhoto(int index) async {
+    if (index >= 0 && index < mealPhotos.length) {
+      final photo = mealPhotos[index];
+
+      try {
+        final file = File(photo.localPath);
+        if (file.existsSync()) {
+          await file.delete();
+        }
+      } catch (e) {
+        print('Error deleting file: $e');
+      }
+
+      mealPhotos.removeAt(index);
+
+      // If we removed a processed photo and have other processed photos,
+      // recalculate the diet assessment
+      if (!photo.needsProcessing && hasProcessedPhotos) {
+        await _recalculateAssessment();
+      } else {
+        // If all unprocessed or no photos left, clear assessment
+        if (mealPhotos.isEmpty || !hasProcessedPhotos) {
+          dietAssessment.value = null;
+        }
+      }
+
+      await _saveToCache();
+      _validatePhotos();
+    }
   }
 
-  /// Reset all data
-  void resetData() {
+  /// Process only unprocessed photos with Cloud Function
+  Future<void> processPhotosWithAPI() async {
+    try {
+      _validatePhotos();
+      if (hasValidationErrors) {
+        TLoaders.errorSnackBar(
+          title: 'Validation Error',
+          message: 'Please fix validation errors before processing',
+        );
+        return;
+      }
+
+      final unprocessedPhotos = mealPhotos.where((p) => p.needsProcessing).toList();
+
+      if (unprocessedPhotos.isEmpty) {
+        TLoaders.warningSnackBar(
+          title: 'Already Processed',
+          message: 'All photos have been processed',
+        );
+        return;
+      }
+
+      isProcessingAPI.value = true;
+
+      // Prepare only unprocessed images as base64
+      final images = <Map<String, dynamic>>[];
+      for (final photo in unprocessedPhotos) {
+        final file = File(photo.localPath);
+        if (await file.exists()) {
+          final bytes = await file.readAsBytes();
+          final base64Image = base64Encode(bytes);
+          images.add({
+            'id': photo.id,
+            'image_b64': base64Image,
+          });
+        }
+      }
+
+      if (images.isEmpty) {
+        throw Exception('No valid images to process');
+      }
+
+      // Call cloud function
+      final callable = _functions.httpsCallable('analyzeMealPhotos');
+      final result = await callable.call({'images': images});
+
+      final data = result.data;
+      if (data['success'] == true) {
+        // Update each newly processed photo with its analysis result
+        for (int i = 0; i < mealPhotos.length; i++) {
+          if (mealPhotos[i].needsProcessing) {
+            final analysisResult = (data['nutritionData']['meals'] as List)
+                .firstWhere(
+                  (m) => m['id'] == mealPhotos[i].id,
+              orElse: () => throw Exception('Analysis result not found'),
+            );
+
+            mealPhotos[i] = mealPhotos[i].copyWith(
+              needsProcessing: false,
+              analysisResult: MealAnalysisResult.fromJson(analysisResult),
+            );
+          }
+        }
+
+        // Recalculate complete diet assessment from all processed photos
+        await _recalculateAssessment();
+
+        // Save to Hive cache
+        await _saveToCache();
+
+        TLoaders.successSnackBar(
+          title: 'Success',
+          message: 'Photos analyzed successfully!',
+        );
+      } else {
+        throw Exception(data['error'] ?? 'API processing failed');
+      }
+    } catch (e) {
+      TLoaders.errorSnackBar(
+        title: 'Processing Failed',
+        message: e.toString(),
+      );
+    } finally {
+      isProcessingAPI.value = false;
+    }
+  }
+
+  /// Recalculate diet assessment from all processed photos
+  Future<void> _recalculateAssessment() async {
+    final processedPhotos = mealPhotos.where((p) => !p.needsProcessing && p.analysisResult != null).toList();
+
+    if (processedPhotos.isEmpty) {
+      dietAssessment.value = null;
+      await _saveToCache();
+      return;
+    }
+
+    // Extract all meal analysis results
+    final meals = processedPhotos
+        .map((p) => p.analysisResult!)
+        .toList();
+
+    // Calculate average GL
+    final totalGL = meals.fold(0.0, (sum, meal) => sum + meal.totalGL);
+    final avgGL = totalGL / meals.length;
+
+    // Determine health status
+    final highGLCount = meals.where((m) => m.glCategory == 'high').length;
+    final isHealthy = avgGL < 15 && highGLCount < (meals.length * 0.3);
+
+    // Generate warnings
+    final warnings = <String>[];
+    if (avgGL >= 15) {
+      warnings.add('Average GL is high - consider lower GL foods');
+    }
+    if (highGLCount > meals.length * 0.3) {
+      warnings.add('Too many high GL meals detected');
+    }
+
+    // Create new assessment
+    dietAssessment.value = DietAssessmentReport(
+      meals: meals,
+      avgGLPerMeal: avgGL,
+      isHealthy: isHealthy,
+      warnings: warnings,
+      mealCount: meals.length,
+      glThresholds: {
+        'low': 10,
+        'medium': 20,
+        'high': 20,
+      },
+      assessmentDate: DateTime.now(),
+    );
+
+    await _saveToCache();
+  }
+
+  Future<void> completeAssessment() async {
+    if (!canProceed) {
+      TLoaders.errorSnackBar(
+        title: 'Cannot Complete',
+        message: 'Please process all photos before completing',
+      );
+      return;
+    }
+
+    TLoaders.successSnackBar(
+      title: 'Assessment Complete',
+      message: 'Your meal photos have been analyzed',
+    );
+
+    Get.back();
+  }
+
+  Future<void> resetData() async {
+    // Delete physical files
+    for (final photo in mealPhotos) {
+      try {
+        final file = File(photo.localPath);
+        if (file.existsSync()) {
+          await file.delete();
+        }
+      } catch (e) {
+        print('Error deleting file: $e');
+      }
+    }
+
+    // Clear local state
     mealPhotos.clear();
     validationErrors.clear();
     isProcessing.value = false;
     isProcessingAPI.value = false;
-    apiProcessed.value = false;
-    apiError.value = '';
+    dietAssessment.value = null;
+
+    // Clear from cache
+    await _storageManager.updateStepData(8, {
+      'mealPhotos': <MealPhotoRecord>[],
+      'mealPhotosProcessed': false,
+      'dietAssessment': null,
+    });
   }
 
-  /// Get data for final submission
-  Map<String, dynamic> toJson() {
-    return {
-      'totalPhotos': mealPhotos.length,
-      'totalSizeMB': getTotalSizeInMB(),
-      'apiProcessed': apiProcessed.value,
-      'validationPassed': !hasValidationErrors,
-      'uploadedAt': DateTime.now().toIso8601String(),
-    };
+  // Getters
+  bool get hasValidationErrors => validationErrors.isNotEmpty;
+
+  /// Check if there are any unprocessed photos
+  bool get hasUnprocessedPhotos => mealPhotos.any((p) => p.needsProcessing);
+
+  /// Check if all photos are processed
+  bool get allPhotosProcessed => mealPhotos.isNotEmpty && !hasUnprocessedPhotos;
+
+  /// Check if there are any processed photos
+  bool get hasProcessedPhotos => mealPhotos.any((p) => !p.needsProcessing);
+
+  /// Get count of processed photos
+  int get processedCount => mealPhotos.where((p) => !p.needsProcessing).length;
+
+  /// Get count of unprocessed photos
+  int get unprocessedCount => mealPhotos.where((p) => p.needsProcessing).length;
+
+  /// Check if needs processing (has unprocessed photos)
+  bool get needsProcessing => hasUnprocessedPhotos;
+
+  /// Check if can proceed to next step
+  bool get canProceed =>
+      !hasValidationErrors &&
+          mealPhotos.length >= minPhotos &&
+          allPhotosProcessed;
+
+  /// 检查是否可以处理照片（有未处理照片时才enable）
+  bool get canProcessPhotos => hasUnprocessedPhotos && !isProcessingAPI.value;
+
+  /// 检查是否可以继续/保存（全部处理完成且照片数量符合要求）
+  bool get canContinueOrSave =>
+      !hasValidationErrors &&
+          mealPhotos.length >= minPhotos &&
+          allPhotosProcessed;
+
+  /// 获取按钮文本
+  String get continueButtonText {
+    if (shouldShowProcessButton) {
+      return 'Process Photos';
+    } else {
+      return navigationMode == NavigationMode.edit ? 'Save' : 'Continue';
+    }
+  }
+
+  bool get shouldShowProcessButton {
+    return hasUnprocessedPhotos || mealPhotos.length < minPhotos || hasValidationErrors;
+  }
+
+  String getTotalSizeFormatted() {
+    final totalBytes = mealPhotos.fold<int>(0, (sum, p) => sum + p.fileSize);
+    return ImageHelper.formatFileSize(totalBytes);
   }
 
   @override
   void onClose() {
-    // Clean up when controller is disposed
-    _cleanupTempFiles();
     super.onClose();
   }
 }

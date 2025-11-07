@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../../utils/constants/enums.dart';
 import '../../../utils/constants/firebase_field_names.dart';
 
 class PaymentTransactionModel {
@@ -8,7 +9,7 @@ class PaymentTransactionModel {
   final String currency;
   final String paymentMethod;
   final DateTime transactionDateTime;
-  final String status;
+  final PaymentStatus status;
 
   PaymentTransactionModel({
     required this.transactionId,
@@ -16,7 +17,7 @@ class PaymentTransactionModel {
     required this.currency,
     required this.paymentMethod,
     required this.transactionDateTime,
-    required this.status
+    required this.status,
   });
 
   /// Empty
@@ -26,8 +27,8 @@ class PaymentTransactionModel {
       amount: 0.0,
       currency: '',
       paymentMethod: '',
-      transactionDateTime: DateTime(0),
-      status: '',
+      transactionDateTime: DateTime.fromMillisecondsSinceEpoch(0),
+      status: PaymentStatus.pending,
     );
   }
 
@@ -38,9 +39,8 @@ class PaymentTransactionModel {
       FirebaseFieldNames.amount: amount,
       FirebaseFieldNames.currency: currency,
       FirebaseFieldNames.paymentMethod: paymentMethod,
-      FirebaseFieldNames.transactionDateTime:
-          Timestamp.fromDate(transactionDateTime),
-      FirebaseFieldNames.status: status,
+      FirebaseFieldNames.transactionDateTime: transactionDateTime.millisecondsSinceEpoch,
+      FirebaseFieldNames.status: status.value,
     };
   }
 
@@ -55,9 +55,10 @@ class PaymentTransactionModel {
       amount: (data[FirebaseFieldNames.amount] ?? 0).toDouble(),
       currency: data[FirebaseFieldNames.currency] ?? '',
       paymentMethod: data[FirebaseFieldNames.paymentMethod] ?? '',
-      transactionDateTime:
-          (data[FirebaseFieldNames.transactionDateTime] as Timestamp).toDate(),
-      status: data[FirebaseFieldNames.status] ?? '',
+      transactionDateTime: DateTime.fromMillisecondsSinceEpoch(
+          data[FirebaseFieldNames.transactionDateTime] ?? 0),
+      status: PaymentStatus.fromString(
+          data[FirebaseFieldNames.status] ?? 'pending'),
     );
   }
 
@@ -68,9 +69,29 @@ class PaymentTransactionModel {
       amount: (data[FirebaseFieldNames.amount] ?? 0).toDouble(),
       currency: data[FirebaseFieldNames.currency] ?? '',
       paymentMethod: data[FirebaseFieldNames.paymentMethod] ?? '',
-      transactionDateTime:
-          (data[FirebaseFieldNames.transactionDateTime] as Timestamp).toDate(),
-      status: data[FirebaseFieldNames.status] ?? '',
+      transactionDateTime: DateTime.fromMillisecondsSinceEpoch(
+          data[FirebaseFieldNames.transactionDateTime] ?? 0),
+      status: PaymentStatus.fromString(
+          data[FirebaseFieldNames.status] ?? 'pending'),
+    );
+  }
+
+  /// Copy with
+  PaymentTransactionModel copyWith({
+    String? transactionId,
+    double? amount,
+    String? currency,
+    String? paymentMethod,
+    DateTime? transactionDateTime,
+    PaymentStatus? status,
+  }) {
+    return PaymentTransactionModel(
+      transactionId: transactionId ?? this.transactionId,
+      amount: amount ?? this.amount,
+      currency: currency ?? this.currency,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
+      transactionDateTime: transactionDateTime ?? this.transactionDateTime,
+      status: status ?? this.status,
     );
   }
 }

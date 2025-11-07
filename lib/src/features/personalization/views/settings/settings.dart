@@ -4,13 +4,17 @@ import 'package:icons_plus/icons_plus.dart';
 
 import '../../../../common/widgets/appbar/appbar.dart';
 import '../../../../common/widgets/custom_shapes/containers/primary_header_container.dart';
-import '../../../../common/widgets/list_tiles/settings_menu_tile.dart';
 import '../../../../common/widgets/list_tiles/user_profile_tile.dart';
 import '../../../../common/widgets/texts/section_heading.dart';
 import '../../../../data/repositories/authentication/authentication_repository.dart';
 import '../../../../utils/constants/colors.dart';
 import '../../../../utils/constants/sizes.dart';
+import '../../../../utils/helpers/helper_functions.dart';
+import '../../../achievement/views/leaderboard_screen.dart';
+import '../../../achievement/views/user_achievement_screen.dart';
+import '../../../subscription/views/subscription_history_screen.dart';
 import '../../../subscription/views/subscription_plan_selection_screen.dart';
+import '../../../subscription/views/transaction_history_screen.dart';
 import '../profile/profile.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -18,6 +22,8 @@ class SettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final darkMode = THelperFunctions.isDarkMode(context);
+
     return Scaffold(
       body: SingleChildScrollView(
         child: Column(
@@ -29,7 +35,7 @@ class SettingsScreen extends StatelessWidget {
                 children: [
                   TAppBar(
                     title: Text(
-                      'Account',
+                      'Settings',
                       style: Theme.of(context)
                           .textTheme
                           .headlineMedium!
@@ -41,9 +47,7 @@ class SettingsScreen extends StatelessWidget {
                   TUserProfileTile(
                     onPressed: () => Get.to(() => const ProfileScreen()),
                   ),
-                  const SizedBox(
-                    height: 30,
-                  ),
+                  const SizedBox(height: TSizes.defaultSpace),
                 ],
               ),
             ),
@@ -52,98 +56,411 @@ class SettingsScreen extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.all(TSizes.defaultSpace),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  /// - Account Settings
+                  /// - Account Section
                   const TSectionHeading(
-                    title: 'Account Settings',
-                  ),
-                  const SizedBox(
-                    height: TSizes.spaceBtwItems,
-                  ),
-
-                  const TSettingsMenuTile(
-                    icon: Iconsax.safe_home_bold,
-                    title: 'My Addresses',
-                    subTitle: 'Set your address',
-                  ),
-                  const TSettingsMenuTile(
-                    icon: Iconsax.safe_home_bold,
-                    title: 'My Addresses',
-                    subTitle: 'Set your address',
-                  ),
-                  const TSettingsMenuTile(
-                    icon: Iconsax.safe_home_bold,
-                    title: 'My Addresses',
-                    subTitle: 'Set your address',
-                  ),
-                  const TSettingsMenuTile(
-                    icon: Iconsax.safe_home_bold,
-                    title: 'My Addresses',
-                    subTitle: 'Set your address',
-                  ),
-                  TSettingsMenuTile(
-                    icon: Iconsax.safe_home_bold,
-                    title: 'Subscription',
-                    subTitle: 'Subscribe the premium plan',
-                    onTap: () => Get.to(() => const SubscriptionPlanScreen()),
-                  ),
-                  const TSettingsMenuTile(
-                    icon: Iconsax.safe_home_bold,
-                    title: 'Notifications',
-                    subTitle: 'Set any kind of notification message',
-                  ),
-                  const TSettingsMenuTile(
-                    icon: Iconsax.safe_home_bold,
-                    title: 'Account Privacy',
-                    subTitle: 'Manage data usage and connected accounts',
-                  ),
-
-                  /// - App Settings
-                  const SizedBox(
-                    height: TSizes.spaceBtwSections,
-                  ),
-                  const TSectionHeading(
-                    title: 'App Settings',
+                    title: 'Account',
                     showActionButton: false,
                   ),
-                  const SizedBox(
-                    height: TSizes.spaceBtwItems,
+                  const SizedBox(height: TSizes.spaceBtwItems),
+
+                  // Account Settings Items
+                  _buildSettingItem(
+                    context: context,
+                    icon: Iconsax.award_bold,
+                    title: 'Achievements',
+                    subtitle: 'View your achievements & badges',
+                    iconColor: TColors.warning,
+                    iconBgColor: TColors.warning.withOpacity(0.1),
+                    onTap: () => Get.to(() => const UserAchievementScreen()),
+                    darkMode: darkMode,
                   ),
-                  const TSettingsMenuTile(
-                      icon: Iconsax.document_upload_bold,
-                      title: 'Load Data',
-                      subTitle: 'Upload data to your cloud firebase'),
-                  TSettingsMenuTile(
-                      icon: Iconsax.location_bold,
-                      title: 'Geolocation',
-                      subTitle: 'Set recommendation based on location',
-                      trailing: Switch(value: true, onChanged: (value) {})),
-                  TSettingsMenuTile(
-                      icon: Iconsax.security_user_bold,
-                      title: 'Safe Mode',
-                      subTitle: 'Search result is safe for all ages',
-                      trailing: Switch(value: false, onChanged: (value) {})),
-                  TSettingsMenuTile(
-                      icon: Iconsax.image_bold,
-                      title: 'HD Image Quality',
-                      subTitle: 'Set image quality to be seen',
-                      trailing: Switch(value: false, onChanged: (value) {})),
+                  const SizedBox(height: TSizes.sm),
+
+                  _buildSettingItem(
+                    context: context,
+                    icon: Iconsax.ranking_bold,
+                    title: 'Leaderboard',
+                    subtitle: 'Check your ranking & compete',
+                    iconColor: TColors.gold,
+                    iconBgColor: TColors.gold.withOpacity(0.1),
+                    onTap: () => Get.to(() => const LeaderboardScreen()),
+                    darkMode: darkMode,
+                  ),
+                  const SizedBox(height: TSizes.sm),
+
+                  _buildSettingItem(
+                    context: context,
+                    icon: Iconsax.crown_1_bold,
+                    title: 'Upgrade to Premium',
+                    subtitle: 'Unlock exclusive features',
+                    iconColor: TColors.success,
+                    iconBgColor: TColors.success.withOpacity(0.1),
+                    onTap: () => Get.to(() => const SubscriptionPlanScreen()),
+                    darkMode: darkMode,
+                  ),
+                  const SizedBox(height: TSizes.sm),
+
+                  _buildSettingItem(
+                    context: context,
+                    icon: Iconsax.receipt_1_bold,
+                    title: 'Subscription',
+                    subtitle: 'View your subscription',
+                    iconColor: TColors.primary,
+                    iconBgColor: TColors.primary.withOpacity(0.1),
+                    onTap: () => Get.to(() => const SubscriptionHistoryScreen()),
+                    darkMode: darkMode,
+                  ),
+                  const SizedBox(height: TSizes.sm),
+
+                  _buildSettingItem(
+                    context: context,
+                    icon: Iconsax.receipt_text_bold,
+                    title: 'Transaction History',
+                    subtitle: 'View all your transactions',
+                    iconColor: const Color(0xFF8B5CF6),
+                    iconBgColor: const Color(0xFF8B5CF6).withOpacity(0.1),
+                    onTap: () => Get.to(() => const TransactionHistoryScreen()),
+                    darkMode: darkMode,
+                  ),
+
+                  const SizedBox(height: TSizes.spaceBtwSections),
+
+                  /// - Preferences Section
+                  const TSectionHeading(
+                    title: 'Preferences',
+                    showActionButton: false,
+                  ),
+                  const SizedBox(height: TSizes.spaceBtwItems),
+
+                  _buildSettingItem(
+                    context: context,
+                    icon: Iconsax.notification_bold,
+                    title: 'Notifications',
+                    subtitle: 'Manage notification preferences',
+                    iconColor: TColors.info,
+                    iconBgColor: TColors.info.withOpacity(0.1),
+                    onTap: () {
+                      // TODO: Navigate to notifications settings
+                    },
+                    darkMode: darkMode,
+                  ),
+                  const SizedBox(height: TSizes.sm),
+
+                  _buildSettingItem(
+                    context: context,
+                    icon: Iconsax.lock_bold,
+                    title: 'Account Privacy',
+                    subtitle: 'Manage data & privacy settings',
+                    iconColor: TColors.error,
+                    iconBgColor: TColors.error.withOpacity(0.1),
+                    onTap: () {
+                      // TODO: Navigate to privacy settings
+                    },
+                    darkMode: darkMode,
+                  ),
+                  const SizedBox(height: TSizes.sm),
+
+                  // Dark Mode Toggle
+                  _buildDarkModeToggle(context, darkMode),
+
+                  const SizedBox(height: TSizes.spaceBtwSections),
+
+                  /// - Support Section
+                  const TSectionHeading(
+                    title: 'Support',
+                    showActionButton: false,
+                  ),
+                  const SizedBox(height: TSizes.spaceBtwItems),
+
+                  _buildSettingItem(
+                    context: context,
+                    icon: Iconsax.message_question_bold,
+                    title: 'Help & Support',
+                    subtitle: 'Get help with your account',
+                    iconColor: const Color(0xFF8B5CF6),
+                    iconBgColor: const Color(0xFF8B5CF6).withOpacity(0.1),
+                    onTap: () {
+                      // TODO: Navigate to help screen
+                    },
+                    darkMode: darkMode,
+                  ),
+                  const SizedBox(height: TSizes.sm),
+
+                  _buildSettingItem(
+                    context: context,
+                    icon: Iconsax.document_text_bold,
+                    title: 'Terms & Conditions',
+                    subtitle: 'Read our terms of service',
+                    iconColor: const Color(0xFF06B6D4),
+                    iconBgColor: const Color(0xFF06B6D4).withOpacity(0.1),
+                    onTap: () {
+                      // TODO: Navigate to terms screen
+                    },
+                    darkMode: darkMode,
+                  ),
+                  const SizedBox(height: TSizes.sm),
+
+                  _buildSettingItem(
+                    context: context,
+                    icon: Iconsax.shield_tick_bold,
+                    title: 'Privacy Policy',
+                    subtitle: 'Learn how we protect your data',
+                    iconColor: const Color(0xFFEC4899),
+                    iconBgColor: const Color(0xFFEC4899).withOpacity(0.1),
+                    onTap: () {
+                      // TODO: Navigate to privacy policy screen
+                    },
+                    darkMode: darkMode,
+                  ),
+
+                  const SizedBox(height: TSizes.spaceBtwSections),
 
                   /// - Logout Button
-                  const SizedBox(
-                    height: TSizes.spaceBtwSections,
-                  ),
-                  SizedBox(
+                  Container(
                     width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: () {
-                        AuthenticationRepository.instance.logout();
-                      },
-                      child: const Text('Logout'),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(TSizes.cardRadiusLg),
+                      gradient: LinearGradient(
+                        colors: [
+                          TColors.error.withOpacity(0.1),
+                          TColors.error.withOpacity(0.05),
+                        ],
+                      ),
+                      border: Border.all(
+                        color: TColors.error.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () {
+                          AuthenticationRepository.instance.logout();
+                        },
+                        borderRadius: BorderRadius.circular(TSizes.cardRadiusLg),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: TSizes.md,
+                            vertical: 18,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Iconsax.logout_bold,
+                                color: TColors.error,
+                                size: 22,
+                              ),
+                              const SizedBox(width: TSizes.sm),
+                              Text(
+                                'Logout',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: TColors.error,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: TSizes.spaceBtwSections * 2.5),
+
+                  const SizedBox(height: TSizes.spaceBtwSections),
+
+                  // App Version
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: TSizes.md,
+                        vertical: TSizes.sm,
+                      ),
+                      decoration: BoxDecoration(
+                        color: darkMode
+                            ? TColors.darkGrey.withOpacity(0.3)
+                            : TColors.grey.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        'Version 1.0.0',
+                        style: Theme.of(context).textTheme.bodySmall!.apply(
+                          color: darkMode ? TColors.lightGrey : TColors.darkerGrey,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: TSizes.defaultSpace),
                 ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingItem({
+    required BuildContext context,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color iconColor,
+    required Color iconBgColor,
+    required VoidCallback onTap,
+    required bool darkMode,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: darkMode ? TColors.dark : TColors.white,
+        borderRadius: BorderRadius.circular(TSizes.cardRadiusLg),
+        boxShadow: [
+          BoxShadow(
+            color: darkMode
+                ? Colors.black.withOpacity(0.2)
+                : Colors.grey.withOpacity(0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(TSizes.cardRadiusLg),
+          child: Padding(
+            padding: const EdgeInsets.all(TSizes.md),
+            child: Row(
+              children: [
+                // Icon Container
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: iconBgColor,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: iconColor,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: TSizes.md),
+
+                // Text Content
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleMedium!.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: Theme.of(context).textTheme.bodySmall!.apply(
+                          color: darkMode ? TColors.darkGrey : TColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Arrow Icon
+                // Icon(
+                //   Icons.chevron_right_sharp,
+                //   size: 20,
+                //   color: darkMode ? TColors.darkGrey : TColors.textSecondary,
+                // ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDarkModeToggle(BuildContext context, bool darkMode) {
+    return Container(
+      decoration: BoxDecoration(
+        color: darkMode ? TColors.dark : TColors.white,
+        borderRadius: BorderRadius.circular(TSizes.cardRadiusLg),
+        boxShadow: [
+          BoxShadow(
+            color: darkMode
+                ? Colors.black.withOpacity(0.2)
+                : Colors.grey.withOpacity(0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(TSizes.md),
+        child: Row(
+          children: [
+            // Icon Container
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: darkMode
+                    ? const Color(0xFF8B5CF6).withOpacity(0.1)
+                    : TColors.warning.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Transform.translate(
+                offset: darkMode ? Offset(0, 0) : Offset(12, 0),
+                child: Icon(
+                  darkMode ? Iconsax.moon_bold : Iconsax.sun_1_bold,
+                  color: darkMode ? const Color(0xFF8B5CF6) : TColors.warning,
+                  size: 24,
+                ),
+              ),
+            ),
+            const SizedBox(width: TSizes.md),
+
+            // Text Content
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Dark Mode',
+                    style: Theme.of(context).textTheme.titleMedium!.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Switch between light & dark theme',
+                    style: Theme.of(context).textTheme.bodySmall!.apply(
+                      color: darkMode ? TColors.darkGrey : TColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Switch
+            Transform.scale(
+              scale: 0.9,
+              child: Switch(
+                value: darkMode,
+                onChanged: (value) {
+                  Get.changeThemeMode(
+                    value ? ThemeMode.dark : ThemeMode.light,
+                  );
+                },
+                activeColor: TColors.primary,
               ),
             ),
           ],

@@ -119,7 +119,7 @@ class TransactionReportController extends GetxController {
 
       // Filter only successful transactions
       transactions.value = allTransactions
-          .where((transaction) => transaction.status.toLowerCase() == 'success')
+          .where((transaction) => transaction.status == PaymentStatus.succeeded)
           .toList();
 
       // Sort by date

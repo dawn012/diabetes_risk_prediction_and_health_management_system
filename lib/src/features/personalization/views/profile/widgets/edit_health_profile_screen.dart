@@ -140,100 +140,100 @@ class EditHealthProfileScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: TSizes.spaceBtwInputFields),
 
-                /// Is Taking Medication
-                Obx(() => SwitchListTile(
-                  title: const Text('Taking Diabetes Medication'),
-                  subtitle: const Text('Are you currently on medication?'),
-                  value: controller.isTakeMedication.value,
-                  onChanged: (value) {
-                    controller.isTakeMedication.value = value;
-                    controller.update();
-                  },
-                  contentPadding: EdgeInsets.zero,
-                )),
-                const SizedBox(height: TSizes.spaceBtwInputFields),
-
-                /// Prescribed Frequency (Only show if taking medication)
-                Obx(() {
-                  if (!controller.isTakeMedication.value) {
-                    return const SizedBox.shrink();
-                  }
-                  return TextFormField(
-                    controller: controller.prescribedFrequency,
-                    validator: controller.isTakeMedication.value
-                        ? TUserProfileValidator.validatePrescribedFrequency
-                        : null,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Medication Frequency (times/day)',
-                      prefixIcon: Icon(Iconsax.timer_bold),
-                      hintText: 'e.g., 2',
-                    ),
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      LengthLimitingTextInputFormatter(2),
-                    ],
-                  );
-                }),
-                if (controller.isTakeMedication.value)
-                  const SizedBox(height: TSizes.spaceBtwInputFields),
-
-                /// Sleep Duration
-                TextFormField(
-                  controller: controller.sleepDuration,
-                  validator: TUserProfileValidator.validateSleepDuration,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    labelText: 'Average Sleep Duration (hours)',
-                    prefixIcon: Icon(Iconsax.moon_bold),
-                    hintText: 'e.g., 7.5',
-                  ),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,1}')),
-                  ],
-                ),
-                const SizedBox(height: TSizes.spaceBtwInputFields),
-
-                /// Stress Level
-                Obx(() => DropdownButtonFormField<String>(
-                  value: controller.selectedStressLevel.value.isEmpty
-                      ? null
-                      : controller.selectedStressLevel.value,
-                  decoration: const InputDecoration(
-                    labelText: 'Stress Level',
-                    prefixIcon: Icon(Iconsax.heart_bold),
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'low', child: Text('Low')),
-                    DropdownMenuItem(value: 'medium', child: Text('Medium')),
-                    DropdownMenuItem(value: 'high', child: Text('High')),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) {
-                      controller.selectedStressLevel.value = value;
-                      controller.update();
-                    }
-                  },
-                  validator: TUserProfileValidator.validateStressLevel,
-                )),
-                const SizedBox(height: TSizes.spaceBtwInputFields),
-
-                /// Water Intake
-                TextFormField(
-                  controller: controller.waterIntake,
-                  validator: TUserProfileValidator.validateWaterIntake,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Daily Water Intake (ml)',
-                    prefixIcon: Icon(Iconsax.drop_bold),
-                    hintText: 'e.g., 2000',
-                  ),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(5),
-                  ],
-                ),
-                const SizedBox(height: TSizes.spaceBtwSections),
+                // /// Is Taking Medication
+                // Obx(() => SwitchListTile(
+                //   title: const Text('Taking Diabetes Medication'),
+                //   subtitle: const Text('Are you currently on medication?'),
+                //   value: controller.isTakeMedication.value,
+                //   onChanged: (value) {
+                //     controller.isTakeMedication.value = value;
+                //     controller.update();
+                //   },
+                //   contentPadding: EdgeInsets.zero,
+                // )),
+                // const SizedBox(height: TSizes.spaceBtwInputFields),
+                //
+                // /// Prescribed Frequency (Only show if taking medication)
+                // Obx(() {
+                //   if (!controller.isTakeMedication.value) {
+                //     return const SizedBox.shrink();
+                //   }
+                //   return TextFormField(
+                //     controller: controller.medicationAdherence,
+                //     validator: controller.isTakeMedication.value
+                //         ? TUserProfileValidator.validatePrescribedFrequency
+                //         : null,
+                //     keyboardType: TextInputType.number,
+                //     decoration: const InputDecoration(
+                //       labelText: 'Medication Frequency (times/day)',
+                //       prefixIcon: Icon(Iconsax.timer_bold),
+                //       hintText: 'e.g., 2',
+                //     ),
+                //     inputFormatters: [
+                //       FilteringTextInputFormatter.digitsOnly,
+                //       LengthLimitingTextInputFormatter(2),
+                //     ],
+                //   );
+                // }),
+                // if (controller.isTakeMedication.value)
+                //   const SizedBox(height: TSizes.spaceBtwInputFields),
+                //
+                // /// Sleep Duration
+                // TextFormField(
+                //   controller: controller.sleepDuration,
+                //   validator: TUserProfileValidator.validateSleepDuration,
+                //   keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                //   decoration: const InputDecoration(
+                //     labelText: 'Average Sleep Duration (hours)',
+                //     prefixIcon: Icon(Iconsax.moon_bold),
+                //     hintText: 'e.g., 7.5',
+                //   ),
+                //   inputFormatters: [
+                //     FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,1}')),
+                //   ],
+                // ),
+                // const SizedBox(height: TSizes.spaceBtwInputFields),
+                //
+                // /// Stress Level
+                // Obx(() => DropdownButtonFormField<int>(
+                //   value: controller.selectedStressLevel.value == 0
+                //       ? null
+                //       : controller.selectedStressLevel.value,
+                //   decoration: const InputDecoration(
+                //     labelText: 'Stress Level',
+                //     prefixIcon: Icon(Iconsax.heart_bold),
+                //   ),
+                //   items: const [
+                //     DropdownMenuItem(value: 1, child: Text('Low')),
+                //     DropdownMenuItem(value: 2, child: Text('Medium')),
+                //     DropdownMenuItem(value: 3, child: Text('High')),
+                //   ],
+                //   onChanged: (value) {
+                //     if (value != null) {
+                //       controller.selectedStressLevel.value = value;
+                //       controller.update();
+                //     }
+                //   },
+                //   validator: TUserProfileValidator.validateStressLevel,
+                // )),
+                // const SizedBox(height: TSizes.spaceBtwInputFields),
+                //
+                // /// Water Intake
+                // TextFormField(
+                //   controller: controller.waterIntake,
+                //   validator: TUserProfileValidator.validateWaterIntake,
+                //   keyboardType: TextInputType.number,
+                //   decoration: const InputDecoration(
+                //     labelText: 'Daily Water Intake (ml)',
+                //     prefixIcon: Icon(Iconsax.drop_bold),
+                //     hintText: 'e.g., 2000',
+                //   ),
+                //   inputFormatters: [
+                //     FilteringTextInputFormatter.digitsOnly,
+                //     LengthLimitingTextInputFormatter(5),
+                //   ],
+                // ),
+                // const SizedBox(height: TSizes.spaceBtwSections),
 
                 /// Save Button
                 Obx(() => SizedBox(

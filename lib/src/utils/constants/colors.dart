@@ -180,7 +180,7 @@ class TColors {
     end: Alignment.bottomRight,
     colors: [
       Color(0xFF017aff),
-      Color(0xFF5f94c2),
+      Color(0xFF017aff),
     ],
   );
 
@@ -248,15 +248,25 @@ class TColors {
   static const Color postDisabledBg = Color(0xFFFEF2F2);
   static const Color postDisabledBgDark = Color(0xFF7F1D1D);
 
-/* -- Chip Colors -- */
+  /* -- Chip Colors -- */
   static const Color chipBackground = Color(0xFFF3F4F6);
   static const Color chipBackgroundDark = Color(0xFF374151);
   static const Color chipSelected = Color(0xFF017aff);
   static const Color chipSelectedDark = Color(0xFF3B82F6);
 
-/* -- Search Bar Colors -- */
+  /* -- Search Bar Colors -- */
   static const Color searchBarBackground = Color(0xFFF9FAFB);
   static const Color searchBarBackgroundDark = Color(0xFF1F2937);
+
+  /* -- Leaderboard Colors -- */
+  static const Color leaderboardCurrentUserBg = Color(0xFF017aff);
+  static const Color leaderboardCurrentUserBorder = Color(0xFF017aff);
+
+  /* -- Tab Selector Colors -- */
+  static const Color tabSelectorBackgroundLight = Color(0xFFFFFFFF);
+  static const Color tabSelectorBackgroundDark = Color(0xFF1F2937);
+  static const Color tabSelectorTextLight = Color(0xFF6B7280);
+  static const Color tabSelectorTextDark = Color(0xFF9CA3AF);
 
   /// Helper methods for theme-based colors
   static Color getCardColor(bool isDark) => isDark ? cardDark : cardLight;

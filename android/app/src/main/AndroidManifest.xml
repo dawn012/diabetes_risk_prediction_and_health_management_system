@@ -24,6 +24,7 @@
     <!-- 相机与麦克风权限 -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-feature android:name="android.hardware.camera.autofocus"/>
 
     <!-- 步数追踪权限 -->
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
@@ -36,6 +37,17 @@
 
     <queries>
         <provider android:authorities="com.facebook.katana.provider.PlatformProvider" />
+    </queries>
+
+    <!-- 允许查询浏览器（用于 Custom Tabs） -->
+    <queries>
+        <intent>
+            <action android:name="android.support.customtabs.action.CustomTabsService" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
     </queries>
 
     <application
@@ -91,7 +103,17 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
 
-            <!-- App Links - 处理 HTTPS 链接 -->
+            <!-- Deep Link: Custom Scheme (diatrack://) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <!-- Custom scheme for deep links -->
+                <data android:scheme="diatrack" />
+            </intent-filter>
+
+            <!-- App Links: HTTPS (https://diatrack.app) -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -100,15 +122,37 @@
                 <data
                     android:scheme="https"
                     android:host="diabetes-health-system.web.app"
-                    android:pathPrefix="/community/post/" />
+                    android:pathPrefix="/" />
             </intent-filter>
 
-            <!-- 自定义 scheme -->
+            <!-- PayPal Return URLs -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+
+                <!-- PayPal success/cancel paths -->
+                <data
+                    android:scheme="https"
+                    android:host="diatrack.app"
+                    android:pathPrefix="/payment"/>
+            </intent-filter>
+
+            <!-- PayPal deep link for return URL -->
             <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="diatrack" />
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+
+                <!-- PayPal return URLs -->
+                <data
+                    android:scheme="diatrack"
+                    android:host="payment"
+                    android:pathPrefix="/paypal-success"/>
+                <data
+                    android:scheme="diatrack"
+                    android:host="payment"
+                    android:pathPrefix="/paypal-cancel"/>
             </intent-filter>
 
         </activity>

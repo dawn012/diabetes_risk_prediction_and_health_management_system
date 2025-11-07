@@ -543,21 +543,24 @@ class WeightController extends GetxController {
   }
 
   void showAllWeightRecords() {
-    final records = _getWeightFilteredData();
-    Get.to(() => HealthDataListScreen(
+    Get.to(() => const HealthDataListScreen(
       title: 'All Weight Records',
-      healthDataList: records,
       healthDataType: HealthDataType.bodyComposition,
+      filterType: 'all',
     ));
   }
 
   void showAllBodyFatRecords() {
-    final records = _getBodyFatFilteredData();
-    Get.to(() => HealthDataListScreen(
+    Get.to(() => const HealthDataListScreen(
       title: 'All Body Fat Records',
-      healthDataList: records,
       healthDataType: HealthDataType.bodyComposition,
+      filterType: 'all',
     ));
+  }
+
+  /// Get filtered data based on current filters (for HealthDataListScreen)
+  List<HealthDataModel> getFilteredData() {
+    return _getWeightFilteredData();
   }
 
   /// Delete health record

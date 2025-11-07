@@ -11,6 +11,7 @@ class FirebaseFieldNames {
   static const String profileImg = 'profileImg';
   static const String joinDate = 'joinDate';
   static const String totalScore = 'totalScore';
+  static const String lastScoreUpdateTime = 'lastScoreUpdateTime';
   static const String isVerify = 'isVerify';
   static const String loginAttempt = 'loginAttempt';
   static const String lastAttemptTime = 'lastAttemptTime';
@@ -25,7 +26,7 @@ class FirebaseFieldNames {
   static const String dietPreference = "dietPreference";
   static const String allergies = "allergies";
   static const String isTakeMedication = "isTakeMedication";
-  static const String prescribedFrequency = "prescribedFrequency";
+  static const String medicationAdherence = "medicationAdherence";
   static const String sleepDuration = "sleepDuration";
   static const String stressLevel = "stressLevel";
   static const String waterIntake = "waterIntake";
@@ -116,7 +117,7 @@ class FirebaseFieldNames {
   static const String achievementTitle = 'achievementTitle';
   static const String description = 'description';
   static const String achievementType = 'achievementType';
-  static const String imagePath = 'imagePath';
+  static const String iconCodePoint = 'iconCodePoint';
   static const String levels = 'levels';
   static const String isActive = 'isActive';
   // static const String createdAt = 'createdAt';
@@ -162,6 +163,7 @@ class FirebaseFieldNames {
   static const String startDateTime = "startDateTime";
   static const String endDateTime = "endDateTime";
   static const String autoRenew = "autoRenew";
+  static const String cancelAt = "cancelAt";
   // static const String status = "status";
 
   ///-- Subscription Plan

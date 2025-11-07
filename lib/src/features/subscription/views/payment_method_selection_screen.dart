@@ -4,20 +4,22 @@ import 'package:icons_plus/icons_plus.dart';
 import '../../../utils/constants/colors.dart';
 import '../../../utils/helpers/helper_functions.dart';
 import '../controllers/subscription_controller.dart';
+import '../controllers/payment_controller.dart';
 
 class PaymentMethodScreen extends StatelessWidget {
   const PaymentMethodScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.find<SubscriptionController>();
+    final subscriptionController = Get.find<SubscriptionController>();
+    final paymentController = Get.put(PaymentController());
     final darkMode = THelperFunctions.isDarkMode(context);
 
     final paymentMethods = [
       {
         'id': 'stripe',
         'name': 'Pay via Stripe',
-        'icon': 'assets/icons/stripe.png', // You can use actual asset or icon
+        'icon': 'assets/icons/stripe.png',
         'subtitle': 'Credit/Debit cards',
       },
       {
@@ -26,12 +28,6 @@ class PaymentMethodScreen extends StatelessWidget {
         'icon': 'assets/icons/paypal.png',
         'subtitle': 'Safe & secure payment',
       },
-      // {
-      //   'id': 'razorpay',
-      //   'name': 'Pay online',
-      //   'icon': 'assets/icons/razorpay.png',
-      //   'subtitle': 'Multiple payment options',
-      // },
     ];
 
     return Scaffold(
@@ -91,7 +87,7 @@ class PaymentMethodScreen extends StatelessWidget {
 
             // Selected Plan Summary
             Obx(() {
-              final selectedPlan = controller.selectedPlan.value;
+              final selectedPlan = subscriptionController.selectedPlan.value;
               if (selectedPlan.subscriptionPlanId.isEmpty) return const SizedBox();
 
               return Container(
@@ -132,7 +128,7 @@ class PaymentMethodScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '${controller.getFormattedPrice(selectedPlan.price)}/month',
+                            '${subscriptionController.getFormattedPrice(selectedPlan.price)}/month',
                             style: TextStyle(
                               fontSize: 14,
                               color: darkMode ? Colors.grey[400] : Colors.grey[600],
@@ -142,7 +138,7 @@ class PaymentMethodScreen extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      controller.getFormattedPrice(selectedPlan.price),
+                      subscriptionController.getFormattedPrice(selectedPlan.price),
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -170,7 +166,7 @@ class PaymentMethodScreen extends StatelessWidget {
                       subtitle: method['subtitle']!,
                       iconPath: method['icon']!,
                       darkMode: darkMode,
-                      controller: controller,
+                      paymentController: paymentController,
                     ),
                   );
                 },
@@ -183,8 +179,9 @@ class PaymentMethodScreen extends StatelessWidget {
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-                onPressed: controller.selectedPaymentMethod.value.isNotEmpty
-                    ? controller.confirmPayment
+                onPressed: paymentController.selectedPaymentMethod.value.isNotEmpty
+                    ? () => paymentController.confirmSubscriptionPayment(
+                    subscriptionController.selectedPlan.value)
                     : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: TColors.primary,
@@ -195,7 +192,16 @@ class PaymentMethodScreen extends StatelessWidget {
                   ),
                   disabledBackgroundColor: darkMode ? Colors.grey[800] : Colors.grey[200],
                 ),
-                child: const Text(
+                child: paymentController.isProcessingPayment.value
+                    ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
+                )
+                    : const Text(
                   'Confirm payment',
                   style: TextStyle(
                     fontSize: 16,
@@ -217,7 +223,7 @@ class _PaymentMethodCard extends StatefulWidget {
   final String subtitle;
   final String iconPath;
   final bool darkMode;
-  final SubscriptionController controller;
+  final PaymentController paymentController;
 
   const _PaymentMethodCard({
     required this.id,
@@ -225,7 +231,7 @@ class _PaymentMethodCard extends StatefulWidget {
     required this.subtitle,
     required this.iconPath,
     required this.darkMode,
-    required this.controller,
+    required this.paymentController,
   });
 
   @override
@@ -287,19 +293,6 @@ class _PaymentMethodCardState extends State<_PaymentMethodCard>
             size: 24,
           ),
         );
-      case 'razorpay':
-        return Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: const Color(0xFF528FF0).withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: const Icon(
-            Iconsax.money_2_bold,
-            color: Color(0xFF528FF0),
-            size: 24,
-          ),
-        );
       default:
         return Container(
           padding: const EdgeInsets.all(8),
@@ -319,13 +312,13 @@ class _PaymentMethodCardState extends State<_PaymentMethodCard>
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      final isSelected = widget.controller.selectedPaymentMethod.value == widget.id;
+      final isSelected = widget.paymentController.selectedPaymentMethod.value == widget.id;
 
       return GestureDetector(
         onTapDown: (_) => _animationController.forward(),
         onTapUp: (_) {
           _animationController.reverse();
-          widget.controller.selectPaymentMethod(widget.id);
+          widget.paymentController.selectPaymentMethod(widget.id);
         },
         onTapCancel: () => _animationController.reverse(),
         child: AnimatedBuilder(

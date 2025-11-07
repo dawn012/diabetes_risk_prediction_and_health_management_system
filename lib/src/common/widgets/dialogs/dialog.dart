@@ -11,6 +11,7 @@ class TDialog {
     required String title,
     required String message,
     required VoidCallback? onConfirm,
+    String? buttonTitle,
   }) {
     final context = Get.context!;
     final isDark = THelperFunctions.isDarkMode(context);
@@ -87,8 +88,8 @@ class TDialog {
                         ),
                         side: BorderSide.none,
                       ),
-                      child: const Text(
-                        'Delete',
+                      child: Text(
+                        buttonTitle ?? 'Delete',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,

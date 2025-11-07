@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide NavigationMode;
 import 'package:get/get.dart';
 
 import '../../../../utils/constants/colors.dart';
@@ -7,21 +7,45 @@ import '../../controllers/medication_adherence_controller.dart';
 import 'widgets/diabetes_prediction_input_screen.dart';
 
 class MedicationAdherenceInputScreen extends StatelessWidget {
-  const MedicationAdherenceInputScreen({super.key});
+  const MedicationAdherenceInputScreen({
+    super.key,
+    this.initialTakesMedication,
+    this.initialAdherencePercentage,
+    this.mode = NavigationMode.flow,
+  });
+
+  final bool? initialTakesMedication;
+  final int? initialAdherencePercentage;
+  final NavigationMode mode;
 
   @override
   Widget build(BuildContext context) {
     final controller = Get.put(MedicationAdherenceController());
     final darkMode = THelperFunctions.isDarkMode(context);
 
+    // 如果有传入初始值，在构建时设置
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.navigationMode.value = mode;
+      if (initialTakesMedication != null) {
+        controller.setTakesMedication(initialTakesMedication!);
+      }
+      if (initialAdherencePercentage != null) {
+        controller.setAdherencePercentage(initialAdherencePercentage!);
+      }
+    });
+
     return Obx(() => DiabetesPredictionInputScreen(
       title: 'Medication Adherence',
-      progressValue: 0.875,
-      showBackButton: true,
+      progressValue: 0.875, // 7/8 steps completed
+      showBackButton: controller.canGoBack.value,
+      showCloseButton: true,
+      // onClose: () => controller.handleClose(context),
       canProceed: controller.canProceed,
       isLoading: controller.isLoading.value,
       continueButtonText: 'Continue',
       onContinue: () => controller.saveAndContinue(),
+      onSave: () => controller.saveAndContinue(),
+      navigationMode: controller.navigationMode.value,
       content: SingleChildScrollView(
         child: Column(
           children: [
@@ -87,50 +111,6 @@ class MedicationAdherenceInputScreen extends StatelessWidget {
                   children: [
                     const SizedBox(height: 32),
 
-                    // Medication Types
-                    // InputContainer(
-                    //   darkMode: darkMode,
-                    //   child: Column(
-                    //     crossAxisAlignment: CrossAxisAlignment.start,
-                    //     children: [
-                    //       Text(
-                    //         'Type of diabetes medication',
-                    //         style: TextStyle(
-                    //           fontSize: 18,
-                    //           fontWeight: FontWeight.w600,
-                    //           color: darkMode ? TColors.white : TColors.black,
-                    //         ),
-                    //       ),
-                    //       const SizedBox(height: 8),
-                    //       Text(
-                    //         'Select all that apply',
-                    //         style: TextStyle(
-                    //           fontSize: 14,
-                    //           color: darkMode ? TColors.darkGrey : TColors.darkerGrey,
-                    //         ),
-                    //       ),
-                    //
-                    //       const SizedBox(height: 20),
-                    //
-                    //       // Medication type chips
-                    //       Wrap(
-                    //         spacing: 12,
-                    //         runSpacing: 12,
-                    //         children: [
-                    //           _buildMedicationTypeChip('Metformin', Icons.medication, controller, darkMode),
-                    //           _buildMedicationTypeChip('Insulin', Icons.colorize, controller, darkMode),
-                    //           _buildMedicationTypeChip('Sulfonylureas', Icons.medication_liquid, controller, darkMode),
-                    //           _buildMedicationTypeChip('DPP-4 inhibitors', Icons.medical_services, controller, darkMode),
-                    //           _buildMedicationTypeChip('GLP-1 agonists', Icons.vaccines, controller, darkMode),
-                    //           _buildMedicationTypeChip('Other', Icons.more_horiz, controller, darkMode),
-                    //         ],
-                    //       ),
-                    //     ],
-                    //   ),
-                    // ),
-
-                    // const SizedBox(height: 32),
-
                     // Adherence Frequency
                     InputContainer(
                       darkMode: darkMode,
@@ -142,6 +122,17 @@ class MedicationAdherenceInputScreen extends StatelessWidget {
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
                               color: darkMode ? TColors.white : TColors.black,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+
+                          const SizedBox(height: 8),
+
+                          Text(
+                            'Think about the past month',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: darkMode ? TColors.darkGrey : TColors.darkerGrey,
                             ),
                           ),
 
@@ -207,6 +198,7 @@ class MedicationAdherenceInputScreen extends StatelessWidget {
                                   fontWeight: FontWeight.w600,
                                   color: controller.getAdherenceColor(),
                                 ),
+                                textAlign: TextAlign.center,
                               ),
                             ),
                           )),
@@ -330,51 +322,6 @@ class MedicationAdherenceInputScreen extends StatelessWidget {
                 label,
                 style: TextStyle(
                   fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: isSelected
-                      ? Colors.deepPurple
-                      : darkMode ? TColors.white : TColors.black,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    });
-  }
-
-  Widget _buildMedicationTypeChip(String label, IconData icon, MedicationAdherenceController controller, bool darkMode) {
-    return Obx(() {
-      final isSelected = controller.medicationTypes.contains(label);
-      return GestureDetector(
-        onTap: () => controller.toggleMedicationType(label),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? Colors.deepPurple.withOpacity(0.1)
-                : darkMode ? TColors.darkerGrey.withOpacity(0.5) : TColors.grey.withOpacity(0.3),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: isSelected ? Colors.deepPurple : Colors.transparent,
-              width: isSelected ? 2 : 1,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                size: 16,
-                color: isSelected
-                    ? Colors.deepPurple
-                    : darkMode ? TColors.white : TColors.black,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: isSelected
                       ? Colors.deepPurple

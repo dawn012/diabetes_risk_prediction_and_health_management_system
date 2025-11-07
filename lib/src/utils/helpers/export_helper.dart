@@ -13,8 +13,10 @@ import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../common/loaders/loaders.dart';
+import '../../features/subscription/models/user_subscription_model.dart';
 import '../constants/colors.dart';
 import '../constants/sizes.dart';
+import 'helper_functions.dart';
 
 enum ExportType { pdf, csv }
 
@@ -599,5 +601,349 @@ class ExportHelper {
         ],
       ),
     );
+  }
+
+  /// Export payment receipt as PDF
+  static Future<void> exportReceipt({
+    required UserSubscriptionModel subscription,
+  }) async {
+    try {
+      // Check if user has necessary permissions
+      final hasPermission = await _requestStoragePermissionWithDialog();
+      if (!hasPermission) {
+        return;
+      }
+
+      TLoaders.customToast(message: 'Generating receipt...');
+
+      // Create PDF document
+      final pdf = pw.Document();
+
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          build: (pw.Context context) {
+            return _buildReceiptPDF(subscription);
+          },
+        ),
+      );
+
+      // Save PDF
+      await _saveReceiptPDF(pdf, subscription);
+    } catch (e) {
+      TLoaders.errorSnackBar(
+        title: 'Export Failed',
+        message: 'Failed to generate receipt: ${e.toString()}',
+      );
+    }
+  }
+
+  /// Build receipt PDF content
+  static pw.Widget _buildReceiptPDF(UserSubscriptionModel subscription) {
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        // Header with logo placeholder
+        pw.Container(
+          padding: const pw.EdgeInsets.all(20),
+          decoration: pw.BoxDecoration(
+            color: PdfColors.blue50,
+            borderRadius: pw.BorderRadius.circular(8),
+          ),
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    'DIATRACK',
+                    style: pw.TextStyle(
+                      fontSize: 24,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.blue700,
+                    ),
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Text(
+                    'Diabetes Health Management',
+                    style: const pw.TextStyle(
+                      fontSize: 12,
+                      color: PdfColors.blue600,
+                    ),
+                  ),
+                ],
+              ),
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.end,
+                children: [
+                  pw.Text(
+                    'PAYMENT RECEIPT',
+                    style: pw.TextStyle(
+                      fontSize: 18,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Text(
+                    'Date: ${THelperFunctions.getFormattedDate(subscription.successfulPayment!.transactionDateTime)}',
+                    style: const pw.TextStyle(fontSize: 10),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        pw.SizedBox(height: 30),
+
+        // Transaction Information
+        pw.Text(
+          'Transaction Details',
+          style: pw.TextStyle(
+            fontSize: 16,
+            fontWeight: pw.FontWeight.bold,
+          ),
+        ),
+        pw.SizedBox(height: 10),
+        pw.Divider(thickness: 2),
+        pw.SizedBox(height: 10),
+
+        // Transaction details table
+        _buildReceiptInfoRow('Transaction ID:', subscription.successfulPayment!.transactionId),
+        pw.SizedBox(height: 8),
+        _buildReceiptInfoRow('Status:', subscription.successfulPayment!.status.displayName.toUpperCase()),
+        pw.SizedBox(height: 8),
+        _buildReceiptInfoRow('Payment Method:', subscription.successfulPayment!.paymentMethod.toUpperCase()),
+        pw.SizedBox(height: 8),
+        _buildReceiptInfoRow(
+          'Transaction Date:',
+          THelperFunctions.getFormattedDate(
+            subscription.successfulPayment!.transactionDateTime,
+            format: 'dd MMM yyyy, HH:mm',
+          ),
+        ),
+
+        pw.SizedBox(height: 30),
+
+        // Subscription Information
+        pw.Text(
+          'Subscription Details',
+          style: pw.TextStyle(
+            fontSize: 16,
+            fontWeight: pw.FontWeight.bold,
+          ),
+        ),
+        pw.SizedBox(height: 10),
+        pw.Divider(thickness: 2),
+        pw.SizedBox(height: 10),
+
+        _buildReceiptInfoRow('Plan Name:', subscription.subscriptionPlan.planName),
+        pw.SizedBox(height: 8),
+        _buildReceiptInfoRow('Subscription ID:', subscription.subscriptionId),
+        pw.SizedBox(height: 8),
+        _buildReceiptInfoRow(
+          'Start Date:',
+          THelperFunctions.getFormattedDate(subscription.startDateTime),
+        ),
+        pw.SizedBox(height: 8),
+        _buildReceiptInfoRow(
+          'End Date:',
+          THelperFunctions.getFormattedDate(subscription.endDateTime),
+        ),
+        pw.SizedBox(height: 8),
+        _buildReceiptInfoRow(
+          'Duration:',
+          '${subscription.subscriptionPlan.durationDays} days',
+        ),
+
+        pw.SizedBox(height: 30),
+
+        // Features included
+        pw.Text(
+          'Features Included',
+          style: pw.TextStyle(
+            fontSize: 16,
+            fontWeight: pw.FontWeight.bold,
+          ),
+        ),
+        pw.SizedBox(height: 10),
+        pw.Divider(thickness: 2),
+        pw.SizedBox(height: 10),
+
+        ...subscription.subscriptionPlan.features.map(
+              (feature) => pw.Padding(
+            padding: const pw.EdgeInsets.only(bottom: 6),
+            child: pw.Row(
+              children: [
+                pw.Container(
+                  width: 6,
+                  height: 6,
+                  decoration: const pw.BoxDecoration(
+                    color: PdfColors.blue700,
+                    shape: pw.BoxShape.circle,
+                  ),
+                ),
+                pw.SizedBox(width: 10),
+                pw.Text(feature),
+              ],
+            ),
+          ),
+        ),
+
+        pw.SizedBox(height: 30),
+
+        // Payment Summary
+        pw.Container(
+          padding: const pw.EdgeInsets.all(20),
+          decoration: pw.BoxDecoration(
+            color: PdfColors.grey100,
+            borderRadius: pw.BorderRadius.circular(8),
+          ),
+          child: pw.Column(
+            children: [
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    'Subtotal:',
+                    style: const pw.TextStyle(fontSize: 14),
+                  ),
+                  pw.Text(
+                    '${subscription.successfulPayment!.currency.toUpperCase()} ${subscription.successfulPayment!.amount.toStringAsFixed(2)}',
+                    style: const pw.TextStyle(fontSize: 14),
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 10),
+              pw.Divider(),
+              pw.SizedBox(height: 10),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    'Total Amount:',
+                    style: pw.TextStyle(
+                      fontSize: 18,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                  pw.Text(
+                    '${subscription.successfulPayment!.currency.toUpperCase()} ${subscription.successfulPayment!.amount.toStringAsFixed(2)}',
+                    style: pw.TextStyle(
+                      fontSize: 18,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.blue700,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        pw.Spacer(),
+
+        // Footer
+        pw.Divider(),
+        pw.SizedBox(height: 10),
+        pw.Center(
+          child: pw.Column(
+            children: [
+              pw.Text(
+                'Thank you for your payment!',
+                style: pw.TextStyle(
+                  fontSize: 14,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 4),
+              pw.Text(
+                'For any queries, please contact support@diatrack.app',
+                style: const pw.TextStyle(
+                  fontSize: 10,
+                  color: PdfColors.grey700,
+                ),
+              ),
+              pw.SizedBox(height: 10),
+              pw.Text(
+                'Generated on: ${DateTime.now().toString().substring(0, 19)}',
+                style: const pw.TextStyle(
+                  fontSize: 8,
+                  color: PdfColors.grey600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Build receipt info row
+  static pw.Widget _buildReceiptInfoRow(String label, String value) {
+    return pw.Row(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.SizedBox(
+          width: 150,
+          child: pw.Text(
+            label,
+            style: pw.TextStyle(
+              fontWeight: pw.FontWeight.bold,
+              fontSize: 12,
+            ),
+          ),
+        ),
+        pw.Expanded(
+          child: pw.Text(
+            value,
+            style: const pw.TextStyle(fontSize: 12),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Save receipt PDF file
+  static Future<void> _saveReceiptPDF(pw.Document pdf, UserSubscriptionModel subscription) async {
+    Directory? directory;
+
+    if (Platform.isAndroid) {
+      try {
+        directory = Directory('/storage/emulated/0/Download');
+        if (!await directory.exists()) {
+          directory = await getExternalStorageDirectory();
+        }
+      } catch (e) {
+        directory = await getExternalStorageDirectory();
+      }
+    } else {
+      directory = await getApplicationDocumentsDirectory();
+    }
+
+    if (directory == null) {
+      throw Exception('Could not access storage directory');
+    }
+
+    final fileName = _generateReceiptFileName(subscription);
+    final file = File('${directory.path}/$fileName');
+
+    await file.writeAsBytes(await pdf.save());
+
+    TLoaders.successSnackBar(
+      title: 'Receipt Downloaded',
+      message: 'Receipt saved to: ${file.path}',
+    );
+
+    // Share file
+    await Share.shareXFiles([XFile(file.path)], text: 'Payment Receipt');
+  }
+
+  /// Generate receipt file name
+  static String _generateReceiptFileName(UserSubscriptionModel subscription) {
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final transactionId = subscription.successfulPayment!.transactionId.substring(0, 8);
+    return 'receipt_${transactionId}_$timestamp.pdf';
   }
 }

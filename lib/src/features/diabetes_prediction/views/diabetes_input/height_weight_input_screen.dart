@@ -1,25 +1,53 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide NavigationMode;
 import 'package:get/get.dart';
 import '../../../../utils/constants/colors.dart';
+import '../../../../utils/constants/health_data_range.dart';
 import '../../../../utils/helpers/helper_functions.dart';
 import '../../controllers/height_weight_controller.dart';
 import 'widgets/diabetes_prediction_input_screen.dart';
 
 class HeightWeightInputScreen extends StatelessWidget {
-  const HeightWeightInputScreen({super.key});
+  const HeightWeightInputScreen({
+    super.key,
+    this.initialHeight,
+    this.initialWeight,
+    this.mode = NavigationMode.flow,
+  });
+
+  final double? initialHeight;
+  final double? initialWeight;
+  final NavigationMode mode;
 
   @override
   Widget build(BuildContext context) {
+    // Pass mode through Get arguments
     final controller = Get.put(HeightWeightController());
     final darkMode = THelperFunctions.isDarkMode(context);
+
+    // Set mode and initial values
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.navigationMode.value = mode;
+      if (initialHeight != null) {
+        controller.updateHeight(initialHeight!);
+      }
+      if (initialWeight != null) {
+        controller.updateWeight(initialWeight!);
+      }
+    });
 
     return Obx(() => DiabetesPredictionInputScreen(
       title: 'Health Metrics',
       progressValue: 0.125, // 1/8 steps completed
-      showBackButton: false, // First screen - no back button
+      showBackButton: controller.canGoBack.value,
+      showCloseButton: true,
+      // onClose: () => controller.handleClose(context),
       canProceed: controller.canProceed.value,
       isLoading: controller.isLoading.value,
       onContinue: () => controller.saveAndContinue(),
+      onSave: () => controller.saveAndContinue(),
+      showSyncButton: controller.shouldShowSyncButton.value,
+      onSync: () => controller.syncFromHealthLogs(),
+      navigationMode: controller.navigationMode.value,
       content: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -46,6 +74,8 @@ class HeightWeightInputScreen extends StatelessWidget {
       ),
     ));
   }
+
+  // ... (保持 _buildHeightSection, _buildWeightSection 等方法不变)
 
   Widget _buildHeightSection(BuildContext context, HeightWeightController controller, bool darkMode) {
     return InputContainer(
@@ -86,9 +116,9 @@ class HeightWeightInputScreen extends StatelessWidget {
           // Height Slider
           Obx(() => CustomSlider(
             value: controller.height.value,
-            min: 100,
-            max: 250,
-            divisions: 150,
+            min: HealthDataRanges.minHeight,
+            max: HealthDataRanges.maxHeight,
+            divisions: (HealthDataRanges.maxHeight - HealthDataRanges.minHeight).toInt(),
             onChanged: (value) => controller.updateHeight(value),
             activeColor: TColors.primary,
             darkMode: darkMode,
@@ -98,7 +128,11 @@ class HeightWeightInputScreen extends StatelessWidget {
 
           // Range indicators
           RangeIndicators(
-            labels: ['100cm', '175cm', '250cm'],
+            labels: [
+              '${HealthDataRanges.minHeight.toInt()} cm',
+              '${((HealthDataRanges.minHeight + HealthDataRanges.maxHeight) / 2).toStringAsFixed(0)} cm',
+              '${HealthDataRanges.maxHeight.toStringAsFixed(1)} cm',
+            ],
             darkMode: darkMode,
           ),
         ],
@@ -142,7 +176,7 @@ class HeightWeightInputScreen extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        '${controller.weight.value.toInt()}',
+                        '${controller.weight.value.toStringAsFixed(1)}',
                         style: TextStyle(
                           fontSize: 36,
                           fontWeight: FontWeight.bold,
@@ -165,7 +199,8 @@ class HeightWeightInputScreen extends StatelessWidget {
                     width: 180,
                     height: 180,
                     child: CircularProgressIndicator(
-                      value: (controller.weight.value - 30) / 120,
+                      value: (controller.weight.value - HealthDataRanges.minWeightKg) /
+                          (HealthDataRanges.maxWeightKg - HealthDataRanges.minWeightKg),
                       strokeWidth: 8,
                       backgroundColor: darkMode ? TColors.darkerGrey : TColors.grey,
                       valueColor: AlwaysStoppedAnimation<Color>(TColors.secondary),
@@ -202,9 +237,9 @@ class HeightWeightInputScreen extends StatelessWidget {
           // Fine adjustment slider
           Obx(() => CustomSlider(
             value: controller.weight.value,
-            min: 30,
-            max: 150,
-            divisions: 240,
+            min: HealthDataRanges.minWeightKg,
+            max: HealthDataRanges.maxWeightKg,
+            divisions: ((HealthDataRanges.maxWeightKg - HealthDataRanges.minWeightKg) * 10).toInt(), // 0.1kg 精度
             onChanged: (value) => controller.updateWeight(value),
             activeColor: TColors.secondary,
             darkMode: darkMode,
@@ -216,7 +251,11 @@ class HeightWeightInputScreen extends StatelessWidget {
 
           // Weight range indicators
           RangeIndicators(
-            labels: ['30kg', '90kg', '150kg'],
+            labels: [
+              '${HealthDataRanges.minWeightKg.toStringAsFixed(1)}kg',
+              '${((HealthDataRanges.minWeightKg + HealthDataRanges.maxWeightKg) / 2).toStringAsFixed(0)}kg',
+              '${HealthDataRanges.maxWeightKg.toStringAsFixed(0)}kg',
+            ],
             darkMode: darkMode,
           ),
         ],

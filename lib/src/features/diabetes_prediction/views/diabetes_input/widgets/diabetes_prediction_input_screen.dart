@@ -2,6 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../../utils/constants/colors.dart';
 import '../../../../../utils/helpers/helper_functions.dart';
+import '../diabetes_prediction_overview_screen.dart';
+
+/// Navigation mode for input screens
+enum NavigationMode {
+  flow, // Sequential flow (start new)
+  edit, // Edit from overview
+}
 
 /// Base screen wrapper for diabetes prediction input screens
 class DiabetesPredictionInputScreen extends StatelessWidget {
@@ -9,11 +16,21 @@ class DiabetesPredictionInputScreen extends StatelessWidget {
   final double progressValue;
   final Widget content;
   final bool showBackButton;
+  final bool showCloseButton;
   final VoidCallback? onBack;
+  final VoidCallback? onClose;
   final VoidCallback? onContinue;
   final bool canProceed;
   final bool isLoading;
   final String continueButtonText;
+  final bool showSyncButton;
+  final VoidCallback? onSync;
+  final NavigationMode navigationMode;
+  final VoidCallback? onSave; // For edit mode
+
+  // 强制显示 Process Photos 按钮
+  final bool forceProcessButton;
+  final VoidCallback? onProcess;
 
   const DiabetesPredictionInputScreen({
     super.key,
@@ -21,12 +38,30 @@ class DiabetesPredictionInputScreen extends StatelessWidget {
     required this.progressValue,
     required this.content,
     this.showBackButton = true,
+    this.showCloseButton = false,
     this.onBack,
+    this.onClose,
     this.onContinue,
     this.canProceed = false,
     this.isLoading = false,
     this.continueButtonText = 'Continue',
+    this.showSyncButton = false,
+    this.onSync,
+    this.navigationMode = NavigationMode.flow,
+    this.onSave,
+    this.forceProcessButton = false,
+    this.onProcess,
   });
+
+  /// Handle close - slide down to Overview
+  void _handleClose(bool darkMode) {
+    Get.off(
+          () => DiabetesPredictionOverviewScreen(),
+      transition: Transition.upToDown,
+      duration: Duration(milliseconds: 400),
+      curve: Curves.easeInOut,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,13 +72,8 @@ class DiabetesPredictionInputScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: showBackButton ? IconButton(
-          icon: Icon(
-            Icons.arrow_back_ios,
-            color: darkMode ? TColors.white : TColors.black,
-          ),
-          onPressed: onBack ?? () => Get.back(),
-        ) : null,
+        automaticallyImplyLeading: false,
+        leading: null,
         title: Text(
           'Diabetes Prediction',
           style: TextStyle(
@@ -53,6 +83,25 @@ class DiabetesPredictionInputScreen extends StatelessWidget {
           ),
         ),
         centerTitle: true,
+        actions: [
+          if (showSyncButton && onSync != null)
+            IconButton(
+              icon: Icon(
+                Icons.sync,
+                color: TColors.primary,
+              ),
+              onPressed: onSync,
+              tooltip: 'Sync from health logs',
+            ),
+          if (showCloseButton)
+            IconButton(
+              icon: Icon(
+                Icons.close,
+                color: darkMode ? TColors.white : TColors.black,
+              ),
+              onPressed: onClose ?? () => _handleClose(darkMode),
+            ),
+        ],
       ),
       body: SafeArea(
         child: Column(
@@ -103,6 +152,129 @@ class DiabetesPredictionInputScreen extends StatelessWidget {
   }
 
   Widget _buildBottomNavigation(bool darkMode) {
+    // 新增：如果强制显示 Process 按钮，优先处理
+    if (forceProcessButton) {
+      return Container(
+        padding: const EdgeInsets.all(20.0),
+        child: Row(
+          children: [
+            if (showBackButton) ...[
+              Expanded(
+                child: Container(
+                  height: 56,
+                  child: OutlinedButton(
+                    onPressed: onBack ?? () => Get.back(),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: TColors.primary,
+                      side: BorderSide(color: TColors.primary, width: 2),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: Text(
+                      'Back',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+            ],
+
+            Expanded(
+              flex: showBackButton ? 2 : 1,
+              child: Container(
+                height: 56,
+                child: ElevatedButton(
+                  onPressed: canProceed && !isLoading ? onProcess : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: TColors.primary,
+                    disabledBackgroundColor: darkMode
+                        ? TColors.darkerGrey
+                        : TColors.grey,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: isLoading
+                      ? SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(TColors.white),
+                    ),
+                  )
+                      : Text(
+                    'Process Photos',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: canProceed
+                          ? TColors.white
+                          : darkMode
+                          ? TColors.darkGrey
+                          : TColors.darkerGrey,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // 原有的 Edit mode 逻辑
+    if (navigationMode == NavigationMode.edit) {
+      return Container(
+        padding: const EdgeInsets.all(20.0),
+        child: Container(
+          height: 56,
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: canProceed && !isLoading ? (onSave ?? onContinue) : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: TColors.primary,
+              disabledBackgroundColor: darkMode
+                  ? TColors.darkerGrey
+                  : TColors.grey,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              elevation: 0,
+            ),
+            child: isLoading
+                ? SizedBox(
+              height: 20,
+              width: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(TColors.white),
+              ),
+            )
+                : Text(
+              continueButtonText, // 这里会显示 'Save' 或 'Process Photos'
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: canProceed
+                    ? TColors.white
+                    : darkMode
+                    ? TColors.darkGrey
+                    : TColors.darkerGrey,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // 原有的 Flow mode 逻辑保持不变
     return Container(
       padding: const EdgeInsets.all(20.0),
       child: Row(

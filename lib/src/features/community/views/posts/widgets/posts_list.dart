@@ -91,37 +91,44 @@ class PostsList extends StatelessWidget {
           return Column(
             children: [
               newPostsBanner,
-              Container(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.forum_outlined,
-                      size: 64,
-                      color: isDark ? TColors.darkGrey : TColors.grey,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      "No posts yet",
-                      style:
-                      Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        color: isDark
-                            ? TColors.lightGrey
-                            : TColors.textSecondary,
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  return SizedBox(
+                    height: MediaQuery.of(context).size.height -
+                        MediaQuery.of(context).padding.top -
+                        kToolbarHeight - 300, // 调整这个值
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.all(32),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.forum_outlined,
+                              size: 64,
+                              color: isDark ? TColors.darkGrey : TColors.grey,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              "No posts yet",
+                              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                color: isDark ? TColors.lightGrey : TColors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              "Be the first to share something with the community!",
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: isDark ? TColors.darkGrey : TColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      "Be the first to share something with the community!",
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: isDark
-                            ? TColors.darkGrey
-                            : TColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
+                  );
+                },
               ),
             ],
           );
@@ -132,7 +139,7 @@ class PostsList extends StatelessWidget {
           children: [
             newPostsBanner,
             ...controller.posts.map((post) => Padding(
-              padding: EdgeInsets.only(bottom: 8),
+              padding: EdgeInsets.only(bottom: 20),
               child: PostTile(post: post, isInMyPosts: false,),
             )),
             if (controller.isLoadingMore.value)

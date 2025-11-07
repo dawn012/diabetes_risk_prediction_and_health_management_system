@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../common/loaders/loaders.dart';
+import '../../../utils/constants/enums.dart';
 import '../../achievement/models/achievement_level_model.dart';
 import '../../achievement/models/achievement_model.dart';
 import '../../achievement/models/user_achievement_model.dart';
@@ -98,7 +99,7 @@ class AchievementManagementController extends GetxController {
 
       // Filter by type
       bool typeMatch = selectedAchievementType.value == 'all' ||
-          achievement.achievementType == selectedAchievementType.value;
+          achievement.achievementType.value == selectedAchievementType.value;
 
       // Filter by search query
       bool searchMatch = true;
@@ -129,8 +130,8 @@ class AchievementManagementController extends GetxController {
           bValue = b.achievementTitle;
           break;
         case 1: // Type
-          aValue = a.achievementType;
-          bValue = b.achievementType;
+          aValue = a.achievementType.value;
+          bValue = b.achievementType.value;
           break;
         case 2: // Levels count
           aValue = a.levels.length;
@@ -254,7 +255,6 @@ class AchievementManagementController extends GetxController {
           achievementTitle: achievement.achievementTitle,
           description: achievement.description,
           achievementType: achievement.achievementType,
-          imagePath: achievement.imagePath,
           levels: achievement.levels,
           isActive: true,
           createdAt: achievement.createdAt,
@@ -294,7 +294,6 @@ class AchievementManagementController extends GetxController {
           achievementTitle: achievement.achievementTitle,
           description: achievement.description,
           achievementType: achievement.achievementType,
-          imagePath: achievement.imagePath,
           levels: achievement.levels,
           isActive: false,
           createdAt: achievement.createdAt,
@@ -337,7 +336,6 @@ class AchievementManagementController extends GetxController {
             achievementTitle: achievement.achievementTitle,
             description: achievement.description,
             achievementType: achievement.achievementType,
-            imagePath: achievement.imagePath,
             levels: achievement.levels,
             isActive: true,
             createdAt: achievement.createdAt,
@@ -381,7 +379,6 @@ class AchievementManagementController extends GetxController {
             achievementTitle: achievement.achievementTitle,
             description: achievement.description,
             achievementType: achievement.achievementType,
-            imagePath: achievement.imagePath,
             levels: achievement.levels,
             isActive: false,
             createdAt: achievement.createdAt,
@@ -420,12 +417,12 @@ class AchievementManagementController extends GetxController {
   Map<String, int> getCompletionStats(AchievementModel achievement) {
     final now = DateTime.now();
 
-    if (achievement.achievementType == 'monthly') {
+    if (achievement.achievementType == AchievementType.periodic) {
       // ========== 月度成就统计逻辑 ==========
       // Get all participants for this achievement (both in_progress and completed)
       final participants = userAchievements.where((ua) =>
       ua.achievement.achievementId == achievement.achievementId &&
-          (ua.status == 'in_progress' || ua.status == 'completed')
+          (ua.status == AchievementStatus.inProgress || ua.status == AchievementStatus.completed)
       ).toList();
 
       // Get unique participants (one user counted once)
@@ -451,7 +448,7 @@ class AchievementManagementController extends GetxController {
       // Get all completions for this achievement (only completed status)
       final completions = userAchievements.where((ua) =>
       ua.achievement.achievementId == achievement.achievementId &&
-          ua.status == 'completed'
+          ua.status == AchievementStatus.completed
       ).toList();
 
       // Get unique completions (one user counted once)
@@ -486,21 +483,23 @@ class AchievementManagementController extends GetxController {
     ).toList();
 
     // For monthly achievements with bronze/silver/gold levels
-    if (achievement.achievementType == 'monthly') {
-      final levelHierarchy = ['bronze', 'silver', 'gold', 'platinum'];
-      final targetLevelIndex = levelHierarchy.indexOf(targetLevel.toLowerCase());
+    if (achievement.achievementType == AchievementType.periodic) {
+      final levelHierarchy = [UserAchievementLevel.bronze, UserAchievementLevel.silver, UserAchievementLevel.gold];
+      final targetLevelEnum = UserAchievementLevel.fromString(targetLevel.toLowerCase());
+      final targetLevelIndex = levelHierarchy.indexOf(targetLevelEnum);
 
       if (targetLevelIndex == -1) return 0;
 
       // Count users who have achieved this level or higher
       return relevantUserAchievements.where((ua) {
-        final userLevelIndex = levelHierarchy.indexOf(ua.currentLevel.toLowerCase());
+        final userLevelIndex = levelHierarchy.indexOf(ua.currentLevel);
         return userLevelIndex != -1 && userLevelIndex >= targetLevelIndex;
       }).length;
     } else {
       // For permanent achievements, count exact level matches
+      final targetLevelEnum = UserAchievementLevel.fromString(targetLevel.toLowerCase());
       return relevantUserAchievements.where((ua) =>
-      ua.currentLevel.toLowerCase() == targetLevel.toLowerCase()
+      ua.currentLevel == targetLevelEnum
       ).length;
     }
   }
@@ -563,8 +562,7 @@ class AchievementManagementController extends GetxController {
         achievementId: 'ach_001',
         achievementTitle: 'Glucose Master',
         description: 'Maintain healthy glucose levels consistently',
-        achievementType: 'monthly',
-        imagePath: '',
+        achievementType: AchievementType.periodic,
         levels: [
           _createLevel('bronze', 7, 'days', 10),
           _createLevel('silver', 15, 'days', 25),
@@ -577,8 +575,7 @@ class AchievementManagementController extends GetxController {
         achievementId: 'ach_002',
         achievementTitle: 'Step Counter Champion',
         description: 'Complete your daily step goals',
-        achievementType: 'monthly',
-        imagePath: '',
+        achievementType: AchievementType.periodic,
         levels: [
           _createLevel('bronze', 10000, 'steps', 15),
           _createLevel('silver', 15000, 'steps', 30),
@@ -591,8 +588,7 @@ class AchievementManagementController extends GetxController {
         achievementId: 'ach_003',
         achievementTitle: 'Community Helper',
         description: 'Help other users by sharing tips and recipes',
-        achievementType: 'permanent',
-        imagePath: '',
+        achievementType: AchievementType.permanent,
         levels: [
           _createLevel('Helper', 50, 'posts', 0),
         ],
@@ -603,8 +599,7 @@ class AchievementManagementController extends GetxController {
         achievementId: 'ach_004',
         achievementTitle: 'Meal Planner Pro',
         description: 'Create and follow meal plans consistently',
-        achievementType: 'monthly',
-        imagePath: '',
+        achievementType: AchievementType.periodic,
         levels: [
           _createLevel('bronze', 7, 'meals planned', 20),
           _createLevel('silver', 14, 'meals planned', 40),
@@ -617,8 +612,7 @@ class AchievementManagementController extends GetxController {
         achievementId: 'ach_005',
         achievementTitle: 'Early Bird',
         description: 'Log your morning glucose readings consistently',
-        achievementType: 'permanent',
-        imagePath: '',
+        achievementType: AchievementType.permanent,
         levels: [
           _createLevel('Morning Person', 30, 'consecutive days', 0),
         ],
@@ -629,7 +623,12 @@ class AchievementManagementController extends GetxController {
   }
 
   AchievementLevelModel _createLevel(String level, int criteria, String unit, int points) {
-    return AchievementLevelModel(level: level, criteria: criteria, criteriaUnit: unit, points: points);
+    return AchievementLevelModel(
+      level: AchievementLevel.fromString(level),
+      criteria: criteria,
+      criteriaUnit: unit,
+      points: points,
+    );
   }
 
   List<UserAchievementModel> _generateMockUserAchievements() {
@@ -643,17 +642,18 @@ class AchievementManagementController extends GetxController {
     for (String achievementId in achievementIds) {
       final achievement = allAchievements.firstWhere((a) => a.achievementId == achievementId);
 
-      if (achievement.achievementType == 'monthly') {
+      if (achievement.achievementType == AchievementType.periodic) {
         // Monthly achievements: bronze < silver < gold (cumulative)
 
         // Gold level participants (20 people) - they also count for silver and bronze
         for (int i = 0; i < 20; i++) {
           mockData.add(UserAchievementModel(
             userAchievementId: 'ua_${userIdCounter}_$achievementId',
+            userId: '',
             achievement: achievement,
-            currentLevel: 'gold',
+            currentLevel: UserAchievementLevel.gold,
             currentCount: 30 + i, // Meets gold criteria
-            status: i < 15 ? 'completed' : 'in_progress',
+            status: i < 15 ? AchievementStatus.completed : AchievementStatus.inProgress,
             startedAt: now.subtract(Duration(days: i + 1)),
             completedAt: i < 15 ? now.subtract(Duration(days: i)) : null,
           ));
@@ -664,10 +664,11 @@ class AchievementManagementController extends GetxController {
         for (int i = 0; i < 25; i++) {
           mockData.add(UserAchievementModel(
             userAchievementId: 'ua_${userIdCounter}_$achievementId',
+            userId: '',
             achievement: achievement,
-            currentLevel: 'silver',
+            currentLevel: UserAchievementLevel.silver,
             currentCount: 15 + i, // Meets silver but not gold criteria
-            status: i < 20 ? 'completed' : 'in_progress',
+            status: i < 20 ? AchievementStatus.completed : AchievementStatus.inProgress,
             startedAt: now.subtract(Duration(days: i + 5)),
             completedAt: i < 20 ? now.subtract(Duration(days: i + 3)) : null,
           ));
@@ -678,10 +679,11 @@ class AchievementManagementController extends GetxController {
         for (int i = 0; i < 35; i++) {
           mockData.add(UserAchievementModel(
             userAchievementId: 'ua_${userIdCounter}_$achievementId',
+            userId: '',
             achievement: achievement,
-            currentLevel: 'bronze',
+            currentLevel: UserAchievementLevel.bronze,
             currentCount: 7 + i, // Meets bronze but not silver criteria
-            status: i < 30 ? 'completed' : 'in_progress',
+            status: i < 30 ? AchievementStatus.completed : AchievementStatus.inProgress,
             startedAt: now.subtract(Duration(days: i + 10)),
             completedAt: i < 30 ? now.subtract(Duration(days: i + 8)) : null,
           ));
@@ -692,10 +694,11 @@ class AchievementManagementController extends GetxController {
         for (int i = 0; i < 5; i++) {
           mockData.add(UserAchievementModel(
             userAchievementId: 'ua_${userIdCounter}_$achievementId',
+            userId: '',
             achievement: achievement,
-            currentLevel: 'bronze',
+            currentLevel: UserAchievementLevel.bronze,
             currentCount: i + 1,
-            status: 'in_progress',
+            status: AchievementStatus.inProgress,
             startedAt: now, // Started today
             completedAt: null,
           ));
@@ -709,10 +712,11 @@ class AchievementManagementController extends GetxController {
         for (int i = 0; i < 40; i++) {
           mockData.add(UserAchievementModel(
             userAchievementId: 'ua_${userIdCounter}_$achievementId',
+            userId: '',
             achievement: achievement,
-            currentLevel: levelName,
+            currentLevel: UserAchievementLevel.fromString(levelName.value.toLowerCase()),
             currentCount: achievement.levels.first.criteria + i,
-            status: 'completed',
+            status: AchievementStatus.completed,
             startedAt: now.subtract(Duration(days: i + 20)),
             completedAt: now.subtract(Duration(days: i + 35)),
           ));
@@ -723,10 +727,11 @@ class AchievementManagementController extends GetxController {
         for (int i = 0; i < 3; i++) {
           mockData.add(UserAchievementModel(
             userAchievementId: 'ua_${userIdCounter}_$achievementId',
+            userId: '',
             achievement: achievement,
-            currentLevel: levelName,
+            currentLevel: UserAchievementLevel.fromString(levelName.value.toLowerCase()),
             currentCount: i + 1,
-            status: 'completed',
+            status: AchievementStatus.completed,
             startedAt: now.subtract(Duration(days: i + 20)), // Started today
             completedAt: now.subtract(Duration(days: i + 5)),
           ));

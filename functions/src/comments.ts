@@ -18,7 +18,7 @@ export const updateReplyCountOnCreate = onDocumentCreated(
 
     const commentRef: DocumentReference = db.collection("comments").doc(commentId);
     await commentRef.update({
-      reply_count: FieldValue.increment(1),
+      replyCount: FieldValue.increment(1),
     });
   }
 );
@@ -32,7 +32,7 @@ export const updateReplyCountOnDelete = onDocumentDeleted(
 
     const commentRef: DocumentReference = db.collection("comments").doc(commentId);
     await commentRef.update({
-      reply_count: FieldValue.increment(-1),
+      replyCount: FieldValue.increment(-1),
     });
   }
 );

@@ -1,5 +1,8 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
+import * as dotenv from "dotenv";
+
+dotenv.config();
 
 // 初始化 Firebase Admin（防止多次初始化）
 if (admin.apps.length === 0) {
@@ -11,6 +14,7 @@ import * as authentication from "./authentication";
 import * as comments from "./comments";
 import * as reminder from "./reminder/reminder";
 import * as reminder_notification from "./reminder/reminder_notification";
+import {analyzeMealPhotos} from "./fatsecret/meal_analysis";
 
 // 导出 authentication 函数
 export const {
@@ -20,8 +24,8 @@ export const {
 
 // 导出 comments 函数
 export const {
-  updateReplyCountOnCreate,
-  updateReplyCountOnDelete,
+//   updateReplyCountOnCreate,
+//   updateReplyCountOnDelete,
   deleteCommentAndReplies
 } = comments;
 
@@ -42,6 +46,14 @@ export const {
   handleSnoozeReminder,
   handleDismissReminder
 } = reminder_notification;
+
+export { analyzeMealPhotos };
+
+// 从成就模块导入所有功能
+export * from "./achievement";
+
+// 导出 subscription 模块的 subscriptionApi
+export { subscriptionApi, checkExpiringPayPalSubscriptionsSchedule } from "./subscription";
 
 // 其他独立函数
 export const setAdminClaim = functions.https.onRequest(async (req, res) => {

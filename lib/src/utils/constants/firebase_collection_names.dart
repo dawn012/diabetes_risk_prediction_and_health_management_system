@@ -6,6 +6,11 @@ class FirebaseCollectionNames {
   static const String posts = 'posts';
   static const String comments = 'comments';
   static const String replies = 'replies';
+  static const String achievements = 'achievements';
+  static const String userAchievements = 'userAchievements';
+  static const String leaderboard = 'leaderboard';
+  static const String subscriptionPlans = 'subscriptionPlans';
+  static const String userSubscriptions = 'userSubscriptions';
   static const String payments = 'payments';
   static const String reminders = 'reminders';
   static const String reminderSchedules = 'reminderSchedules';

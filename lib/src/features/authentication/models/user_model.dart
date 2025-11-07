@@ -13,6 +13,7 @@ class UserModel {
   String profileImg;
   final DateTime joinDate;
   int totalScore;
+  int lastScoreUpdateTime;
   final bool isVerify;
   int loginAttempt;
   int lastAttemptTime;
@@ -29,13 +30,14 @@ class UserModel {
     this.profileImg = '',
     required this.joinDate,
     this.totalScore = 0,
+    this.lastScoreUpdateTime = 0,
     required this.isVerify,
     this.loginAttempt = 5,
     this.lastAttemptTime = 0,
     required this.accountAvailable,
     UserProfileModel? profile,
   }) : profile = profile ?? UserProfileModel.empty();
-  
+
   /// Helper function to format phone number
   String get formattedPhoneNo => TFormatter.formatPhoneNumber(phoneNumber);
 
@@ -50,6 +52,7 @@ class UserModel {
       profileImg: '',
       joinDate: DateTime.now(),
       totalScore: 0,
+      lastScoreUpdateTime: 0,
       isVerify: false,
       loginAttempt: 0,
       lastAttemptTime: 0,
@@ -68,6 +71,7 @@ class UserModel {
     String? profileImg,
     DateTime? joinDate,
     int? totalScore,
+    int? lastScoreUpdateTime,
     bool? isVerify,
     int? loginAttempt,
     int? lastAttemptTime,
@@ -83,6 +87,7 @@ class UserModel {
       profileImg: profileImg ?? this.profileImg,
       joinDate: joinDate ?? this.joinDate,
       totalScore: totalScore ?? this.totalScore,
+      lastScoreUpdateTime: lastScoreUpdateTime ?? this.lastScoreUpdateTime,
       isVerify: isVerify ?? this.isVerify,
       loginAttempt: loginAttempt ?? this.loginAttempt,
       lastAttemptTime: lastAttemptTime ?? this.lastAttemptTime,
@@ -102,6 +107,7 @@ class UserModel {
       FirebaseFieldNames.profileImg: profileImg,
       FirebaseFieldNames.joinDate: joinDate.millisecondsSinceEpoch,
       FirebaseFieldNames.totalScore: totalScore,
+      FirebaseFieldNames.lastScoreUpdateTime: lastScoreUpdateTime,
       FirebaseFieldNames.isVerify: isVerify,
       FirebaseFieldNames.loginAttempt: loginAttempt,
       FirebaseFieldNames.lastAttemptTime: lastAttemptTime,
@@ -111,7 +117,6 @@ class UserModel {
   }
 
   /// Factory method to create a UserModel from a Firebase document snapshot
-  /// 工厂构造方法允许返回已经存在的实例或根据逻辑创建新的实例
   factory UserModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> document) {
     final data = document.data();
     if (data == null) return UserModel.empty();
@@ -119,7 +124,6 @@ class UserModel {
     // 处理 profile 数据
     UserProfileModel profile;
     if (data[FirebaseFieldNames.profile] != null) {
-      // 如果 profile 是 Map 类型（包含对象）
       final profileData = data[FirebaseFieldNames.profile] as Map<String, dynamic>;
       profile = UserProfileModel.fromMap(profileData);
     } else {
@@ -137,6 +141,7 @@ class UserModel {
           ? DateTime.fromMillisecondsSinceEpoch(data[FirebaseFieldNames.joinDate])
           : DateTime.now(),
       totalScore: data[FirebaseFieldNames.totalScore] ?? 0,
+      lastScoreUpdateTime: data[FirebaseFieldNames.lastScoreUpdateTime] ?? 0,
       isVerify: data[FirebaseFieldNames.isVerify] ?? false,
       loginAttempt: data[FirebaseFieldNames.loginAttempt] ?? 0,
       lastAttemptTime: data[FirebaseFieldNames.lastAttemptTime] ?? 0,

@@ -1,125 +1,177 @@
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../models/achievement_model.dart';
+
+import '../../../common/loaders/loaders.dart';
+import '../../../data/repositories/achievement/achievement_repository.dart';
+import '../../../data/repositories/authentication/authentication_repository.dart';
+import '../../../utils/constants/enums.dart';
+import '../models/achievement_display_data.dart';
 import '../models/user_achievement_model.dart';
 import 'achievement_controller.dart';
 
 class UserAchievementController extends GetxController {
   static UserAchievementController get instance => Get.find();
 
+  final AchievementRepository _achievementRepository = Get.find();
+  final AchievementController _achievementController = Get.find();
+  final _authRepo = AuthenticationRepository.instance;
+
+  // PageController for swipe gesture
+  late final PageController pageController = PageController(initialPage: selectedTab.value);
+
   // Observable variables
   var selectedTab = 0.obs; // 0 for Periodic, 1 for Permanent
-  var selectedFilter = 'all'.obs; // all, locked, unlocked, bronze, silver, gold
-  var userAchievements = <UserAchievementModel>[].obs; // 用户实际的成就记录
-  var expandedAchievements = <String>[].obs; // Track which achievements are expanded
+  var selectedFilter = 'all'.obs;
+  var userAchievements = <UserAchievementModel>[].obs;
+  var expandedAchievements = <String>[].obs;
   var isLoading = false.obs;
-
-  // 获取 AchievementController 实例
-  late AchievementController achievementController;
 
   @override
   void onInit() {
     super.onInit();
-    achievementController = Get.find<AchievementController>();
-    loadUserAchievements();
+    _setupUserAchievementsStream();
+
+    // Listen to page changes for tab synchronization
+    pageController.addListener(_handlePageChange);
   }
 
-  /// 加载用户成就数据 (后续替换为 Firestore 调用)
-  Future<void> loadUserAchievements() async {
-    try {
-      isLoading.value = true;
+  @override
+  void onClose() {
+    // Dispose PageController when controller is closed
+    pageController.removeListener(_handlePageChange);
+    pageController.dispose();
+    super.onClose();
+  }
 
-      // 模拟网络延迟
-      await Future.delayed(Duration(milliseconds: 800));
-
-      // TODO: 替换为实际的 Firestore 调用
-      // final userAchievementsData = await FirebaseFirestore.instance
-      //     .collection('user_achievements')
-      //     .where('userId', isEqualTo: currentUserId)
-      //     .get();
-
-      userAchievements.value = _getMockUserAchievements();
-
-    } catch (e) {
-      Get.snackbar('Error', 'Failed to load user achievements: ${e.toString()}');
-    } finally {
-      isLoading.value = false;
+  /// Handle page changes and sync with tab selection
+  void _handlePageChange() {
+    if (pageController.page != null && !pageController.position.isScrollingNotifier.value) {
+      final newPage = pageController.page!.round();
+      if (newPage != selectedTab.value) {
+        selectedTab.value = newPage;
+        selectedFilter.value = 'all';
+        expandedAchievements.clear();
+      }
     }
   }
 
-  /// 模拟用户成就数据（后续移除）
-  List<UserAchievementModel> _getMockUserAchievements() {
-    return [
-      UserAchievementModel(
-        userAchievementId: '1',
-        achievement: achievementController.getAchievementById('1')!,
-        currentLevel: 'Gold',
-        currentCount: 90,
-        status: 'completed',
-        startedAt: DateTime.now().subtract(Duration(days: 90)),
-        completedAt: DateTime.now(),
-      ),
-      UserAchievementModel(
-        userAchievementId: '2',
-        achievement: achievementController.getAchievementById('2')!,
-        currentLevel: 'Silver',
-        currentCount: 12,
-        status: 'in_progress',
-        startedAt: DateTime.now().subtract(Duration(days: 15)),
-        completedAt: DateTime(0),
-      ),
-      UserAchievementModel(
-        userAchievementId: '4',
-        achievement: achievementController.getAchievementById('4')!,
-        currentLevel: 'none',
-        currentCount: 20,
-        status: 'in_progress',
-        startedAt: DateTime.now().subtract(Duration(days: 60)),
-        completedAt: DateTime(0),
-      ),
-    ];
+  /// Setup real-time user achievements stream with details
+  void _setupUserAchievementsStream() {
+    try {
+      isLoading.value = true;
+
+      final userId = _authRepo.authUser?.uid;
+      if (userId == null) {
+        TLoaders.errorSnackBar(
+          title: 'Error',
+          message: 'User not authenticated',
+        );
+        isLoading.value = false;
+        return;
+      }
+
+      _achievementRepository.getUserAchievementsWithDetailsStream(userId).listen(
+            (achievements) {
+          userAchievements.value = achievements;
+          isLoading.value = false;
+        },
+        onError: (error) {
+          isLoading.value = false;
+          TLoaders.errorSnackBar(
+            title: 'Error',
+            message: 'Failed to load user achievements: ${error.toString()}',
+          );
+        },
+      );
+    } catch (e) {
+      isLoading.value = false;
+      TLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to setup achievements stream: ${e.toString()}',
+      );
+    }
   }
 
-  // 组合显示数据：系统成就 + 用户进度
-  List<Map<String, dynamic>> get displayAchievements {
-    String type = selectedTab.value == 0 ? 'periodic' : 'permanent';
-    var systemAchievements = achievementController.getAchievementsByType(type);
+  /// Combine system achievements with user progress
+  List<AchievementDisplayData> get displayAchievements {
+    final AchievementType type = selectedTab.value == 0
+        ? AchievementType.periodic
+        : AchievementType.permanent;
+    final systemAchievements = _achievementController.getAchievementsByType(type);
 
-    return systemAchievements.map((achievement) {
-      var userAchievement = userAchievements.firstWhereOrNull(
-              (ua) => ua.achievement.achievementId == achievement.achievementId
+    final achievements = systemAchievements.map((achievement) {
+      final userAchievement = userAchievements.firstWhereOrNull(
+            (ua) => ua.achievement.achievementId == achievement.achievementId,
       );
 
-      return {
-        'achievement': achievement,
-        'userAchievement': userAchievement,
-        'isLocked': userAchievement == null,
-        'currentLevel': userAchievement?.currentLevel ?? 'none',
-        'currentCount': userAchievement?.currentCount ?? 0,
-        'status': userAchievement?.status ?? 'locked',
-      };
+      return AchievementDisplayData(
+        achievement: achievement,
+        userAchievement: userAchievement,
+        isLocked: userAchievement == null,
+        currentLevel: userAchievement?.currentLevel ?? UserAchievementLevel.none,
+        currentCount: userAchievement?.currentCount ?? 0,
+        status: userAchievement?.status ?? AchievementStatus.inProgress,
+      );
     }).toList();
+
+    // 按等级排序：Gold > Silver > Bronze > None > Locked
+    achievements.sort((a, b) {
+      // 等级权重映射
+      final levelWeights = {
+        UserAchievementLevel.gold: 4,
+        UserAchievementLevel.silver: 3,
+        UserAchievementLevel.bronze: 2,
+        UserAchievementLevel.none: 1,
+      };
+
+      final aWeight = a.isLocked ? 0 : levelWeights[a.currentLevel] ?? 0;
+      final bWeight = b.isLocked ? 0 : levelWeights[b.currentLevel] ?? 0;
+
+      // 等级高的排在前面
+      if (aWeight != bWeight) {
+        return bWeight.compareTo(aWeight);
+      }
+
+      // 如果等级相同，已完成的排在前面
+      if (a.status != b.status) {
+        if (a.status == AchievementStatus.completed) return -1;
+        if (b.status == AchievementStatus.completed) return 1;
+      }
+
+      // 如果状态也相同，按进度百分比排序
+      final aProgress = getProgress(a);
+      final bProgress = getProgress(b);
+      if (aProgress != bProgress) {
+        return bProgress.compareTo(aProgress);
+      }
+
+      // 最后按标题字母顺序排序
+      return a.achievement.achievementTitle
+          .compareTo(b.achievement.achievementTitle);
+    });
+
+    return achievements;
   }
 
-  // 过滤后的成就
-  List<Map<String, dynamic>> get filteredAchievements {
-    var achievements = displayAchievements;
+  /// Get filtered achievements
+  List<AchievementDisplayData> get filteredAchievements {
+    final achievements = displayAchievements;
 
-    // Apply filter
     if (selectedFilter.value != 'all') {
-      achievements = achievements.where((item) {
+      return achievements.where((item) {
         if (selectedFilter.value == 'locked') {
-          return item['isLocked'] as bool;
+          return item.isLocked;
         }
 
-        if (item['isLocked'] as bool) {
-          return false; // locked achievements don't match unlocked/medal filters
+        if (item.isLocked) {
+          return false;
         }
 
         if (selectedFilter.value == 'unlocked') {
-          return !(item['isLocked'] as bool) && item['currentLevel'] == 'none';
+          return !item.isLocked && item.currentLevel == UserAchievementLevel.none;
         }
 
-        String medal = (item['currentLevel'] as String).toLowerCase();
+        final medal = item.currentLevel.value.toLowerCase();
         return medal == selectedFilter.value;
       }).toList();
     }
@@ -127,38 +179,48 @@ class UserAchievementController extends GetxController {
     return achievements;
   }
 
-  // Get completed achievements count (only for 'all' filter)
+  /// Get completed achievements count
   int get completedCount {
     if (selectedFilter.value != 'all') return 0;
-    return displayAchievements.where((item) =>
-    !(item['isLocked'] as bool) && item['status'] == 'completed').length;
+    return displayAchievements
+        .where((item) => !item.isLocked && item.status == AchievementStatus.completed)
+        .length;
   }
 
-  // Get total achievements count (only for 'all' filter)
+  /// Get total achievements count
   int get totalCount {
     if (selectedFilter.value != 'all') return 0;
     return displayAchievements.length;
   }
 
-  // Should show progress counter
-  bool get shouldShowProgress {
-    return selectedFilter.value == 'all';
-  }
+  /// Should show progress counter
+  bool get shouldShowProgress => selectedFilter.value == 'all';
 
-  // Change tab
+  /// Change tab with page animation
   void changeTab(int index) {
+    if (index == selectedTab.value) return;
+
     selectedTab.value = index;
-    selectedFilter.value = 'all'; // Reset filter when changing tab
-    expandedAchievements.clear(); // Clear expanded state
+    selectedFilter.value = 'all';
+    expandedAchievements.clear();
+
+    // Animate to the selected page
+    if (pageController.hasClients) {
+      pageController.animateToPage(
+        index,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
   }
 
-  // Change filter
+  /// Change filter
   void changeFilter(String filter) {
     selectedFilter.value = filter;
-    expandedAchievements.clear(); // Clear expanded state when filtering
+    expandedAchievements.clear();
   }
 
-  // Toggle achievement expansion
+  /// Toggle achievement expansion
   void toggleAchievement(String achievementId) {
     if (expandedAchievements.contains(achievementId)) {
       expandedAchievements.remove(achievementId);
@@ -167,99 +229,190 @@ class UserAchievementController extends GetxController {
     }
   }
 
-  // Check if achievement is expanded
+  /// Check if achievement is expanded
   bool isAchievementExpanded(String achievementId) {
     return expandedAchievements.contains(achievementId);
   }
 
-  // Get medal type based on current level
-  String getMedalType(Map<String, dynamic> achievementData) {
-    if (achievementData['isLocked'] as bool) {
+  /// Get medal type based on current level
+  String getMedalType(AchievementDisplayData achievementData) {
+    if (achievementData.isLocked) {
       return 'locked';
     }
-    if (achievementData['currentLevel'] == 'none') {
+    if (achievementData.currentLevel == UserAchievementLevel.none) {
       return 'unlocked';
     }
-    return (achievementData['currentLevel'] as String).toLowerCase();
+    return achievementData.currentLevel.value.toLowerCase();
   }
 
-  // Get progress percentage
-  double getProgress(Map<String, dynamic> achievementData) {
-    if (achievementData['isLocked'] as bool) return 0.0;
-    if (achievementData['status'] == 'completed') return 1.0;
+  /// Get progress percentage
+  double getProgress(AchievementDisplayData achievementData) {
+    if (achievementData.isLocked) return 0.0;
+    if (achievementData.status == AchievementStatus.completed) return 1.0;
 
-    AchievementModel achievement = achievementData['achievement'] as AchievementModel;
+    final achievement = achievementData.achievement;
     if (achievement.levels.isEmpty) return 0.0;
 
-    int currentCount = achievementData['currentCount'] as int;
-    String currentLevel = achievementData['currentLevel'] as String;
+    final currentCount = achievementData.currentCount;
+    final currentLevel = achievementData.currentLevel;
 
-    // 还没拿到任何等级
-    if (currentLevel == 'none') {
-      var firstLevel = achievement.levels.first;
+    if (currentLevel == UserAchievementLevel.none) {
+      final firstLevel = achievement.levels.first;
       return (currentCount / firstLevel.criteria).clamp(0.0, 1.0);
     }
 
-    int currentIndex = achievement.levels.indexWhere(
-          (level) => level.level == currentLevel,
+    final currentIndex = achievement.levels.indexWhere(
+          (level) => level.level.value == currentLevel.value,
     );
 
-    // 已经是最后等级
     if (currentIndex == -1 || currentIndex == achievement.levels.length - 1) {
       return 1.0;
     }
 
-    var nextLevelData = achievement.levels[currentIndex + 1];
+    final nextLevelData = achievement.levels[currentIndex + 1];
+
     return (currentCount / nextLevelData.criteria).clamp(0.0, 1.0);
   }
 
-  // Get progress text with unit
-  String getProgressText(Map<String, dynamic> achievementData) {
-    if (achievementData['isLocked'] as bool) return 'Locked';
-    if (achievementData['status'] == 'completed') return 'Completed';
+  /// Get progress text with unit
+  String getProgressText(AchievementDisplayData achievementData) {
+    if (achievementData.isLocked) return 'Locked';
+    if (achievementData.status == AchievementStatus.completed) return 'Completed';
 
-    AchievementModel achievement = achievementData['achievement'] as AchievementModel;
+    final achievement = achievementData.achievement;
     if (achievement.levels.isEmpty) return '0/0';
 
-    int currentCount = achievementData['currentCount'] as int;
-    String currentLevel = achievementData['currentLevel'] as String;
+    final currentCount = achievementData.currentCount;
+    final currentLevel = achievementData.currentLevel;
 
-    // 还没开始拿到等级
-    if (currentLevel == 'none') {
-      var firstLevel = achievement.levels.first;
+    if (currentLevel == UserAchievementLevel.none) {
+      final firstLevel = achievement.levels.first;
       return '$currentCount/${firstLevel.criteria} ${firstLevel.criteriaUnit}';
     }
 
-    int currentIndex = achievement.levels.indexWhere(
-          (level) => level.level == currentLevel,
+    final currentIndex = achievement.levels.indexWhere(
+          (level) => level.level.value == currentLevel.value,
     );
 
     if (currentIndex == -1 || currentIndex == achievement.levels.length - 1) {
       return '$currentCount/$currentCount';
     }
 
-    var nextLevelData = achievement.levels[currentIndex + 1];
+    final nextLevelData = achievement.levels[currentIndex + 1];
     return '$currentCount/${nextLevelData.criteria} ${nextLevelData.criteriaUnit}';
   }
 
-  // Helper method to check if a level is achieved
-  bool isLevelAchieved(Map<String, dynamic> achievementData, String levelName) {
-    if (achievementData['isLocked'] as bool) return false;
+  /// Check if a level is achieved
+  bool isLevelAchieved(AchievementDisplayData achievementData, AchievementLevel levelName) {
+    if (achievementData.isLocked) return false;
 
-    AchievementModel achievement = achievementData['achievement'] as AchievementModel;
-    String currentLevel = achievementData['currentLevel'] as String;
+    final achievement = achievementData.achievement;
+    final currentLevel = achievementData.currentLevel;
 
-    if (currentLevel == 'none') return false;
+    if (currentLevel == UserAchievementLevel.none) return false;
 
     final levels = achievement.levels;
-    final currentLevelIndex = levels.indexWhere((l) => l.level == currentLevel);
-    final targetLevelIndex = levels.indexWhere((l) => l.level == levelName);
+    final currentLevelIndex = levels.indexWhere((l) => l.level.value == currentLevel.value);
+    final targetLevelIndex = levels.indexWhere((l) => l.level.value == levelName.value);
 
     return currentLevelIndex >= targetLevelIndex;
   }
 
-  /// 刷新数据 (供 UI 调用)
+  /// Increment achievement progress (called when user completes an action)
+  Future<void> incrementAchievement({
+    required String achievementId,
+    int incrementBy = 1,
+  }) async {
+    try {
+      final userId = _authRepo.authUser?.uid;
+      if (userId == null) {
+        TLoaders.errorSnackBar(
+          title: 'Error',
+          message: 'User not authenticated',
+        );
+        return;
+      }
+
+      final achievement = _achievementController.getAchievementById(achievementId);
+      if (achievement == null) {
+        TLoaders.errorSnackBar(
+          title: 'Error',
+          message: 'Achievement not found',
+        );
+        return;
+      }
+
+      await _achievementRepository.incrementAchievementCount(
+        userId: userId,
+        achievementId: achievementId,
+        achievement: achievement,
+        incrementBy: incrementBy,
+      );
+
+      TLoaders.successSnackBar(
+        title: 'Progress Updated',
+        message: 'Achievement progress has been updated',
+      );
+    } catch (e) {
+      TLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to update achievement: ${e.toString()}',
+      );
+    }
+  }
+
+  /// Reset periodic achievements (should be called monthly)
+  Future<void> resetPeriodicAchievements() async {
+    try {
+      final userId = _authRepo.authUser?.uid;
+      if (userId == null) {
+        TLoaders.errorSnackBar(
+          title: 'Error',
+          message: 'User not authenticated',
+        );
+        return;
+      }
+
+      isLoading.value = true;
+      await _achievementRepository.resetPeriodicAchievements(userId);
+      isLoading.value = false;
+    } catch (e) {
+      isLoading.value = false;
+      TLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to reset achievements: ${e.toString()}',
+      );
+    }
+  }
+
+  /// Refresh user achievements
   Future<void> refreshData() async {
-    await loadUserAchievements();
+    try {
+      isLoading.value = true;
+      await Future.delayed(const Duration(milliseconds: 500));
+      isLoading.value = false;
+      TLoaders.successSnackBar(
+        title: 'Success',
+        message: 'Achievements refreshed',
+      );
+    } catch (e) {
+      isLoading.value = false;
+      TLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to refresh: ${e.toString()}',
+      );
+    }
+  }
+
+  /// Get user's total score
+  Future<int> getUserTotalScore() async {
+    try {
+      final userId = _authRepo.authUser?.uid;
+      if (userId == null) return 0;
+
+      return await _achievementRepository.getUserTotalScore(userId);
+    } catch (e) {
+      return 0;
+    }
   }
 }

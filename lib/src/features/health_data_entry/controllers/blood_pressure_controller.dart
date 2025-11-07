@@ -593,69 +593,73 @@ class BloodPressureController extends GetxController {
   }
 
   void showAllBPRecords() {
-    final records = _getBpFilteredData();
-    Get.to(() => HealthDataListScreen(
+    Get.to(() => const HealthDataListScreen(
       title: 'All Blood Pressure Records',
-      healthDataList: records,
       healthDataType: HealthDataType.bloodPressure,
+      filterType: 'all',
     ));
   }
 
   void showAllPulseRecords() {
-    final records = _getPulseFilteredData();
-    Get.to(() => HealthDataListScreen(
+    Get.to(() => const HealthDataListScreen(
       title: 'All Pulse Records',
-      healthDataList: records,
       healthDataType: HealthDataType.bloodPressure,
+      filterType: 'all',
     ));
   }
 
   void showNormalRecords() {
-    final records = _getBpFilteredData()
-        .where((d) =>
-    _getBPCategory(d.bloodPressure.systolic, d.bloodPressure.diastolic) == 'Normal')
-        .toList();
-    Get.to(() => HealthDataListScreen(
+    Get.to(() => const HealthDataListScreen(
       title: 'Normal Blood Pressure Records',
-      healthDataList: records,
       healthDataType: HealthDataType.bloodPressure,
+      filterType: 'normal',
     ));
   }
 
   void showElevatedRecords() {
-    final records = _getBpFilteredData()
-        .where((d) =>
-    _getBPCategory(d.bloodPressure.systolic, d.bloodPressure.diastolic) == 'Elevated')
-        .toList();
-    Get.to(() => HealthDataListScreen(
+    Get.to(() => const HealthDataListScreen(
       title: 'Elevated Blood Pressure Records',
-      healthDataList: records,
       healthDataType: HealthDataType.bloodPressure,
+      filterType: 'elevated',
     ));
   }
 
   void showHighRecords() {
-    final records = _getBpFilteredData()
-        .where((d) =>
-    _getBPCategory(d.bloodPressure.systolic, d.bloodPressure.diastolic) == 'High')
-        .toList();
-    Get.to(() => HealthDataListScreen(
+    Get.to(() => const HealthDataListScreen(
       title: 'High Blood Pressure Records',
-      healthDataList: records,
       healthDataType: HealthDataType.bloodPressure,
+      filterType: 'high',
     ));
   }
 
   void showLowRecords() {
-    final records = _getBpFilteredData()
-        .where((d) =>
-    _getBPCategory(d.bloodPressure.systolic, d.bloodPressure.diastolic) == 'Low')
-        .toList();
-    Get.to(() => HealthDataListScreen(
+    Get.to(() => const HealthDataListScreen(
       title: 'Low Blood Pressure Records',
-      healthDataList: records,
       healthDataType: HealthDataType.bloodPressure,
+      filterType: 'low',
     ));
+  }
+
+  /// Get filtered data based on current filters (for HealthDataListScreen)
+  List<HealthDataModel> getFilteredData() {
+    return _getBpFilteredData(); // 使用现有的私有方法
+  }
+
+  /// Get BP level enum
+  String getBPLevel(int systolic, int diastolic) {
+    final category = _getBPCategory(systolic, diastolic);
+    switch (category) {
+      case 'Low':
+        return 'low';
+      case 'Normal':
+        return 'normal';
+      case 'Elevated':
+        return 'elevated';
+      case 'High':
+        return 'high';
+      default:
+        return 'normal';
+    }
   }
 
   /// Delete health record

@@ -6,6 +6,7 @@ import '../../../../common/widgets/dialogs/common_confirmation_dialog.dart';
 import '../../../../common/widgets/pagination/pagination_widget.dart';
 import '../../../../common/widgets/table/reusable_data_table.dart';
 import '../../../../utils/constants/admin_colors.dart';
+import '../../../../utils/constants/enums.dart';
 import '../../../../utils/helpers/helper_functions.dart';
 import '../../../achievement/models/achievement_model.dart';
 import '../../controllers/achievement_management_controller.dart';
@@ -145,14 +146,7 @@ class AchievementManagementScreen extends StatelessWidget {
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(7),
-                  child: achievement.imagePath.isNotEmpty
-                      ? Image.network(
-                    achievement.imagePath,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) =>
-                        _buildDefaultAchievementIcon(achievement.achievementType, darkMode),
-                  )
-                      : _buildDefaultAchievementIcon(achievement.achievementType, darkMode),
+                  child: _buildDefaultAchievementIcon(achievement.achievementType, darkMode),
                 ),
               ),
               const SizedBox(width: 12),
@@ -262,16 +256,16 @@ class AchievementManagementScreen extends StatelessWidget {
     ];
   }
 
-  Widget _buildDefaultAchievementIcon(String type, bool darkMode) {
+  Widget _buildDefaultAchievementIcon(AchievementType type, bool darkMode) {
     IconData icon;
     Color iconColor;
 
     switch (type) {
-      case 'monthly':
+      case AchievementType.periodic:
         icon = Iconsax.calendar_bold;
         iconColor = TAdminColors.warning;
         break;
-      case 'permanent':
+      case AchievementType.permanent:
         icon = Iconsax.award_bold;
         iconColor = TAdminColors.primary;
         break;
@@ -292,16 +286,16 @@ class AchievementManagementScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildTypeChip(String achievementType, bool darkMode) {
+  Widget _buildTypeChip(AchievementType achievementType, bool darkMode) {
     Color chipColor;
     IconData chipIcon;
 
     switch (achievementType) {
-      case 'monthly':
+      case AchievementType.periodic:
         chipColor = TAdminColors.warning;
         chipIcon = Iconsax.calendar_bold;
         break;
-      case 'permanent':
+      case AchievementType.permanent:
         chipColor = TAdminColors.primary;
         chipIcon = Iconsax.award_bold;
         break;
@@ -315,7 +309,7 @@ class AchievementManagementScreen extends StatelessWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 100),
         child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             color: chipColor.withOpacity(0.1),
             borderRadius: BorderRadius.circular(12),
@@ -329,9 +323,9 @@ class AchievementManagementScreen extends StatelessWidget {
                 size: 12,
                 color: chipColor,
               ),
-              SizedBox(width: 4),
+              const SizedBox(width: 4),
               Text(
-                achievementType.capitalizeFirst!,
+                achievementType.displayName,
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
@@ -360,9 +354,9 @@ class AchievementManagementScreen extends StatelessWidget {
         ),
         if (achievement.levels.isNotEmpty)
           Text(
-            achievement.achievementType == 'monthly'
+            achievement.achievementType == AchievementType.periodic
                 ? 'Bronze, Silver, Gold'
-                : achievement.levels.first.level,
+                : achievement.levels.first.level.displayName,
             style: TextStyle(
               fontSize: 10,
               color: TAdminColors.getOnSurfaceVariantColor(darkMode),
@@ -382,7 +376,7 @@ class AchievementManagementScreen extends StatelessWidget {
       onTap: () => _showCompletionDetails(achievement, controller),
       borderRadius: BorderRadius.circular(8),
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: TAdminColors.info.withOpacity(0.1),
           borderRadius: BorderRadius.circular(8),
@@ -399,7 +393,7 @@ class AchievementManagementScreen extends StatelessWidget {
                   size: 12,
                   color: TAdminColors.info,
                 ),
-                SizedBox(width: 4),
+                const SizedBox(width: 4),
                 Text(
                   '$totalCompletions',
                   style: TextStyle(
@@ -410,16 +404,6 @@ class AchievementManagementScreen extends StatelessWidget {
                 ),
               ],
             ),
-            // if (achievement.achievementType == 'monthly' && achievement.levels.length > 1)
-            //   Flexible(
-            //     child: Text(
-            //       'View breakdown',
-            //       style: TextStyle(
-            //         fontSize: 9,
-            //         color: TAdminColors.info.withOpacity(0.7),
-            //       ),
-            //     ),
-            //   ),
           ],
         ),
       ),

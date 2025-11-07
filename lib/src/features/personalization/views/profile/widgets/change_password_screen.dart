@@ -3,7 +3,6 @@ import 'package:get/get.dart';
 import 'package:icons_plus/icons_plus.dart';
 
 import '../../../../../common/widgets/appbar/appbar.dart';
-import '../../../../../utils/constants/colors.dart';
 import '../../../../../utils/constants/sizes.dart';
 import '../../../../../utils/validators/user_profile_validator.dart';
 import '../../../controllers/update_profile_controller.dart';

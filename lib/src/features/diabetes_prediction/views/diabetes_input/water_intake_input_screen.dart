@@ -1,36 +1,108 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide NavigationMode;
 import 'package:get/get.dart';
 
 import '../../../../utils/constants/colors.dart';
+import '../../../../utils/constants/health_data_range.dart';
 import '../../../../utils/helpers/helper_functions.dart';
+import '../../../personalization/controllers/user_controller.dart';
 import '../../controllers/water_intake_controller.dart';
 import 'widgets/diabetes_prediction_input_screen.dart';
+import 'widgets/water_info_dialog.dart';
 
 class WaterIntakeInputScreen extends StatelessWidget {
-  const WaterIntakeInputScreen({super.key});
+  const WaterIntakeInputScreen({
+    super.key,
+    this.initialWaterIntake,
+    this.mode = NavigationMode.flow,
+  });
+
+  final double? initialWaterIntake;
+  final NavigationMode mode;
 
   @override
   Widget build(BuildContext context) {
     final controller = Get.put(WaterIntakeController());
+    final userController = UserController.instance;
     final darkMode = THelperFunctions.isDarkMode(context);
+
+    // 计算合适的分段数量
+    int _calculateDivisions() {
+      final range = HealthDataRanges.maxWaterLiters - HealthDataRanges.minWaterLiters;
+      // 每0.1升一个分段
+      return (range / 0.1).clamp(20, 100).toInt();
+    }
+
+    // 生成范围标签
+    List<String> _generateRangeLabels() {
+      final min = HealthDataRanges.minWaterLiters;
+      final max = HealthDataRanges.maxWaterLiters;
+      final mid = ((max - min) / 2) + min;
+
+      return [
+        '${min.toDouble()}L',
+        '${mid.toStringAsFixed(1)}L',
+        '${max.toDouble()}L'
+      ];
+    }
+
+    // 如果有传入初始值，在构建时设置
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.navigationMode.value = mode;
+      if (initialWaterIntake != null) {
+        controller.setWaterIntake(initialWaterIntake!);
+      }
+    });
 
     return Obx(() => DiabetesPredictionInputScreen(
       title: 'Water Intake',
-      progressValue: 0.75,
-      showBackButton: true,
+      progressValue: 0.75, // 6/8 steps completed
+      showBackButton: controller.canGoBack.value,
+      showCloseButton: true,
       canProceed: controller.canProceed,
       isLoading: controller.isLoading.value,
       continueButtonText: 'Continue',
       onContinue: () => controller.saveAndContinue(),
+      onSave: () => controller.saveAndContinue(),
+      navigationMode: controller.navigationMode.value,
       content: SingleChildScrollView(
         child: Column(
           children: [
-            SectionHeader(
-              title: 'Daily Water Intake',
-              subtitle: 'How much water do you drink per day on average?',
-              questionNumber: 'Step 6 of 8',
-              icon: Icons.local_drink,
-              iconColor: Colors.blue,
+            // Section Header with Info Button
+            Stack(
+              children: [
+                SectionHeader(
+                  title: 'Daily Water Intake',
+                  subtitle: 'How much water do you drink per day on average?',
+                  questionNumber: 'Step 6 of 8',
+                  icon: Icons.local_drink,
+                  iconColor: Colors.blue,
+                ),
+                // Info button positioned at top-right
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      onPressed: () async {
+                        WaterInfoDialog.show(age: userController.user.value.profile.age, gender: userController.user.value.profile.gender);
+                      },
+                      icon: Icon(
+                        Icons.info_outline,
+                        color: Colors.blue,
+                        size: 24,
+                      ),
+                      tooltip: 'View recommended water intake',
+                      style: IconButton.styleFrom(
+                        padding: EdgeInsets.all(12),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
 
             const SizedBox(height: 40),
@@ -82,7 +154,7 @@ class WaterIntakeInputScreen extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            'liters',
+                            HealthDataRanges.unitWater,
                             style: TextStyle(
                               fontSize: 14,
                               color: darkMode ? TColors.darkGrey : TColors.darkerGrey,
@@ -111,18 +183,19 @@ class WaterIntakeInputScreen extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                           color: controller.getHydrationStatusColor(),
                         ),
+                        textAlign: TextAlign.center,
                       ),
                     ),
                   )),
 
                   const SizedBox(height: 32),
 
-                  // Slider
+                  // Slider - 使用数据范围
                   Obx(() => CustomSlider(
                     value: controller.waterIntake.value,
-                    min: 0.5,
-                    max: 5.0,
-                    divisions: 45, // 0.1 liter increments
+                    min: HealthDataRanges.minWaterLiters,
+                    max: HealthDataRanges.maxWaterLiters,
+                    divisions: _calculateDivisions(),
                     onChanged: (value) => controller.setWaterIntake(value),
                     activeColor: controller.getHydrationStatusColor(),
                     darkMode: darkMode,
@@ -130,14 +203,9 @@ class WaterIntakeInputScreen extends StatelessWidget {
 
                   const SizedBox(height: 16),
 
-                  // Scale indicators
+                  // Scale indicators - 动态生成
                   RangeIndicators(
-                    labels: ['0.5L (Low)', '2-3L (Good)', '5L (High)'],
-                    colors: [
-                      Colors.red,
-                      Colors.green,
-                      Colors.blue,
-                    ],
+                    labels: _generateRangeLabels(),
                     darkMode: darkMode,
                   ),
 
@@ -166,74 +234,52 @@ class WaterIntakeInputScreen extends StatelessWidget {
                       ],
                     ),
                   )),
+
+                  const SizedBox(height: 32),
+
+                  // Quick Select Buttons
+                  _buildQuickSelectButtons(controller, darkMode),
+
+                  const SizedBox(height: 24),
+
+                  // Water Intake Info Card
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: TColors.info.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: TColors.info.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          color: TColors.info,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Recommended daily water intake varies by age and gender.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: darkMode
+                                  ? TColors.darkGrey
+                                  : TColors.darkerGrey,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
 
             const SizedBox(height: 32),
-
-            // Unit Selection
-            InputContainer(
-              darkMode: darkMode,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Preferred Unit',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: darkMode ? TColors.white : TColors.black,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Choose how you prefer to measure water intake',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: darkMode ? TColors.darkGrey : TColors.darkerGrey,
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Unit selection buttons
-                  Obx(() => Row(
-                    children: [
-                      Expanded(
-                        child: _buildUnitButton(
-                          'Liters',
-                          Icons.local_drink,
-                          'liters',
-                          controller,
-                          darkMode,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildUnitButton(
-                          'Cups',
-                          Icons.coffee,
-                          'cups',
-                          controller,
-                          darkMode,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildUnitButton(
-                          'Bottles',
-                          Icons.sports_bar,
-                          'bottles',
-                          controller,
-                          darkMode,
-                        ),
-                      ),
-                    ],
-                  )),
-                ],
-              ),
-            ),
           ],
         ),
       ),
@@ -261,45 +307,30 @@ class WaterIntakeInputScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildUnitButton(String label, IconData icon, String unit, WaterIntakeController controller, bool darkMode) {
-    final isSelected = controller.preferredUnit.value == unit;
-    return GestureDetector(
-      onTap: () => controller.setPreferredUnit(unit),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? Colors.blue.withOpacity(0.1)
-              : darkMode ? TColors.darkerGrey.withOpacity(0.5) : TColors.grey.withOpacity(0.3),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? Colors.blue : Colors.transparent,
-            width: 2,
-          ),
-        ),
-        child: Column(
-          children: [
-            Icon(
-              icon,
-              size: 20,
-              color: isSelected
-                  ? Colors.blue
-                  : darkMode ? TColors.white : TColors.black,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: isSelected
-                    ? Colors.blue
-                    : darkMode ? TColors.white : TColors.black,
-              ),
-            ),
-          ],
-        ),
-      ),
+  // 构建快速选择按钮
+  Widget _buildQuickSelectButtons(WaterIntakeController controller, bool darkMode) {
+    // 使用固定的常用水量值
+    final quickSelectValues = [1.0, 1.5, 2.0, 2.5, 3.0, 4.0];
+
+    // 过滤掉超出范围的值
+    final validValues = quickSelectValues.where((value) =>
+    value >= HealthDataRanges.minWaterLiters &&
+        value <= HealthDataRanges.maxWaterLiters
+    ).toList();
+
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      alignment: WrapAlignment.center,
+      children: validValues.map((value) {
+        return Obx(() => QuickSelectButton(
+          label: '${value.toStringAsFixed(1)}L',
+          isSelected: (controller.waterIntake.value - value).abs() < 0.1,
+          onTap: () => controller.setWaterIntake(value),
+          selectedColor: Colors.blue,
+          darkMode: darkMode,
+        ));
+      }).toList(),
     );
   }
 }

@@ -563,6 +563,11 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
     _stepTrackingService.stopTracking();
   }
 
+  /// Get filtered data based on current filters (for HealthDataListScreen)
+  List<HealthDataModel> getFilteredData() {
+    return healthDataList; // 已经是完整列表
+  }
+
   Future<void> deleteHealthRecord(String logId) async {
     try {
       final userId = _authRepo.authUser?.uid;

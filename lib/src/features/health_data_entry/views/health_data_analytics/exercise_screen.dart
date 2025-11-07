@@ -217,12 +217,11 @@ class ExerciseScreen extends StatelessWidget {
     return GestureDetector(
       onTap: () {
         // 跳转到运动记录列表页面
-        Get.to(() =>
-            HealthDataListScreen(
-              title: 'Exercise Records',
-              healthDataList: controller.allExerciseLogs,
-              healthDataType: HealthDataType.physicalActivity,
-            ));
+        Get.to(() => const HealthDataListScreen(
+          title: 'Exercise Records',
+          healthDataType: HealthDataType.physicalActivity,
+          filterType: 'all',
+        ));
       },
       child: Container(
         width: double.infinity,
@@ -262,12 +261,11 @@ class ExerciseScreen extends StatelessWidget {
                         color: darkMode ? TColors.white : TColors.textSecondary,
                       ),
                       onPressed: () {
-                        Get.to(() =>
-                            HealthDataListScreen(
-                              title: 'Exercise Records',
-                              healthDataList: controller.allExerciseLogs,
-                              healthDataType: HealthDataType.physicalActivity,
-                            ));
+                        Get.to(() => const HealthDataListScreen(
+                          title: 'Exercise Records',
+                          healthDataType: HealthDataType.physicalActivity,
+                          filterType: 'all',
+                        ));
                       },
                       tooltip: 'View all records',
                     ),

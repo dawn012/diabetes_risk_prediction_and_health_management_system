@@ -40,11 +40,15 @@ class TTexts {
   static const String signInWithGoogle = "Sign-In with Google";
   static const String submit = "Submit";
 
-  // -- Authentication Form Text
   // -- Login Screen Text
   static const String loginTitle = "Welcome back!";
   static const String loginSubTitle = "Log in to your existent account of DiaTrack";
   static const String dontHaveAnAccount = "Don't have an account? ";
+
+  // -- Admin Login Screen Text
+  static const String adminLoginTitle = "Admin Portal";
+  static const String adminLoginSubTitle = "Access the administrative dashboard";
+  static const String adminLoginFooter = "© 2025 DiaTrack. All rights reserved.";
 
   // -- Sign Up Screen Text
   static const String signUpTitle = "Let's Get Started!";
@@ -96,9 +100,21 @@ class TTexts {
   static const String info = "Info";
   static const String congratulations = "Congratulations";
 
-  // -- Error Message
+  // -- Error Messages
   static const String commonErrorMessage = "Something went wrong. Please try again.";
   static const String networkErrorMessage = "You're offline. Please check your network connection and try again.";
+
+  // -- Login Error Messages
+  static const String incorrectEmailOrPassword = "Incorrect email or password.";
+  static const String userCannotLoginFromAdmin = "This account cannot log in from admin website.";
+  static const String adminCannotLoginFromMobile = "This account cannot log in from mobile app.";
+  static const String accountDisabled = "Account Disabled";
+  static const String accountDisabledMessage = "This account has been disabled. Please contact the administrator.";
+  static const String accountBlocked = "Account Blocked";
+  static const String tooManyFailedAttempts = "Too many failed attempts. Please try again after";
+  static const String minutes = "minutes.";
+  static const String emailNotVerified = "Email Not Verified";
+  static const String emailNotVerifiedMessage = "Your email is not verified. Please check your inbox for the verification email.";
 
   // -- Home
   static const String homeAppbarTitle = "Good day for managing diabetes";
@@ -110,9 +126,31 @@ class TTexts {
   static const String comment = "Comment";
   static const String share = "Share";
   static const String writeComment = "Write your comment";
+
+  // -- Help & Support
+  static const String helpSupportTitle = "Help & Support";
+  static const String helpSupportSubtitle = "Find answers to common questions";
+  static const String faqTitle = "Frequently Asked Questions";
+  static const String contactUs = "Contact Us";
+  static const String contactUsSubtitle = "Still have questions? We're here to help!";
+  static const String supportEmail = "support@diatrack.com";
+  static const String supportPhone = "+60 12-345 6789";
+  static const String businessHours = "Monday - Friday: 9:00 AM - 6:00 PM (GMT+8)";
+  static const String searchFAQ = "Search FAQ...";
+
+  // -- Terms & Conditions
+  static const String termsTitle = "Terms & Conditions";
+  static const String termsSubtitle = "Please read these terms carefully";
+  static const String lastUpdated = "Last updated";
+  static const String acceptTerms = "Accept Terms";
+
+  // -- Privacy Policy
+  static const String privacyPolicyTitle = "Privacy Policy";
+  static const String privacyPolicySubtitle = "How we protect your data";
+
+  // -- Support Categories
+  static const String generalQuestions = "General Questions";
+  static const String accountSecurity = "Account & Security";
+  static const String dataPrivacy = "Privacy & Data Security";
+  static const String technicalSupport = "Technical Support";
 }
-
-
-
-
-

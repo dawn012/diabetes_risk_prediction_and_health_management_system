@@ -185,37 +185,33 @@ class DiabetesBloodGlucoseController extends GetxController {
 
   /// Get glucose color based on level
   Color getGlucoseColor() {
+    final value = currentValue.value;
+
     if (measurementType.value == 'mg/dL') {
-      if (currentValue.value < 70) return Colors.blue;
-      if (currentValue.value <= 99) return Colors.green;
-      if (currentValue.value <= 125) return Colors.orange;
-      if (currentValue.value <= 199) return Colors.deepOrange;
-      return Colors.red;
+      if (value < 81) return Colors.orange; // Low
+      if (value <= 180) return Colors.green; // Normal
+      return Colors.red; // High
     } else {
       // mmol/L ranges
-      if (currentValue.value < 3.9) return Colors.blue;
-      if (currentValue.value <= 5.5) return Colors.green;
-      if (currentValue.value <= 6.9) return Colors.orange;
-      if (currentValue.value <= 11.0) return Colors.deepOrange;
-      return Colors.red;
+      if (value < 4.5) return Colors.orange; // Low
+      if (value <= 10.0) return Colors.green; // Normal
+      return Colors.red; // High
     }
   }
 
-  /// Get glucose status text
+  /// Get glucose status text (only Low, Normal, High)
   String getGlucoseStatus() {
+    final value = currentValue.value;
+
     if (measurementType.value == 'mg/dL') {
-      if (currentValue.value < 70) return 'Low';
-      if (currentValue.value <= 99) return 'Normal';
-      if (currentValue.value <= 125) return 'Elevated';
-      if (currentValue.value <= 199) return 'High';
-      return 'Very High';
+      if (value < 81) return 'Low';
+      if (value <= 180) return 'Normal';
+      return 'High';
     } else {
       // mmol/L ranges
-      if (currentValue.value < 3.9) return 'Low';
-      if (currentValue.value <= 5.5) return 'Normal';
-      if (currentValue.value <= 6.9) return 'Elevated';
-      if (currentValue.value <= 11.0) return 'High';
-      return 'Very High';
+      if (value < 4.5) return 'Low';
+      if (value <= 10.0) return 'Normal';
+      return 'High';
     }
   }
 
@@ -261,15 +257,15 @@ class DiabetesBloodGlucoseController extends GetxController {
     try {
       isLoading.value = true;
 
-      // Convert to mg/dL for consistent storage
-      final glucoseInMgDl = measurementType.value == 'mmol/L'
-          ? mmolToMgdl(currentValue.value)
+      // Convert to mmol/L for consistent storage
+      final glucoseInMmolL = measurementType.value == 'mg/dL'
+          ? mgdlToMmol(currentValue.value)
           : currentValue.value;
 
       // Save to Hive cache
       await _storageManager.updateStepData(2, {
-        'glucose': glucoseInMgDl,
-        'unit': 'mg/dL', // Always store in mg/dL for consistency
+        'glucose': glucoseInMmolL,
+        'unit': 'mmol/L', // Always store in mmol/L for consistency
       });
 
       // Navigate based on mode
@@ -283,7 +279,7 @@ class DiabetesBloodGlucoseController extends GetxController {
         Get.off(
               () => DiabetesPredictionOverviewScreen(),
           transition: Transition.downToUp,
-          duration: Duration(milliseconds: 400),
+          duration: const Duration(milliseconds: 400),
           curve: Curves.easeInOut,
         );
       } else {
@@ -291,7 +287,10 @@ class DiabetesBloodGlucoseController extends GetxController {
         Get.to(() => PhysicalActivityInputScreen());
       }
     } catch (e) {
-      TLoaders.errorSnackBar(title: 'Error', message: 'Failed to save data. Please try again.');
+      TLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to save data. Please try again.',
+      );
       print('Error saving blood glucose: $e');
     } finally {
       isLoading.value = false;

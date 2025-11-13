@@ -712,7 +712,7 @@ class HealthDataEntryScreen extends StatelessWidget {
     switch (section) {
       case 'Blood Glucose':
         iconData = Icons.bloodtype_outlined;
-        iconColor = TColors.glucoseGood;
+        iconColor = TColors.glucoseNormal;
         break;
       case 'Blood Pressure & Pulse':
         iconData = Icons.favorite_outline;

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -30,7 +32,10 @@ class CommentController extends GetxController {
   final commentsError = ''.obs;
   DocumentSnapshot? lastCommentDoc;
 
-  // Replies state - Map of commentId -> replies
+  // Stream subscription for real-time updates (only for newest sort)
+  StreamSubscription? _commentsStreamSubscription;
+
+  // Replies state
   final repliesMap = <String, RxList<ReplyModel>>{}.obs;
   final expandedReplies = <String, bool>{}.obs;
   final loadingReplies = <String, bool>{}.obs;
@@ -46,7 +51,7 @@ class CommentController extends GetxController {
   final commentFocusNode = FocusNode();
 
   // Sorting
-  final currentSort = 'newest'.obs; // 'newest' or 'top'
+  final currentSort = 'newest'.obs; // 'newest', 'oldest', 'top'
 
   @override
   void onInit() {
@@ -57,6 +62,7 @@ class CommentController extends GetxController {
 
   @override
   void onClose() {
+    _commentsStreamSubscription?.cancel();
     commentText.dispose();
     commentFocusNode.dispose();
     super.onClose();
@@ -64,25 +70,34 @@ class CommentController extends GetxController {
 
   /// =================== COMMENTS SECTION =================== ///
 
-  /// Fetch comments with pagination
+  /// Fetch comments based on current sort mode
   Future<void> fetchComments({bool refresh = false}) async {
     if (refresh) {
       comments.clear();
       lastCommentDoc = null;
       hasMoreComments.value = true;
+      _commentsStreamSubscription?.cancel();
     }
 
     isLoadingComments.value = true;
     commentsError.value = '';
 
     try {
-      final stream = currentSort.value == 'top'
-          ? commentRepo.fetchTopComments(postId: postId, limit: 20)
-          : commentRepo.fetchComments(postId: postId, limit: 20, startAfter: lastCommentDoc as DocumentSnapshot<Map<String, dynamic>>?);
-
-      comments.bindStream(stream);
-
-      await Future.delayed(const Duration(milliseconds: 100));
+      if (currentSort.value == 'newest') {
+        // Use Stream for real-time updates (only for first page)
+        if (lastCommentDoc == null) {
+          _setupRealtimeComments();
+        } else {
+          // Pagination for older comments (non-realtime)
+          await _fetchPaginatedComments();
+        }
+      } else if (currentSort.value == 'top') {
+        // Fetch top comments (no real-time)
+        await _fetchTopComments();
+      } else if (currentSort.value == 'oldest') {
+        // Fetch oldest first (no real-time)
+        await _fetchOldestComments();
+      }
     } catch (e) {
       commentsError.value = 'Failed to load comments';
     } finally {
@@ -90,26 +105,164 @@ class CommentController extends GetxController {
     }
   }
 
-  /// Create new comment
+  /// Setup real-time listener for newest comments (first page only)
+  void _setupRealtimeComments() {
+    _commentsStreamSubscription?.cancel();
+
+    final stream = commentRepo.fetchComments(
+      postId: postId,
+      limit: 20,
+      startAfter: null,
+    );
+
+    _commentsStreamSubscription = stream.listen((newComments) {
+      comments.value = newComments;
+      isLoadingComments.value = false;
+    }, onError: (error) {
+      commentsError.value = 'Failed to load comments';
+      isLoadingComments.value = false;
+    });
+  }
+
+  /// Fetch paginated comments (for older data)
+  Future<void> _fetchPaginatedComments() async {
+    final snapshot = await commentRepo.fetchCommentsPaginated(
+      postId: postId,
+      limit: 20,
+      startAfter: lastCommentDoc,
+    );
+
+    if (snapshot.docs.isEmpty) {
+      hasMoreComments.value = false;
+      return;
+    }
+
+    final newComments = snapshot.docs
+        .map((doc) => CommentModel.fromSnapshot(doc))
+        .toList();
+
+    newComments.sort((a, b) {
+      final aTime = a.updatedAt.isAfter(a.createdAt) ? a.updatedAt : a.createdAt;
+      final bTime = b.updatedAt.isAfter(b.createdAt) ? b.updatedAt : b.createdAt;
+      return bTime.compareTo(aTime);
+    });
+
+    comments.addAll(newComments);
+    lastCommentDoc = snapshot.docs.last;
+    hasMoreComments.value = snapshot.docs.length == 20;
+  }
+
+  /// Fetch top comments (sorted by popularity score)
+  Future<void> _fetchTopComments() async {
+    final snapshot = await commentRepo.fetchTopCommentsPaginated(
+      postId: postId,
+      limit: 20,
+      startAfter: lastCommentDoc,
+    );
+
+    if (snapshot.docs.isEmpty) {
+      hasMoreComments.value = false;
+      return;
+    }
+
+    final newComments = snapshot.docs
+        .map((doc) => CommentModel.fromSnapshot(doc))
+        .toList();
+
+    // Sort by score = likes * 3 + replies * 1.5 - hours_since_posted * 0.1
+    newComments.sort((a, b) => b.popularityScore.compareTo(a.popularityScore));
+
+    if (lastCommentDoc == null) {
+      comments.value = newComments;
+    } else {
+      comments.addAll(newComments);
+    }
+
+    lastCommentDoc = snapshot.docs.last;
+    hasMoreComments.value = snapshot.docs.length == 20;
+  }
+
+  /// Fetch oldest comments
+  Future<void> _fetchOldestComments() async {
+    final snapshot = await commentRepo.fetchCommentsPaginated(
+      postId: postId,
+      limit: 20,
+      startAfter: lastCommentDoc,
+    );
+
+    if (snapshot.docs.isEmpty) {
+      hasMoreComments.value = false;
+      return;
+    }
+
+    final newComments = snapshot.docs
+        .map((doc) => CommentModel.fromSnapshot(doc))
+        .toList();
+
+    newComments.sort((a, b) {
+      final aTime = a.updatedAt.isAfter(a.createdAt) ? a.updatedAt : a.createdAt;
+      final bTime = b.updatedAt.isAfter(b.createdAt) ? b.updatedAt : b.createdAt;
+      return aTime.compareTo(bTime); // ascending: older first
+    });
+
+    if (lastCommentDoc == null) {
+      comments.value = newComments;
+    } else {
+      comments.addAll(newComments);
+    }
+
+    lastCommentDoc = snapshot.docs.last;
+    hasMoreComments.value = snapshot.docs.length == 20;
+  }
+
+  /// Create new comment with optimistic update
   Future<void> createComment() async {
-    // Validate comment content
     final contentError = CommunityValidator.validateCommentContent(commentText.text);
     if (contentError != null) {
-      TLoaders.warningSnackBar(
-        title: 'Invalid Comment',
-        message: contentError,
-      );
+      TLoaders.warningSnackBar(title: 'Invalid Comment', message: contentError);
       return;
     }
 
     final content = commentText.text.trim();
     if (!await _checkConnection()) return;
 
+    // Optimistic update - Add to local list immediately
+    final tempComment = CommentModel(
+      commentId: 'temp_${DateTime.now().millisecondsSinceEpoch}',
+      authorId: userController.user.value.userId,
+      content: content,
+      likes: const [],
+      replyCount: 0,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
+      isOptimistic: true, // Flag for UI
+    );
+
+    comments.insert(0, tempComment);
+    commentText.clear();
+
     try {
-      await commentRepo.createComment(content: content, postId: postId);
-      commentText.clear();
+      final actualCommentId = await commentRepo.createComment(
+        content: content,
+        postId: postId,
+      );
+
+      // Replace temp comment with actual one (if not using stream)
+      if (currentSort.value != 'newest') {
+        final index = comments.indexWhere((c) => c.commentId == tempComment.commentId);
+        if (index != -1) {
+          comments[index] = tempComment.copyWith(
+            commentId: actualCommentId ?? tempComment.commentId,
+            isOptimistic: false,
+          );
+        }
+      }
+      // If using stream, it will auto-update
+
       TLoaders.successSnackBar(title: 'Success', message: 'Comment posted');
     } catch (e) {
+      // Remove optimistic comment on error
+      comments.removeWhere((c) => c.commentId == tempComment.commentId);
       _showError(e.toString());
     }
   }
@@ -129,77 +282,113 @@ class CommentController extends GetxController {
     _focusTextField();
   }
 
-  /// Update comment
+  /// Update comment with optimistic update
   Future<void> updateComment() async {
-    // Validate comment content
     final contentError = CommunityValidator.validateCommentContent(commentText.text);
     if (contentError != null) {
-      TLoaders.warningSnackBar(
-        title: 'Invalid Comment',
-        message: contentError,
-      );
+      TLoaders.warningSnackBar(title: 'Invalid Comment', message: contentError);
       return;
     }
 
     final content = commentText.text.trim();
     if (editingCommentId.value == null || content.isEmpty || content == originalText.value) return;
 
+    final commentId = editingCommentId.value!;
+    final index = comments.indexWhere((c) => c.commentId == commentId);
+    if (index == -1) return;
+
+    // Optimistic update
+    final oldComment = comments[index];
+    comments[index] = oldComment.copyWith(
+      content: content,
+      updatedAt: DateTime.now(),
+    );
+
+    clearEditingState();
+
     try {
-      await commentRepo.updateComment(commentId: editingCommentId.value!, content: content);
-      clearEditingState();
+      await commentRepo.updateComment(commentId: commentId, content: content);
       TLoaders.successSnackBar(title: 'Success', message: 'Comment updated');
     } catch (e) {
+      // Rollback on error
+      comments[index] = oldComment;
       _showError('Failed to update comment');
     }
   }
 
-  /// Delete comment
+  /// Delete comment with optimistic update
   void deleteCommentDialog(CommentModel comment) {
     TDialog.deleteDialog(
       title: 'Delete Comment',
       message: 'Are you sure you want to delete this comment?',
-      onConfirm: () => _deleteComment(comment.commentId),
+      onConfirm: () => _deleteComment(comment),
     );
   }
 
-  Future<void> _deleteComment(String commentId) async {
+  Future<void> _deleteComment(CommentModel comment) async {
+    // Optimistic removal
+    final index = comments.indexWhere((c) => c.commentId == comment.commentId);
+    if (index != -1) {
+      comments.removeAt(index);
+    }
+
     try {
-      await commentRepo.deleteComment(commentId);
+      await commentRepo.deleteComment(comment.commentId);
       TLoaders.successSnackBar(title: 'Success', message: 'Comment deleted');
     } catch (e) {
+      // Rollback on error
+      comments.insert(index, comment);
       _showError('Failed to delete comment');
     }
   }
 
-  /// Toggle comment like
+  /// Toggle comment like with optimistic update
   Future<void> toggleCommentLike(CommentModel comment) async {
+    final userId = userController.user.value.userId;
+    final index = comments.indexWhere((c) => c.commentId == comment.commentId);
+    if (index == -1) return;
+
+    // Optimistic update
+    final oldComment = comments[index];
+    final newLikes = List<String>.from(oldComment.likes);
+
+    if (newLikes.contains(userId)) {
+      newLikes.remove(userId);
+    } else {
+      newLikes.add(userId);
+    }
+
+    comments[index] = oldComment.copyWith(likes: newLikes);
+
     try {
       await commentRepo.toggleCommentLike(
         commentId: comment.commentId,
         currentLikes: comment.likes,
       );
     } catch (e) {
+      // Rollback on error
+      comments[index] = oldComment;
       _showError('Failed to update like');
     }
   }
 
   /// =================== REPLIES SECTION =================== ///
 
-  /// Fetch replies for a comment
+  /// Fetch replies for a comment (real-time stream)
   void fetchReplies(String commentId) {
     if (repliesMap.containsKey(commentId)) {
-      // Toggle expand/collapse
       expandedReplies[commentId] = !(expandedReplies[commentId] ?? false);
       return;
     }
 
-    // First time loading replies
     loadingReplies[commentId] = true;
     repliesError[commentId] = '';
 
     try {
       repliesMap[commentId] = <ReplyModel>[].obs;
-      repliesMap[commentId]!.bindStream(replyRepo.fetchReplies(parentCommentId: commentId));
+      repliesMap[commentId]!.bindStream(
+          replyRepo.fetchReplies(parentCommentId: commentId)
+      );
       expandedReplies[commentId] = true;
     } catch (e) {
       repliesError[commentId] = 'Failed to load replies';
@@ -208,29 +397,58 @@ class CommentController extends GetxController {
     }
   }
 
-  /// Create new reply
+  /// Create new reply with optimistic update
   Future<void> createReply(String parentCommentId) async {
-    // Validate reply content
     final contentError = CommunityValidator.validateReplyContent(commentText.text);
     if (contentError != null) {
-      TLoaders.warningSnackBar(
-        title: 'Invalid Reply',
-        message: contentError,
-      );
+      TLoaders.warningSnackBar(title: 'Invalid Reply', message: contentError);
       return;
     }
 
     final content = commentText.text.trim();
     if (!await _checkConnection()) return;
 
+    // Optimistic update
+    final tempReply = ReplyModel(
+      replyId: 'temp_${DateTime.now().millisecondsSinceEpoch}',
+      authorId: userController.user.value.userId,
+      content: content,
+      likes: const [],
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
+      isOptimistic: true,
+    );
+
+    if (repliesMap.containsKey(parentCommentId)) {
+      repliesMap[parentCommentId]!.add(tempReply);
+    }
+
+    // Update reply count optimistically
+    final commentIndex = comments.indexWhere((c) => c.commentId == parentCommentId);
+    if (commentIndex != -1) {
+      comments[commentIndex] = comments[commentIndex].copyWith(
+        replyCount: comments[commentIndex].replyCount + 1,
+      );
+    }
+
+    commentText.clear();
+
     try {
       await replyRepo.createReply(
         content: content,
         parentCommentId: parentCommentId,
       );
-      commentText.clear();
       TLoaders.successSnackBar(title: 'Success', message: 'Reply posted');
     } catch (e) {
+      // Rollback on error
+      if (repliesMap.containsKey(parentCommentId)) {
+        repliesMap[parentCommentId]!.removeWhere((r) => r.replyId == tempReply.replyId);
+      }
+      if (commentIndex != -1) {
+        comments[commentIndex] = comments[commentIndex].copyWith(
+          replyCount: comments[commentIndex].replyCount - 1,
+        );
+      }
       _showError(e.toString());
     }
   }
@@ -250,15 +468,11 @@ class CommentController extends GetxController {
     _focusTextField();
   }
 
-  /// Update reply
+  /// Update reply with optimistic update
   Future<void> updateReply() async {
-    // Validate reply content
     final contentError = CommunityValidator.validateReplyContent(commentText.text);
     if (contentError != null) {
-      TLoaders.warningSnackBar(
-        title: 'Invalid Reply',
-        message: contentError,
-      );
+      TLoaders.warningSnackBar(title: 'Invalid Reply', message: contentError);
       return;
     }
 
@@ -266,39 +480,103 @@ class CommentController extends GetxController {
     if (editingReplyId.value == null || editingParentCommentId.value == null ||
         content.isEmpty || content == originalText.value) return;
 
+    final replyId = editingReplyId.value!;
+    final parentCommentId = editingParentCommentId.value!;
+
+    if (!repliesMap.containsKey(parentCommentId)) return;
+
+    final replies = repliesMap[parentCommentId]!;
+    final index = replies.indexWhere((r) => r.replyId == replyId);
+    if (index == -1) return;
+
+    // Optimistic update
+    final oldReply = replies[index];
+    replies[index] = oldReply.copyWith(
+      content: content,
+      updatedAt: DateTime.now(),
+    );
+
+    clearEditingState();
+
     try {
       await replyRepo.updateReply(
-        replyId: editingReplyId.value!,
-        parentCommentId: editingParentCommentId.value!,
+        replyId: replyId,
+        parentCommentId: parentCommentId,
         content: content,
       );
-      clearEditingState();
       TLoaders.successSnackBar(title: 'Success', message: 'Reply updated');
     } catch (e) {
+      // Rollback on error
+      replies[index] = oldReply;
       _showError('Failed to update reply');
     }
   }
 
-  /// Delete reply
+  /// Delete reply with optimistic update
   void deleteReplyDialog(ReplyModel reply, String parentCommentId) {
     TDialog.deleteDialog(
       title: 'Delete Reply',
       message: 'Are you sure you want to delete this reply?',
-      onConfirm: () => _deleteReply(reply.replyId, parentCommentId),
+      onConfirm: () => _deleteReply(reply, parentCommentId),
     );
   }
 
-  Future<void> _deleteReply(String replyId, String parentCommentId) async {
+  Future<void> _deleteReply(ReplyModel reply, String parentCommentId) async {
+    if (!repliesMap.containsKey(parentCommentId)) return;
+
+    final replies = repliesMap[parentCommentId]!;
+    final index = replies.indexWhere((r) => r.replyId == reply.replyId);
+    if (index != -1) {
+      replies.removeAt(index);
+    }
+
+    // Update reply count
+    final commentIndex = comments.indexWhere((c) => c.commentId == parentCommentId);
+    if (commentIndex != -1) {
+      comments[commentIndex] = comments[commentIndex].copyWith(
+        replyCount: comments[commentIndex].replyCount - 1,
+      );
+    }
+
     try {
-      await replyRepo.deleteReply(replyId: replyId, parentCommentId: parentCommentId);
+      await replyRepo.deleteReply(
+        replyId: reply.replyId,
+        parentCommentId: parentCommentId,
+      );
       TLoaders.successSnackBar(title: 'Success', message: 'Reply deleted');
     } catch (e) {
+      // Rollback on error
+      replies.insert(index, reply);
+      if (commentIndex != -1) {
+        comments[commentIndex] = comments[commentIndex].copyWith(
+          replyCount: comments[commentIndex].replyCount + 1,
+        );
+      }
       _showError('Failed to delete reply');
     }
   }
 
-  /// Toggle reply like
+  /// Toggle reply like with optimistic update
   Future<void> toggleReplyLike(ReplyModel reply, String parentCommentId) async {
+    final userId = userController.user.value.userId;
+    if (!repliesMap.containsKey(parentCommentId)) return;
+
+    final replies = repliesMap[parentCommentId]!;
+    final index = replies.indexWhere((r) => r.replyId == reply.replyId);
+    if (index == -1) return;
+
+    // Optimistic update
+    final oldReply = replies[index];
+    final newLikes = List<String>.from(oldReply.likes);
+
+    if (newLikes.contains(userId)) {
+      newLikes.remove(userId);
+    } else {
+      newLikes.add(userId);
+    }
+
+    replies[index] = oldReply.copyWith(likes: newLikes);
+
     try {
       await replyRepo.toggleReplyLike(
         replyId: reply.replyId,
@@ -306,13 +584,14 @@ class CommentController extends GetxController {
         currentLikes: reply.likes,
       );
     } catch (e) {
+      // Rollback on error
+      replies[index] = oldReply;
       _showError('Failed to update like');
     }
   }
 
   /// =================== UI ACTIONS =================== ///
 
-  /// Handle comment/reply submission
   void handleSubmit({String? parentCommentId}) {
     if (!isButtonEnabled.value) return;
 
@@ -327,7 +606,6 @@ class CommentController extends GetxController {
     }
   }
 
-  /// Cancel editing
   Future<void> cancelEdit() async {
     if (_hasUnsavedChanges()) {
       final shouldDiscard = await _showDiscardDialog();
@@ -336,7 +614,6 @@ class CommentController extends GetxController {
     clearEditingState();
   }
 
-  /// Sort comments
   void sortComments(String sortType) {
     if (currentSort.value == sortType) return;
 
@@ -351,8 +628,9 @@ class CommentController extends GetxController {
   bool get isEditing => editingCommentId.value != null || editingReplyId.value != null;
 
   String get submitButtonText {
-    if (editingCommentId.value != null) return 'Update';
-    if (editingReplyId.value != null) return 'Update';
+    if (editingCommentId.value != null || editingReplyId.value != null) {
+      return 'Update';
+    }
     return 'Post';
   }
 
@@ -373,7 +651,6 @@ class CommentController extends GetxController {
     });
   }
 
-  /// Public method to clear editing state (used by screens)
   void clearEditingState() {
     editingCommentId.value = null;
     editingReplyId.value = null;
@@ -402,17 +679,14 @@ class CommentController extends GetxController {
     TLoaders.errorSnackBar(title: TTexts.error, message: message);
   }
 
-  /// Get replies for a comment
   List<ReplyModel> getReplies(String commentId) {
     return repliesMap[commentId]?.toList() ?? [];
   }
 
-  /// Check if replies are expanded for a comment
   bool areRepliesExpanded(String commentId) {
     return expandedReplies[commentId] ?? false;
   }
 
-  /// Check if replies are loading for a comment
   bool areRepliesLoading(String commentId) {
     return loadingReplies[commentId] ?? false;
   }

@@ -142,6 +142,7 @@ class PostsList extends StatelessWidget {
               padding: EdgeInsets.only(bottom: 20),
               child: PostTile(post: post, isInMyPosts: false,),
             )),
+            SizedBox(height: 80),
             if (controller.isLoadingMore.value)
               Container(
                 padding: const EdgeInsets.all(16),

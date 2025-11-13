@@ -18,7 +18,7 @@ class MealPhotoRecordAdapter extends TypeAdapter<MealPhotoRecord> {
     };
     return MealPhotoRecord(
       id: fields[0] as String,
-      localPath: fields[1] as String,
+      imagePath: fields[1] as String,
       fileSize: fields[2] as int,
       uploadTime: fields[3] as DateTime,
       needsProcessing: fields[4] as bool,
@@ -33,7 +33,7 @@ class MealPhotoRecordAdapter extends TypeAdapter<MealPhotoRecord> {
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
-      ..write(obj.localPath)
+      ..write(obj.imagePath)
       ..writeByte(2)
       ..write(obj.fileSize)
       ..writeByte(3)

@@ -17,7 +17,7 @@ class DiabetesAssessmentCache extends HiveObject {
   double? bloodGlucose;
 
   @HiveField(3)
-  String? glucoseUnit; // 'mg/dL' or 'mmol/L'
+  String? glucoseUnit; // 'mmol/L' or 'mg/dL'
 
   @HiveField(4)
   int? physicalActivityDuration;
@@ -65,7 +65,7 @@ class DiabetesAssessmentCache extends HiveObject {
     this.height,
     this.weight,
     this.bloodGlucose,
-    this.glucoseUnit = 'mg/dL',
+    this.glucoseUnit = 'mmol/L',
     this.physicalActivityDuration,
     this.stressLevel,
     this.sleepDuration,
@@ -88,7 +88,7 @@ class DiabetesAssessmentCache extends HiveObject {
       height: null,
       weight: null,
       bloodGlucose: null,
-      glucoseUnit: 'mg/dL',
+      glucoseUnit: 'mmol/L',
       physicalActivityDuration: null,
       stressLevel: null,
       sleepDuration: null,
@@ -118,7 +118,7 @@ class DiabetesAssessmentCache extends HiveObject {
     double? waterIntake,
     bool? takesMedication,
     int? medicationAdherence,
-    List<MealPhotoRecord>? mealPhotos, // 改为 MealPhotoRecord
+    List<MealPhotoRecord>? mealPhotos,
     bool? mealPhotosProcessed,
     DietAssessmentReport? dietAssessment,
     int? currentStep,
@@ -131,7 +131,7 @@ class DiabetesAssessmentCache extends HiveObject {
       height: height ?? this.height,
       weight: weight ?? this.weight,
       bloodGlucose: bloodGlucose ?? this.bloodGlucose,
-      glucoseUnit: glucoseUnit ?? this.glucoseUnit,
+      glucoseUnit: glucoseUnit ?? this.glucoseUnit ?? 'mmol/L',
       physicalActivityDuration: physicalActivityDuration ?? this.physicalActivityDuration,
       stressLevel: stressLevel ?? this.stressLevel,
       sleepDuration: sleepDuration ?? this.sleepDuration,
@@ -151,7 +151,7 @@ class DiabetesAssessmentCache extends HiveObject {
 
   /// 获取照片路径的便捷方法
   List<String> get mealPhotosPaths {
-    return mealPhotos?.map((photo) => photo.localPath).toList() ?? [];
+    return mealPhotos?.map((photo) => photo.imagePath).toList() ?? [];
   }
 
   /// Get completed steps count
@@ -193,7 +193,7 @@ class DiabetesAssessmentCache extends HiveObject {
     height = null;
     weight = null;
     bloodGlucose = null;
-    glucoseUnit = 'mg/dL';
+    glucoseUnit = 'mmol/L';
     physicalActivityDuration = null;
     stressLevel = null;
     sleepDuration = null;

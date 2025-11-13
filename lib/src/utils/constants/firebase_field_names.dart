@@ -32,6 +32,8 @@ class FirebaseFieldNames {
   static const String waterIntake = "waterIntake";
   static const String dailyStepsGoal = "dailyStepsGoal";
   static const String weeklyExerciseTime = "weeklyExerciseTime";
+  static const String hasChangedGender = "hasChangedGender";
+  static const String hasChangedDateOfBirth = "hasChangedDateOfBirth";
   static const String updatedAt = "updatedAt";
 
   static const String friends = 'friends';
@@ -99,18 +101,12 @@ class FirebaseFieldNames {
   static const String videoUrl = 'videoUrl';
   static const String videoId = 'videoId';
 
-  ///-- Chat
-  static const members = 'members';
-  static const chatroomId = 'chatroomId';
-  static const lastMessage = 'lastMessage';
-  static const lastMessageTs = 'lastMessageTs';
-  static const message = 'message';
-  static const senderId = 'senderId';
-  static const receiverId = 'receiverId';
-  static const seen = 'seen';
-  static const timestamp = 'timestamp';
-  static const messageId = 'messageId';
-  static const messageType = 'messageType';
+  /// Diabetes Prediction
+  static const String predictionId = 'predictionId';
+  static const String predictionDateTime = 'predictionDateTime';
+  static const String riskLevel = 'riskLevel';
+  static const String riskScore = 'riskScore';
+  static const String recommendations = 'recommendations';
 
   ///-- Achievement
   static const String achievementId = 'achievementId';
@@ -184,6 +180,7 @@ class FirebaseFieldNames {
   ///-- Notification fields
   static const String notificationId = 'notificationId';
   static const String notificationTitle = 'notificationTitle';
+  static const String message = 'message';
   static const String notificationType = 'notificationType';
   static const String title = 'title';
   static const String isRead = 'isRead';

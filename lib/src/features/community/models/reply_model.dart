@@ -8,6 +8,7 @@ class ReplyModel {
   final List<String> likes;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final bool isOptimistic; // Track if this is an optimistic update
   final List<String>? mentions; // Optional: for @username mentions
 
   const ReplyModel({
@@ -17,6 +18,7 @@ class ReplyModel {
     required this.likes,
     required this.createdAt,
     required this.updatedAt,
+    this.isOptimistic = false,
     this.mentions,
   });
 
@@ -28,6 +30,7 @@ class ReplyModel {
     likes: const [],
     createdAt: DateTime.fromMillisecondsSinceEpoch(0),
     updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
+    isOptimistic: false,
     mentions: const [],
   );
 
@@ -39,6 +42,7 @@ class ReplyModel {
     List<String>? likes,
     DateTime? createdAt,
     DateTime? updatedAt,
+    bool? isOptimistic,
     List<String>? mentions,
   }) {
     return ReplyModel(
@@ -48,6 +52,7 @@ class ReplyModel {
       likes: likes ?? this.likes,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      isOptimistic: isOptimistic ?? this.isOptimistic,
       mentions: mentions ?? this.mentions,
     );
   }
@@ -77,6 +82,7 @@ class ReplyModel {
           data[FirebaseFieldNames.createdAt] ?? 0),
       updatedAt: DateTime.fromMillisecondsSinceEpoch(
           data[FirebaseFieldNames.updatedAt] ?? 0),
+      isOptimistic: false,
       mentions: data.containsKey(FirebaseFieldNames.mentions)
           ? List<String>.from(data[FirebaseFieldNames.mentions])
           : null,
@@ -96,4 +102,10 @@ class ReplyModel {
 
   @override
   int get hashCode => replyId.hashCode;
+
+  /// Check if comment was edited
+  bool get wasEdited => updatedAt.millisecondsSinceEpoch > 0 && updatedAt.isAfter(createdAt);
+
+  /// Get time since edited (for display)
+  Duration get timeSinceEdited => DateTime.now().difference(updatedAt);
 }

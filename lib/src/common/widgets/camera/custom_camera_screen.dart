@@ -153,7 +153,7 @@ class _CustomCameraScreenState extends State<CustomCameraScreen> with WidgetsBin
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // Camera Preview
+          // Camera Preview - 放在最底层
           if (_isInitialized && _controller != null)
             Positioned.fill(
               child: AspectRatio(
@@ -176,7 +176,15 @@ class _CustomCameraScreenState extends State<CustomCameraScreen> with WidgetsBin
               ),
             ),
 
-          // Top Controls
+          // Guide overlay
+          if (_isInitialized)
+            Positioned.fill(
+              child: CustomPaint(
+                painter: CameraGuidePainter(),
+              ),
+            ),
+
+          // Top Controls - 确保在顶层
           Positioned(
             top: 0,
             left: 0,
@@ -197,10 +205,17 @@ class _CustomCameraScreenState extends State<CustomCameraScreen> with WidgetsBin
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Close button
-                    IconButton(
-                      onPressed: () => Get.back(),
-                      icon: Icon(Icons.close, color: Colors.white, size: 28),
+                    // Close button - 使用 Material 按钮确保可点击
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () => Get.back(),
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: EdgeInsets.all(8),
+                          child: Icon(Icons.close, color: Colors.white, size: 28),
+                        ),
+                      ),
                     ),
 
                     Text(
@@ -213,14 +228,21 @@ class _CustomCameraScreenState extends State<CustomCameraScreen> with WidgetsBin
                     ),
 
                     // Flash toggle
-                    IconButton(
-                      onPressed: _toggleFlash,
-                      icon: Icon(
-                        _flashMode == FlashMode.off
-                            ? Icons.flash_off
-                            : Icons.flash_on,
-                        color: Colors.white,
-                        size: 28,
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _toggleFlash,
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: EdgeInsets.all(8),
+                          child: Icon(
+                            _flashMode == FlashMode.off
+                                ? Icons.flash_off
+                                : Icons.flash_on,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -228,14 +250,6 @@ class _CustomCameraScreenState extends State<CustomCameraScreen> with WidgetsBin
               ),
             ),
           ),
-
-          // Guide overlay
-          if (_isInitialized)
-            Positioned.fill(
-              child: CustomPaint(
-                painter: CameraGuidePainter(),
-              ),
-            ),
 
           // Bottom Controls
           Positioned(
@@ -281,38 +295,48 @@ class _CustomCameraScreenState extends State<CustomCameraScreen> with WidgetsBin
                       children: [
                         // Switch camera
                         if (_cameras != null && _cameras!.length > 1)
-                          _controlButton(
-                            icon: Icons.flip_camera_ios,
-                            onTap: _switchCamera,
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: _switchCamera,
+                              borderRadius: BorderRadius.circular(30),
+                              child: _controlButton(
+                                icon: Icons.flip_camera_ios,
+                              ),
+                            ),
                           )
                         else
                           SizedBox(width: 60),
 
                         // Capture button
-                        GestureDetector(
-                          onTap: _isCapturing ? null : _capturePhoto,
-                          child: Container(
-                            width: 72,
-                            height: 72,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 4),
-                              color: Colors.transparent,
-                            ),
-                            child: _isCapturing
-                                ? Center(
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 3,
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: _isCapturing ? null : _capturePhoto,
+                            borderRadius: BorderRadius.circular(36),
+                            child: Container(
+                              width: 72,
+                              height: 72,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: 4),
+                                color: Colors.transparent,
                               ),
-                            )
-                                : Center(
-                              child: Container(
-                                width: 56,
-                                height: 56,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
+                              child: _isCapturing
+                                  ? Center(
+                                child: CircularProgressIndicator(
                                   color: Colors.white,
+                                  strokeWidth: 3,
+                                ),
+                              )
+                                  : Center(
+                                child: Container(
+                                  width: 56,
+                                  height: 56,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Colors.white,
+                                  ),
                                 ),
                               ),
                             ),
@@ -334,20 +358,16 @@ class _CustomCameraScreenState extends State<CustomCameraScreen> with WidgetsBin
 
   Widget _controlButton({
     required IconData icon,
-    required VoidCallback onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 60,
-        height: 60,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: Colors.black.withOpacity(0.5),
-          border: Border.all(color: Colors.white.withOpacity(0.3), width: 2),
-        ),
-        child: Icon(icon, color: Colors.white, size: 28),
+    return Container(
+      width: 60,
+      height: 60,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.black.withOpacity(0.5),
+        border: Border.all(color: Colors.white.withOpacity(0.3), width: 2),
       ),
+      child: Icon(icon, color: Colors.white, size: 28),
     );
   }
 }

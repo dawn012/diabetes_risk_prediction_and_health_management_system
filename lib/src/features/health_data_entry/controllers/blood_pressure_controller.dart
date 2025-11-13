@@ -7,10 +7,11 @@ import 'package:intl/intl.dart';
 import '../../../data/repositories/authentication/authentication_repository.dart';
 import '../../../data/repositories/health_log/health_log_repository.dart';
 import '../../../utils/constants/colors.dart';
+import '../../../utils/constants/enums.dart';
+import '../../../utils/constants/health_data_range.dart';
 import '../models/health_data_model.dart';
 import '../views/health_data_analytics/widgets/health_data_list_screen.dart';
 import '../views/health_data_entry/health_data_entry_screen.dart';
-import 'blood_glucose_controller.dart';
 import '../../../common/loaders/loaders.dart';
 
 class BloodPressureController extends GetxController {
@@ -64,6 +65,8 @@ class BloodPressureController extends GetxController {
   final diastolicTrendsData = <FlSpot>[].obs;
   final pulseTrendsData = <FlSpot>[].obs;
   final trendsLabels = <String>[].obs;
+  final bpTrendsOriginalDateTimes = <DateTime>[].obs; // 血压原始日期时间
+  final pulseTrendsOriginalDateTimes = <DateTime>[].obs; // 脉搏原始日期时间
 
   // Last record
   final lastRecord = Rx<HealthDataModel?>(null);
@@ -157,7 +160,7 @@ class BloodPressureController extends GetxController {
     final bpFilteredData = _getBpFilteredData();
     final pulseFilteredData = _getPulseFilteredData();
 
-    // 计算血压统计
+    // Calculate blood pressure statistics
     if (bpFilteredData.isEmpty) {
       systolicLowest.value = 0;
       systolicHighest.value = 0;
@@ -181,24 +184,31 @@ class BloodPressureController extends GetxController {
           .map((d) => d.bloodPressure.diastolic)
           .toList();
 
+      // 只要有记录就显示数值，即使只有一条
       if (systolicValues.isNotEmpty) {
         systolicLowest.value = systolicValues.reduce((a, b) => a < b ? a : b);
         systolicHighest.value = systolicValues.reduce((a, b) => a > b ? a : b);
-        systolicAverage.value =
-            systolicValues.reduce((a, b) => a + b) / systolicValues.length;
+        systolicAverage.value = systolicValues.reduce((a, b) => a + b) / systolicValues.length;
+      } else {
+        systolicLowest.value = 0;
+        systolicHighest.value = 0;
+        systolicAverage.value = 0.0;
       }
 
       if (diastolicValues.isNotEmpty) {
         diastolicLowest.value = diastolicValues.reduce((a, b) => a < b ? a : b);
         diastolicHighest.value = diastolicValues.reduce((a, b) => a > b ? a : b);
-        diastolicAverage.value =
-            diastolicValues.reduce((a, b) => a + b) / diastolicValues.length;
+        diastolicAverage.value = diastolicValues.reduce((a, b) => a + b) / diastolicValues.length;
+      } else {
+        diastolicLowest.value = 0;
+        diastolicHighest.value = 0;
+        diastolicAverage.value = 0.0;
       }
 
       _calculateDistribution(bpFilteredData);
     }
 
-    // 计算脉搏统计
+    // Calculate pulse statistics
     if (pulseFilteredData.isEmpty) {
       pulseLowest.value = 0;
       pulseHighest.value = 0;
@@ -209,11 +219,15 @@ class BloodPressureController extends GetxController {
           .map((d) => d.bloodPressure.pulse)
           .toList();
 
+      // 只要有记录就显示数值，即使只有一条
       if (pulseValues.isNotEmpty) {
         pulseLowest.value = pulseValues.reduce((a, b) => a < b ? a : b);
         pulseHighest.value = pulseValues.reduce((a, b) => a > b ? a : b);
-        pulseAverage.value =
-            pulseValues.reduce((a, b) => a + b) / pulseValues.length;
+        pulseAverage.value = pulseValues.reduce((a, b) => a + b) / pulseValues.length;
+      } else {
+        pulseLowest.value = 0;
+        pulseHighest.value = 0;
+        pulseAverage.value = 0.0;
       }
     }
   }
@@ -229,17 +243,19 @@ class BloodPressureController extends GetxController {
       if (sys > 0 || dia > 0) {
         final category = _getBPCategory(sys, dia);
         switch (category) {
-          case 'Normal':
+          case HealthLevel.normal:
             normal++;
             break;
-          case 'Elevated':
+          case HealthLevel.elevated:
             elevated++;
             break;
-          case 'High':
+          case HealthLevel.high:
             high++;
             break;
-          case 'Low':
+          case HealthLevel.low:
             low++;
+            break;
+          case HealthLevel.invalid:
             break;
         }
       }
@@ -261,13 +277,19 @@ class BloodPressureController extends GetxController {
     if (bpFilteredData.isEmpty) {
       systolicTrendsData.clear();
       diastolicTrendsData.clear();
+      bpTrendsOriginalDateTimes.clear(); // 清空血压原始日期时间
     } else {
       bpFilteredData.sort((a, b) => a.logDateTime.compareTo(b.logDateTime));
       final systolicSpots = <FlSpot>[];
       final diastolicSpots = <FlSpot>[];
+      final bpOriginalDateTimes = <DateTime>[]; // 血压原始日期时间
 
       for (int i = 0; i < bpFilteredData.length; i++) {
         final data = bpFilteredData[i];
+        // 只要有血压数据就记录日期时间
+        if (data.bloodPressure.systolic > 0 || data.bloodPressure.diastolic > 0) {
+          bpOriginalDateTimes.add(data.logDateTime);
+        }
         if (data.bloodPressure.systolic > 0) {
           systolicSpots.add(
               FlSpot(i.toDouble(), data.bloodPressure.systolic.toDouble()));
@@ -279,22 +301,26 @@ class BloodPressureController extends GetxController {
       }
       systolicTrendsData.value = systolicSpots;
       diastolicTrendsData.value = diastolicSpots;
+      bpTrendsOriginalDateTimes.value = bpOriginalDateTimes; // 设置血压原始日期时间
     }
 
     // 生成脉搏趋势数据
     if (pulseFilteredData.isEmpty) {
       pulseTrendsData.clear();
       trendsLabels.clear();
+      pulseTrendsOriginalDateTimes.clear(); // 清空脉搏原始日期时间
     } else {
       pulseFilteredData.sort((a, b) => a.logDateTime.compareTo(b.logDateTime));
       final pulseSpots = <FlSpot>[];
       final labels = <String>[];
+      final pulseOriginalDateTimes = <DateTime>[]; // 脉搏原始日期时间
 
       for (int i = 0; i < pulseFilteredData.length; i++) {
         final data = pulseFilteredData[i];
         if (data.bloodPressure.pulse > 0) {
           pulseSpots
               .add(FlSpot(i.toDouble(), data.bloodPressure.pulse.toDouble()));
+          pulseOriginalDateTimes.add(data.logDateTime); // 存储脉搏原始日期时间
         }
 
         String label;
@@ -311,6 +337,7 @@ class BloodPressureController extends GetxController {
       }
       pulseTrendsData.value = pulseSpots;
       trendsLabels.value = labels;
+      pulseTrendsOriginalDateTimes.value = pulseOriginalDateTimes; // 设置脉搏原始日期时间
     }
   }
 
@@ -406,14 +433,12 @@ class BloodPressureController extends GetxController {
 
       switch (filter.toLowerCase()) {
         case 'before meal':
-        // Include: Before Breakfast, Before Lunch, Before Dinner, Before Snack
           return periodName.contains('before') &&
               (periodName.contains('breakfast') ||
                   periodName.contains('lunch') ||
                   periodName.contains('dinner') ||
                   periodName.contains('snack'));
         case 'after meal':
-        // Include: After Breakfast, After Lunch, After Dinner, After Snack
           return periodName.contains('after') &&
               (periodName.contains('breakfast') ||
                   periodName.contains('lunch') ||
@@ -454,43 +479,79 @@ class BloodPressureController extends GetxController {
   }
 
   /// Get blood pressure category
-  String _getBPCategory(int systolic, int diastolic) {
+  HealthLevel _getBPCategory(int systolic, int diastolic) {
+    if (systolic < HealthDataRanges.minSystolic || systolic > HealthDataRanges.maxSystolic ||
+        diastolic < HealthDataRanges.minDiastolic || diastolic > HealthDataRanges.maxDiastolic) {
+      return HealthLevel.invalid;
+    }
+
     if (systolic < 90 || diastolic < 60) {
-      return 'Low';
+      return HealthLevel.low;
     } else if (systolic < 120 && diastolic < 80) {
-      return 'Normal';
-    } else if (systolic < 130 && diastolic < 80) {
-      return 'Elevated';
+      return HealthLevel.normal;
+    } else if (systolic >= 120 && systolic <= 129 && diastolic < 80) {
+      return HealthLevel.elevated;
     } else {
-      return 'High';
+      return HealthLevel.high;
+    }
+  }
+
+  /// Get pulse category (4-level version matching BP categories)
+  HealthLevel _getPulseCategory(int pulse) {
+    if (pulse < HealthDataRanges.minPulse || pulse > HealthDataRanges.maxPulse) {
+      return HealthLevel.invalid;
+    }
+
+    if (pulse < 60) {
+      return HealthLevel.low; // Bradycardia
+    } else if (pulse <= 100) {
+      return HealthLevel.normal;
+    } else if (pulse <= 120) {
+      return HealthLevel.elevated; // Tachycardia
+    } else {
+      return HealthLevel.high; // Very High
     }
   }
 
   /// Get blood pressure level color
   Color getBPLevelColor(int systolic, int diastolic) {
+    if (systolic == 0 && diastolic == 0) {
+      return TColors.darkGrey; // For '-' display
+    }
+
     final category = _getBPCategory(systolic, diastolic);
     switch (category) {
-      case 'Low':
+      case HealthLevel.low:
         return TColors.bpLow;
-      case 'Normal':
+      case HealthLevel.normal:
         return TColors.bpNormal;
-      case 'Elevated':
+      case HealthLevel.elevated:
         return TColors.bpElevated;
-      case 'High':
+      case HealthLevel.high:
         return TColors.bpHigh;
-      default:
-        return TColors.bpNormal;
+      case HealthLevel.invalid:
+        return TColors.darkGrey;
     }
   }
 
-  /// Get pulse level color
+  /// Get pulse level color (using same color scheme as BP)
   Color getPulseLevelColor(int pulse) {
-    if (pulse < 60) {
-      return TColors.bpLow;
-    } else if (pulse <= 100) {
-      return TColors.bpNormal;
-    } else {
-      return TColors.bpHigh;
+    if (pulse == 0) {
+      return TColors.darkGrey; // For '-' display
+    }
+
+    final category = _getPulseCategory(pulse);
+    switch (category) {
+      case HealthLevel.low:
+        return TColors.bpLow; // Same as BP low
+      case HealthLevel.normal:
+        return TColors.bpNormal; // Same as BP normal
+      case HealthLevel.elevated:
+        return TColors.bpElevated; // Same as BP elevated
+      case HealthLevel.high:
+        return TColors.bpHigh; // Same as BP high
+      case HealthLevel.invalid:
+        return TColors.darkGrey;
     }
   }
 
@@ -642,20 +703,20 @@ class BloodPressureController extends GetxController {
 
   /// Get filtered data based on current filters (for HealthDataListScreen)
   List<HealthDataModel> getFilteredData() {
-    return _getBpFilteredData(); // 使用现有的私有方法
+    return _getBpFilteredData();
   }
 
   /// Get BP level enum
   String getBPLevel(int systolic, int diastolic) {
     final category = _getBPCategory(systolic, diastolic);
     switch (category) {
-      case 'Low':
+      case HealthLevel.low:
         return 'low';
-      case 'Normal':
+      case HealthLevel.normal:
         return 'normal';
-      case 'Elevated':
+      case HealthLevel.elevated:
         return 'elevated';
-      case 'High':
+      case HealthLevel.high:
         return 'high';
       default:
         return 'normal';

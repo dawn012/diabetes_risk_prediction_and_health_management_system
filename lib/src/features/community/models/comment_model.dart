@@ -11,6 +11,7 @@ class CommentModel {
   final int replyCount;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final bool isOptimistic; // Track if this is an optimistic update
 
   const CommentModel({
     required this.commentId,
@@ -21,6 +22,7 @@ class CommentModel {
     this.replyCount = 0,
     required this.createdAt,
     required this.updatedAt,
+    this.isOptimistic = false,
   });
 
   /// Empty constructor
@@ -33,6 +35,7 @@ class CommentModel {
     replyCount: 0,
     createdAt: DateTime.fromMillisecondsSinceEpoch(0),
     updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
+    isOptimistic: false,
   );
 
   /// Create a copy with updated fields
@@ -45,6 +48,7 @@ class CommentModel {
     int? replyCount,
     DateTime? createdAt,
     DateTime? updatedAt,
+    bool? isOptimistic,
   }) {
     return CommentModel(
       commentId: commentId ?? this.commentId,
@@ -55,6 +59,7 @@ class CommentModel {
       replyCount: replyCount ?? this.replyCount,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      isOptimistic: isOptimistic ?? this.isOptimistic,
     );
   }
 
@@ -68,6 +73,7 @@ class CommentModel {
       FirebaseFieldNames.replyCount: replyCount,
       FirebaseFieldNames.createdAt: createdAt.millisecondsSinceEpoch,
       FirebaseFieldNames.updatedAt: updatedAt.millisecondsSinceEpoch,
+      // Note: isOptimistic is not stored in Firestore, only used locally
       // Replies stored as subcollection
     };
   }
@@ -86,6 +92,7 @@ class CommentModel {
           data[FirebaseFieldNames.createdAt] ?? 0),
       updatedAt: DateTime.fromMillisecondsSinceEpoch(
           data[FirebaseFieldNames.updatedAt] ?? 0),
+      isOptimistic: false,
     );
   }
 
@@ -102,4 +109,22 @@ class CommentModel {
 
   @override
   int get hashCode => commentId.hashCode;
+
+  /// Check if comment was edited
+  bool get wasEdited => updatedAt.millisecondsSinceEpoch > 0 && updatedAt.isAfter(createdAt);
+
+  /// Get time since edited (for display)
+  Duration get timeSinceEdited => DateTime.now().difference(updatedAt);
+
+  double get popularityScore {
+    final baseTime =
+    updatedAt.isAfter(createdAt) ? updatedAt : createdAt;
+
+    final hoursSincePosted =
+    DateTime.now().difference(baseTime).inHours.toDouble();
+
+    return (likes.length * 3) +
+        (replyCount * 1.5) -
+        (hoursSincePosted * 0.1);
+  }
 }

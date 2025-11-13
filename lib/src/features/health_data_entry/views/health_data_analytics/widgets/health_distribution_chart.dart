@@ -27,10 +27,10 @@ class HealthDistributionChart extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: TSizes.defaultSpace),
       padding: const EdgeInsets.all(TSizes.md),
       decoration: BoxDecoration(
-        color: darkMode ? TColors.darkerGrey : Colors.white,
+        color: darkMode ? TColors.dark : TColors.white,
         borderRadius: BorderRadius.circular(TSizes.cardRadiusLg),
         border: Border.all(
-          color: darkMode ? Colors.grey.shade700 : Colors.grey.shade200,
+          color: darkMode ? TColors.dark : Colors.grey.shade200,
         ),
       ),
       child: Column(

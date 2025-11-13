@@ -8,6 +8,8 @@ import '../../../common/loaders/loaders.dart';
 import '../../../data/repositories/authentication/authentication_repository.dart';
 import '../../../data/repositories/health_log/health_log_repository.dart';
 import '../../../utils/constants/colors.dart';
+import '../../../utils/constants/enums.dart';
+import '../../../utils/constants/health_data_range.dart';
 import '../models/health_data_model.dart';
 import '../views/health_data_analytics/widgets/health_data_list_screen.dart';
 import '../views/health_data_entry/health_data_entry_screen.dart';
@@ -34,7 +36,7 @@ class BloodGlucoseController extends GetxController {
   final lowestValue = 0.0.obs;
   final highestValue = 0.0.obs;
   final averageValue = 0.0.obs;
-  final goodCount = 0.obs;
+  final normalCount = 0.obs;
   final highCount = 0.obs;
   final lowCount = 0.obs;
   final totalCount = 0.obs;
@@ -47,6 +49,7 @@ class BloodGlucoseController extends GetxController {
   // Chart data
   final trendsData = <FlSpot>[].obs;
   final trendsLabels = <String>[].obs;
+  final trendsOriginalDateTimes = <DateTime>[].obs;
   final comparisonData = <String, double>{}.obs;
   final comparisonBarData = <BarChartGroupData>[].obs;
   final comparisonLabels = <String>[].obs;
@@ -89,13 +92,12 @@ class BloodGlucoseController extends GetxController {
         healthDataList.value = filteredLogs;
 
         if (filteredLogs.isNotEmpty) {
-          lastRecord.value = filteredLogs.first; // Most recent
+          lastRecord.value = filteredLogs.first;
         } else {
           lastRecord.value = null;
         }
 
         refreshData();
-
         isLoading.value = false;
       },
       onError: (error) {
@@ -155,41 +157,45 @@ class BloodGlucoseController extends GetxController {
       return;
     }
 
-    // Calculate basic statistics
-    lowestValue.value = glucoseValues.reduce((a, b) => a < b ? a : b);
-    highestValue.value = glucoseValues.reduce((a, b) => a > b ? a : b);
-    averageValue.value =
-        glucoseValues.reduce((a, b) => a + b) / glucoseValues.length;
+    if (glucoseValues.isNotEmpty) {
+      lowestValue.value = glucoseValues.reduce((a, b) => a < b ? a : b);
+      highestValue.value = glucoseValues.reduce((a, b) => a > b ? a : b);
+      averageValue.value = glucoseValues.reduce((a, b) => a + b) / glucoseValues.length;
+    }
+
     totalCount.value = glucoseValues.length;
 
     // Calculate level distribution
-    int good = 0, high = 0, low = 0;
+    int normal = 0, high = 0, low = 0;
     for (final value in glucoseValues) {
       final level = getGlucoseLevel(value);
       switch (level) {
-        case GlucoseLevel.good:
-          good++;
+        case HealthLevel.normal:
+          normal++;
           break;
-        case GlucoseLevel.high:
+        case HealthLevel.high:
           high++;
           break;
-        case GlucoseLevel.low:
+        case HealthLevel.low:
           low++;
+          break;
+        case HealthLevel.invalid:
+        case HealthLevel.elevated:
           break;
       }
     }
 
-    goodCount.value = good;
+    normalCount.value = normal;
     highCount.value = high;
     lowCount.value = low;
   }
 
   /// Reset statistics to zero
   void _resetStatistics() {
-    lowestValue.value = 0.0;
-    highestValue.value = 0.0;
-    averageValue.value = 0.0;
-    goodCount.value = 0;
+    lowestValue.value = -1;
+    highestValue.value = -1;
+    averageValue.value = -1;
+    normalCount.value = 0;
     highCount.value = 0;
     lowCount.value = 0;
     totalCount.value = 0;
@@ -199,7 +205,6 @@ class BloodGlucoseController extends GetxController {
   List<HealthDataModel> getFilteredData() {
     List<HealthDataModel> filtered = List.from(healthDataList);
 
-    // Apply time range filter
     final timeRangeDays = _getTimeRangeDays(selectedTimeRange.value);
     if (timeRangeDays > 0) {
       final cutoffDate = DateTime.now().subtract(Duration(days: timeRangeDays));
@@ -208,7 +213,6 @@ class BloodGlucoseController extends GetxController {
           .toList();
     }
 
-    // Apply period filter
     if (selectedPeriodFilter.value != 'All') {
       filtered = filtered
           .where((data) =>
@@ -248,7 +252,6 @@ class BloodGlucoseController extends GetxController {
   void _updateTrendsData() {
     final filteredData = getFilteredData();
 
-    // Filter by trend filter
     List<HealthDataModel> trendFilteredData = filteredData;
     if (selectedTrendFilter.value != 'All') {
       trendFilteredData = filteredData.where((data) {
@@ -256,14 +259,12 @@ class BloodGlucoseController extends GetxController {
 
         switch (selectedTrendFilter.value.toLowerCase()) {
           case 'before meal':
-          // Include: Before Breakfast, Before Lunch, Before Dinner, Before Snack
             return periodName.contains('before') &&
                 (periodName.contains('breakfast') ||
                     periodName.contains('lunch') ||
                     periodName.contains('dinner') ||
                     periodName.contains('snack'));
           case 'after meal':
-          // Include: After Breakfast, After Lunch, After Dinner, After Snack
             return periodName.contains('after') &&
                 (periodName.contains('breakfast') ||
                     periodName.contains('lunch') ||
@@ -288,26 +289,28 @@ class BloodGlucoseController extends GetxController {
     if (trendFilteredData.isEmpty) {
       trendsData.clear();
       trendsLabels.clear();
+      trendsOriginalDateTimes.clear(); // 清空原始日期时间
       return;
     }
 
-    // Sort by date
     trendFilteredData.sort((a, b) => a.logDateTime.compareTo(b.logDateTime));
 
-    // Create spots for line chart
     final spots = <FlSpot>[];
     final labels = <String>[];
+    final originalDateTimes = <DateTime>[];
 
     for (int i = 0; i < trendFilteredData.length; i++) {
       final data = trendFilteredData[i];
       if (data.bloodGlucose.glucoseLevel > 0) {
         spots.add(FlSpot(i.toDouble(), data.bloodGlucose.glucoseLevel));
         labels.add('${data.logDateTime.month}/${data.logDateTime.day}');
+        originalDateTimes.add(data.logDateTime);
       }
     }
 
     trendsData.value = spots;
     trendsLabels.value = labels;
+    trendsOriginalDateTimes.value = originalDateTimes;
   }
 
   /// Update comparison chart data
@@ -318,56 +321,62 @@ class BloodGlucoseController extends GetxController {
       case 'Before vs. After Meal':
         _updateMealComparisonData(filteredData);
         break;
-      case 'Morning vs. Evening':
-        _updateTimeComparisonData(filteredData);
-        break;
-      case 'Pre vs. Post Exercise':
+      case 'Before vs. After Exercise':
         _updateExerciseComparisonData(filteredData);
         break;
     }
   }
 
-  /// Update meal comparison data
+  /// Update meal comparison data with new logic
   void _updateMealComparisonData(List<HealthDataModel> data) {
-    final mealTypes = ['Breakfast', 'Lunch', 'Dinner'];
+    final mealTypes = ['Breakfast', 'Lunch', 'Snack', 'Dinner'];
     final barGroups = <BarChartGroupData>[];
     final labels = <String>[];
     final differences = <String, double>{};
 
-    for (int i = 0; i < mealTypes.length; i++) {
-      final meal = mealTypes[i];
-      final beforeData = data
-          .where((d) =>
-      d.physiologicalTimePeriod.displayName == 'Before $meal' &&
-          d.bloodGlucose.glucoseLevel > 0)
-          .toList();
-      final afterData = data
-          .where((d) =>
-      d.physiologicalTimePeriod.displayName == 'After $meal' &&
-          d.bloodGlucose.glucoseLevel > 0)
-          .toList();
+    int barIndex = 0;
 
-      if (beforeData.isNotEmpty && afterData.isNotEmpty) {
-        final beforeAvg = beforeData
-            .map((d) => d.bloodGlucose.glucoseLevel)
-            .reduce((a, b) => a + b) /
-            beforeData.length;
-        final afterAvg = afterData
-            .map((d) => d.bloodGlucose.glucoseLevel)
-            .reduce((a, b) => a + b) /
-            afterData.length;
+    for (final meal in mealTypes) {
+      // Group by date
+      final Map<String, List<HealthDataModel>> beforeByDate = {};
+      final Map<String, List<HealthDataModel>> afterByDate = {};
+
+      for (final record in data) {
+        final dateKey = '${record.logDateTime.month}/${record.logDateTime.day}';
+        final periodName = record.physiologicalTimePeriod.displayName;
+
+        if (periodName == 'Before $meal' && record.bloodGlucose.glucoseLevel > 0) {
+          beforeByDate.putIfAbsent(dateKey, () => []).add(record);
+        } else if (periodName == 'After $meal' && record.bloodGlucose.glucoseLevel > 0) {
+          afterByDate.putIfAbsent(dateKey, () => []).add(record);
+        }
+      }
+
+      // Find dates that have both before and after records
+      final commonDates = beforeByDate.keys.toSet().intersection(afterByDate.keys.toSet());
+
+      for (final date in commonDates) {
+        // Get the latest record for before and after
+        final beforeRecords = beforeByDate[date]!;
+        final afterRecords = afterByDate[date]!;
+
+        beforeRecords.sort((a, b) => b.logDateTime.compareTo(a.logDateTime));
+        afterRecords.sort((a, b) => b.logDateTime.compareTo(a.logDateTime));
+
+        final beforeValue = beforeRecords.first.bloodGlucose.glucoseLevel;
+        final afterValue = afterRecords.first.bloodGlucose.glucoseLevel;
 
         barGroups.add(
           BarChartGroupData(
-            x: i,
+            x: barIndex,
             barRods: [
               BarChartRodData(
-                toY: beforeAvg,
+                toY: beforeValue,
                 color: TColors.primary.withOpacity(0.7),
                 width: 15,
               ),
               BarChartRodData(
-                toY: afterAvg,
+                toY: afterValue,
                 color: TColors.primary,
                 width: 15,
               ),
@@ -375,8 +384,10 @@ class BloodGlucoseController extends GetxController {
           ),
         );
 
-        labels.add(meal);
-        differences['${meal.substring(0, 1)}'] = afterAvg - beforeAvg;
+        // Use full meal name instead of abbreviation
+        labels.add('$date\n$meal');
+        differences['${meal.substring(0, 1)}$date'] = afterValue - beforeValue;
+        barIndex++;
       }
     }
 
@@ -385,122 +396,90 @@ class BloodGlucoseController extends GetxController {
     comparisonData.value = differences;
   }
 
-  /// Update time comparison data
-  void _updateTimeComparisonData(List<HealthDataModel> data) {
-    final morningData = data
-        .where((d) =>
-    d.logDateTime.hour < 12 && d.bloodGlucose.glucoseLevel > 0)
-        .toList();
-    final eveningData = data
-        .where((d) =>
-    d.logDateTime.hour >= 18 && d.bloodGlucose.glucoseLevel > 0)
-        .toList();
-
-    if (morningData.isNotEmpty && eveningData.isNotEmpty) {
-      final morningAvg = morningData
-          .map((d) => d.bloodGlucose.glucoseLevel)
-          .reduce((a, b) => a + b) /
-          morningData.length;
-      final eveningAvg = eveningData
-          .map((d) => d.bloodGlucose.glucoseLevel)
-          .reduce((a, b) => a + b) /
-          eveningData.length;
-
-      comparisonBarData.value = [
-        BarChartGroupData(
-          x: 0,
-          barRods: [
-            BarChartRodData(
-              toY: morningAvg,
-              color: TColors.primary,
-              width: 30,
-            ),
-          ],
-        ),
-        BarChartGroupData(
-          x: 1,
-          barRods: [
-            BarChartRodData(
-              toY: eveningAvg,
-              color: TColors.primary.withOpacity(0.7),
-              width: 30,
-            ),
-          ],
-        ),
-      ];
-
-      comparisonLabels.value = ['Morning', 'Evening'];
-      comparisonData.value = {'Diff': eveningAvg - morningAvg};
-    } else {
-      comparisonBarData.clear();
-      comparisonLabels.clear();
-      comparisonData.clear();
-    }
-  }
-
-  /// Update exercise comparison data
+  /// Update exercise comparison data with new logic
   void _updateExerciseComparisonData(List<HealthDataModel> data) {
-    final preExerciseData = data
-        .where((d) =>
-    d.physiologicalTimePeriod.displayName == 'Before Exercise' &&
-        d.bloodGlucose.glucoseLevel > 0)
-        .toList();
-    final postExerciseData = data
-        .where((d) =>
-    d.physiologicalTimePeriod.displayName == 'After Exercise' &&
-        d.bloodGlucose.glucoseLevel > 0)
-        .toList();
+    // Group by date
+    final Map<String, List<HealthDataModel>> beforeByDate = {};
+    final Map<String, List<HealthDataModel>> afterByDate = {};
 
-    if (preExerciseData.isNotEmpty && postExerciseData.isNotEmpty) {
-      final preAvg = preExerciseData
-          .map((d) => d.bloodGlucose.glucoseLevel)
-          .reduce((a, b) => a + b) /
-          preExerciseData.length;
-      final postAvg = postExerciseData
-          .map((d) => d.bloodGlucose.glucoseLevel)
-          .reduce((a, b) => a + b) /
-          postExerciseData.length;
+    for (final record in data) {
+      final dateKey = '${record.logDateTime.month}/${record.logDateTime.day}';
+      final periodName = record.physiologicalTimePeriod.displayName;
 
-      comparisonBarData.value = [
-        BarChartGroupData(
-          x: 0,
-          barRods: [
-            BarChartRodData(
-              toY: preAvg,
-              color: TColors.primary,
-              width: 30,
-            ),
-          ],
-        ),
-        BarChartGroupData(
-          x: 1,
-          barRods: [
-            BarChartRodData(
-              toY: postAvg,
-              color: TColors.primary.withOpacity(0.7),
-              width: 30,
-            ),
-          ],
-        ),
-      ];
+      if (periodName == 'Before Exercise' && record.bloodGlucose.glucoseLevel > 0) {
+        beforeByDate.putIfAbsent(dateKey, () => []).add(record);
+      } else if (periodName == 'After Exercise' && record.bloodGlucose.glucoseLevel > 0) {
+        afterByDate.putIfAbsent(dateKey, () => []).add(record);
+      }
+    }
 
-      comparisonLabels.value = ['Before Exercise', 'After Exercise'];
-      comparisonData.value = {'Diff': postAvg - preAvg};
-    } else {
+    // Find dates that have both before and after records
+    final commonDates = beforeByDate.keys.toSet().intersection(afterByDate.keys.toSet());
+
+    if (commonDates.isEmpty) {
       comparisonBarData.clear();
       comparisonLabels.clear();
       comparisonData.clear();
+      return;
     }
+
+    final barGroups = <BarChartGroupData>[];
+    final labels = <String>[];
+    final differences = <String, double>{};
+
+    int barIndex = 0;
+
+    for (final date in commonDates) {
+      // Get the latest record for before and after
+      final beforeRecords = beforeByDate[date]!;
+      final afterRecords = afterByDate[date]!;
+
+      beforeRecords.sort((a, b) => b.logDateTime.compareTo(a.logDateTime));
+      afterRecords.sort((a, b) => b.logDateTime.compareTo(a.logDateTime));
+
+      final beforeValue = beforeRecords.first.bloodGlucose.glucoseLevel;
+      final afterValue = afterRecords.first.bloodGlucose.glucoseLevel;
+
+      barGroups.add(
+        BarChartGroupData(
+          x: barIndex,
+          barRods: [
+            BarChartRodData(
+              toY: beforeValue,
+              color: TColors.primary.withOpacity(0.7),
+              width: 15,
+            ),
+            BarChartRodData(
+              toY: afterValue,
+              color: TColors.primary,
+              width: 15,
+            ),
+          ],
+        ),
+      );
+
+      labels.add('$date\nExercise');
+      differences['E$date'] = afterValue - beforeValue;
+      barIndex++;
+    }
+
+    comparisonBarData.value = barGroups;
+    comparisonLabels.value = labels;
+    comparisonData.value = differences;
   }
 
   /// Determine glucose level category
-  GlucoseLevel getGlucoseLevel(double glucose) {
-    if (glucose < 4.0) {
-      return GlucoseLevel.low;
+  HealthLevel getGlucoseLevel(double glucose) {
+    if (glucose < HealthDataRanges.minGlucoseMmolL || glucose > HealthDataRanges.maxGlucoseMmolL) {
+      return HealthLevel.invalid;
+    }
+
+    if (glucose < 4.5) {
+      return HealthLevel.low;
     } else if (glucose <= 10.0) {
-      return GlucoseLevel.good;
+      return HealthLevel.normal;
     } else {
-      return GlucoseLevel.high;
+      return HealthLevel.high;
     }
   }
 
@@ -508,12 +487,15 @@ class BloodGlucoseController extends GetxController {
   Color getGlucoseLevelColor(double glucose) {
     final level = getGlucoseLevel(glucose);
     switch (level) {
-      case GlucoseLevel.low:
+      case HealthLevel.low:
         return TColors.glucoseLow;
-      case GlucoseLevel.good:
-        return TColors.glucoseGood;
-      case GlucoseLevel.high:
+      case HealthLevel.normal:
+        return TColors.glucoseNormal;
+      case HealthLevel.high:
         return TColors.glucoseHigh;
+      case HealthLevel.invalid:
+      case HealthLevel.elevated:
+        return TColors.darkGrey;
     }
   }
 
@@ -570,11 +552,11 @@ class BloodGlucoseController extends GetxController {
     ));
   }
 
-  void showGoodRecords() {
+  void showNormalRecords() {
     Get.to(() => const HealthDataListScreen(
-      title: 'Good Records',
+      title: 'Normal Records',
       healthDataType: HealthDataType.bloodGlucose,
-      filterType: 'good',
+      filterType: 'normal',
     ));
   }
 
@@ -603,34 +585,16 @@ class BloodGlucoseController extends GetxController {
       await _healthLogRepo.deleteHealthLog(userId, logId);
       TLoaders.successSnackBar(
           title: 'Success', message: 'Record deleted successfully');
-      // Stream will automatically update the data
     } catch (e) {
       TLoaders.errorSnackBar(title: 'Error', message: 'Failed to delete record');
     }
   }
 
-  /// Refresh data (Stream handles this automatically, but kept for compatibility)
+  /// Refresh data
   Future<void> refreshData() async {
-    // Stream already handles real-time updates
-    // This method is kept for manual refresh if needed
     _calculateStatistics();
     _updateChartsData();
     _updateDashboardCounts();
     _updatePast14DaysCount();
   }
-}
-
-/// Glucose Level Enum
-enum GlucoseLevel {
-  low,
-  good,
-  high,
-}
-
-/// Health Data Type Enum
-enum HealthDataType {
-  bloodGlucose,
-  bloodPressure,
-  bodyComposition,
-  physicalActivity,
 }

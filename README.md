@@ -23,3 +23,9 @@ PayPal PlanID
 Paypal Personal Account for Testing
 Email: sb-mgd7r45337173@personal.example.com
 Password: L}wj8@C-
+
+BMI for Girl: https://cdn.who.int/media/docs/default-source/child-growth/growth-reference-5-19-years/bmi-for-age-(5-19-years)/bmifa-girls-5-19years-per.pdf?sfvrsn=b762eb2f_4
+BMI for Boy: https://cdn.who.int/media/docs/default-source/child-growth/growth-reference-5-19-years/bmi-for-age-(5-19-years)/bmifa-boys-5-19years-per.pdf?sfvrsn=7ef4b722_4
+Blood Pressure: https://my.clevelandclinic.org/health/diagnostics/17649-blood-pressure
+Pulse Rate: https://my.clevelandclinic.org/health/diagnostics/heart-rate
+Body Fat: https://www.medicalnewstoday.com/articles/body-fat-percentage-chart#how-to-calculate

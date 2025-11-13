@@ -92,8 +92,6 @@ class UserController extends GetxController {
           joinDate: DateTime.now(),
           totalScore: 0,
           isVerify: true,
-          loginAttempt: 5,
-          lastAttemptTime: 0,
           accountAvailable: true,
         );
 

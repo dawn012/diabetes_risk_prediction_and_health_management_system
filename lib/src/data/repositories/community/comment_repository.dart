@@ -18,8 +18,8 @@ class CommentRepository extends GetxController {
   final _db = FirebaseFirestore.instance;
   final _auth = FirebaseAuth.instance;
 
-  /// Create a new comment
-  Future<String?> createComment({
+  /// Create a new comment and return the commentId
+  Future<String> createComment({
     required String content,
     required String postId,
   }) async {
@@ -35,7 +35,7 @@ class CommentRepository extends GetxController {
         likes: const [],
         replyCount: 0,
         createdAt: now,
-        updatedAt: now,
+        updatedAt: DateTime.fromMillisecondsSinceEpoch(0)
       );
 
       // Store in comments collection with postId
@@ -47,6 +47,7 @@ class CommentRepository extends GetxController {
         FirebaseFieldNames.postId: postId,
       });
 
+      // Update post's comment count
       await _db
           .collection(FirebaseCollectionNames.posts)
           .doc(postId)
@@ -55,7 +56,7 @@ class CommentRepository extends GetxController {
         FirebaseFieldNames.updatedAt: now.millisecondsSinceEpoch,
       });
 
-      return null;
+      return commentId;
     } on FirebaseException catch (e) {
       throw TFirebaseException(e.code).message;
     } on FormatException catch (_) {
@@ -67,7 +68,8 @@ class CommentRepository extends GetxController {
     }
   }
 
-  /// Fetch comments for a post with pagination
+  /// Fetch comments for a post with real-time updates (Stream)
+  /// Used for "newest" sort only
   Stream<List<CommentModel>> fetchComments({
     required String postId,
     int limit = 20,
@@ -76,7 +78,7 @@ class CommentRepository extends GetxController {
     Query<Map<String, dynamic>> query = _db
         .collection(FirebaseCollectionNames.comments)
         .where(FirebaseFieldNames.postId, isEqualTo: postId)
-        .orderBy(FirebaseFieldNames.createdAt, descending: true)
+        // .orderBy(FirebaseFieldNames.createdAt, descending: true)
         .limit(limit);
 
     if (startAfter != null) {
@@ -84,10 +86,68 @@ class CommentRepository extends GetxController {
     }
 
     return query.snapshots().map((snapshot) {
-      return snapshot.docs
+      final comments = snapshot.docs
           .map((doc) => CommentModel.fromSnapshot(doc))
           .toList();
+
+      comments.sort((a, b) {
+        final aTime = a.updatedAt.isAfter(a.createdAt) ? a.updatedAt : a.createdAt;
+        final bTime = b.updatedAt.isAfter(b.createdAt) ? b.updatedAt : b.createdAt;
+        return bTime.compareTo(aTime); // descending: newer first
+      });
+
+      return comments;
     });
+  }
+
+  /// Fetch comments with pagination (one-time query, no stream)
+  /// Used for loading older comments when scrolling
+  Future<QuerySnapshot<Map<String, dynamic>>> fetchCommentsPaginated({
+    required String postId,
+    int limit = 20,
+    DocumentSnapshot? startAfter,
+  }) async {
+    try {
+      Query<Map<String, dynamic>> query = _db
+          .collection(FirebaseCollectionNames.comments)
+          .where(FirebaseFieldNames.postId, isEqualTo: postId)
+          // .orderBy(FirebaseFieldNames.createdAt, descending: true)
+          .limit(limit);
+
+      if (startAfter != null) {
+        query = query.startAfterDocument(startAfter);
+      }
+
+      return await query.get();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Fetch top comments (sorted by likes) with pagination
+  /// Client-side sorting required after fetch
+  Future<QuerySnapshot<Map<String, dynamic>>> fetchTopCommentsPaginated({
+    required String postId,
+    int limit = 20,
+    DocumentSnapshot? startAfter,
+  }) async {
+    try {
+      // Fetch all comments for the post (or a larger batch)
+      // Note: For true "top" sorting, you need to fetch more than needed
+      // and sort client-side, or use a backend cloud function to pre-calculate scores
+      Query<Map<String, dynamic>> query = _db
+          .collection(FirebaseCollectionNames.comments)
+          .where(FirebaseFieldNames.postId, isEqualTo: postId)
+          .limit(limit * 3); // Fetch more to allow proper sorting
+
+      if (startAfter != null) {
+        query = query.startAfterDocument(startAfter);
+      }
+
+      return await query.get();
+    } catch (e) {
+      rethrow;
+    }
   }
 
   /// Get comment count for a post
@@ -106,7 +166,7 @@ class CommentRepository extends GetxController {
   }
 
   /// Like/unlike a comment
-  Future<String?> toggleCommentLike({
+  Future<void> toggleCommentLike({
     required String commentId,
     required List<String> currentLikes,
   }) async {
@@ -118,17 +178,13 @@ class CommentRepository extends GetxController {
         // Remove like
         await commentRef.update({
           FirebaseFieldNames.likes: FieldValue.arrayRemove([userId]),
-          FirebaseFieldNames.updatedAt: DateTime.now().millisecondsSinceEpoch,
         });
       } else {
         // Add like
         await commentRef.update({
           FirebaseFieldNames.likes: FieldValue.arrayUnion([userId]),
-          FirebaseFieldNames.updatedAt: DateTime.now().millisecondsSinceEpoch,
         });
       }
-
-      return null;
     } on FirebaseException catch (e) {
       throw TFirebaseException(e.code).message;
     } on FormatException catch (_) {
@@ -141,7 +197,7 @@ class CommentRepository extends GetxController {
   }
 
   /// Update comment content
-  Future<String?> updateComment({
+  Future<void> updateComment({
     required String commentId,
     required String content,
   }) async {
@@ -153,8 +209,6 @@ class CommentRepository extends GetxController {
         FirebaseFieldNames.content: content,
         FirebaseFieldNames.updatedAt: DateTime.now().millisecondsSinceEpoch,
       });
-
-      return null;
     } on FirebaseException catch (e) {
       throw TFirebaseException(e.code).message;
     } on FormatException catch (_) {
@@ -167,9 +221,9 @@ class CommentRepository extends GetxController {
   }
 
   /// Delete comment
-  Future<String?> deleteComment(String commentId) async {
+  Future<void> deleteComment(String commentId) async {
     try {
-      // 1. First get the comment document to retrieve the postId
+      // Get the comment document to retrieve the postId
       final commentDoc = await _db
           .collection(FirebaseCollectionNames.comments)
           .doc(commentId)
@@ -186,7 +240,7 @@ class CommentRepository extends GetxController {
         throw 'Post ID not found in comment';
       }
 
-      // 2. Use batch operation to ensure atomicity
+      // Use batch operation to ensure atomicity
       final batch = _db.batch();
 
       // Delete comment document
@@ -208,7 +262,6 @@ class CommentRepository extends GetxController {
       await batch.commit();
 
       print('✅ Comment deleted and post comment count decremented');
-      return null;
     } on FirebaseException catch (e) {
       throw TFirebaseException(e.code).message;
     } on FormatException catch (_) {
@@ -218,27 +271,6 @@ class CommentRepository extends GetxController {
     } catch (e) {
       throw TTexts.commonErrorMessage;
     }
-  }
-
-  /// Get comments sorted by likes (top comments)
-  Stream<List<CommentModel>> fetchTopComments({
-    required String postId,
-    int limit = 20,
-  }) {
-    return _db
-        .collection(FirebaseCollectionNames.comments)
-        .where(FirebaseFieldNames.postId, isEqualTo: postId)
-        .snapshots()
-        .map((snapshot) {
-      final comments = snapshot.docs
-          .map((doc) => CommentModel.fromSnapshot(doc))
-          .toList();
-
-      // Sort by likes count in descending order
-      comments.sort((a, b) => b.likes.length.compareTo(a.likes.length));
-
-      return comments.take(limit).toList();
-    });
   }
 
   /// Update reply count for a comment
@@ -272,11 +304,10 @@ class CommentRepository extends GetxController {
       print('Deleted ${commentsSnapshot.docs.length} comments for post $postId');
     } catch (e) {
       print('Error deleting comments for post $postId: $e');
-      // Don't throw here to allow caller to handle gracefully
     }
   }
 
-  /// Delete all comments for a post (recursive batch version for large datasets)
+  /// Recursively delete comments in batches (for large datasets)
   Future<void> deleteCommentsByPostIdRecursive(String postId) async {
     try {
       await _deleteCommentsBatch(postId);
@@ -285,12 +316,11 @@ class CommentRepository extends GetxController {
     }
   }
 
-  /// Recursively delete comments in batches
   Future<void> _deleteCommentsBatch(String postId, {DocumentSnapshot? startAfter}) async {
     Query<Map<String, dynamic>> query = _db
         .collection(FirebaseCollectionNames.comments)
         .where(FirebaseFieldNames.postId, isEqualTo: postId)
-        .limit(500); // Firestore batch limit
+        .limit(500);
 
     if (startAfter != null) {
       query = query.startAfterDocument(startAfter);
@@ -300,7 +330,6 @@ class CommentRepository extends GetxController {
 
     if (snapshot.docs.isEmpty) return;
 
-    // Delete this batch
     final batch = _db.batch();
     for (final doc in snapshot.docs) {
       batch.delete(doc.reference);
@@ -309,7 +338,6 @@ class CommentRepository extends GetxController {
 
     print('Deleted batch of ${snapshot.docs.length} comments for post $postId');
 
-    // If there are more comments, delete next batch
     if (snapshot.docs.length == 500) {
       final lastDoc = snapshot.docs.last;
       await _deleteCommentsBatch(postId, startAfter: lastDoc);

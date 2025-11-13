@@ -9,7 +9,7 @@ class MealPhotoRecord extends HiveObject {
   final String id;
 
   @HiveField(1)
-  final String localPath;
+  final String imagePath;  // 共用字段：本地时存 localPath，云端时存 storageUrl
 
   @HiveField(2)
   final int fileSize;
@@ -25,7 +25,7 @@ class MealPhotoRecord extends HiveObject {
 
   MealPhotoRecord({
     required this.id,
-    required this.localPath,
+    required this.imagePath,
     required this.fileSize,
     required this.uploadTime,
     this.needsProcessing = true,
@@ -49,7 +49,7 @@ class MealPhotoRecord extends HiveObject {
   /// Copy with
   MealPhotoRecord copyWith({
     String? id,
-    String? localPath,
+    String? imagePath,
     int? fileSize,
     DateTime? uploadTime,
     bool? needsProcessing,
@@ -57,7 +57,7 @@ class MealPhotoRecord extends HiveObject {
   }) {
     return MealPhotoRecord(
       id: id ?? this.id,
-      localPath: localPath ?? this.localPath,
+      imagePath: imagePath ?? this.imagePath,
       fileSize: fileSize ?? this.fileSize,
       uploadTime: uploadTime ?? this.uploadTime,
       needsProcessing: needsProcessing ?? this.needsProcessing,
@@ -69,7 +69,7 @@ class MealPhotoRecord extends HiveObject {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'localPath': localPath,
+      'imagePath': imagePath,
       'fileSize': fileSize,
       'uploadTime': uploadTime.toIso8601String(),
       'needsProcessing': needsProcessing,
@@ -81,7 +81,7 @@ class MealPhotoRecord extends HiveObject {
   factory MealPhotoRecord.fromJson(Map<String, dynamic> json) {
     return MealPhotoRecord(
       id: json['id'],
-      localPath: json['localPath'],
+      imagePath: json['imagePath'],
       fileSize: json['fileSize'],
       uploadTime: DateTime.parse(json['uploadTime']),
       needsProcessing: json['needsProcessing'] ?? true,
@@ -91,83 +91,33 @@ class MealPhotoRecord extends HiveObject {
     );
   }
 
+  /// 便捷方法：创建云端照片记录
+  factory MealPhotoRecord.createFromCloud({
+    required String id,
+    required String storageUrl,
+    required DateTime uploadTime,
+    MealAnalysisResult? analysisResult,
+  }) {
+    return MealPhotoRecord(
+      id: id,
+      imagePath: storageUrl, // 使用 storageUrl 作为 imagePath
+      fileSize: 0, // 云端记录文件大小为 0（不需要）
+      uploadTime: uploadTime,
+      needsProcessing: false, // 云端记录已经处理过
+      analysisResult: analysisResult,
+    );
+  }
+
+  /// 检查是否是本地路径
+  bool get isLocalPath => imagePath.startsWith('/') ||
+      imagePath.startsWith('file://');
+
+  /// 检查是否是网络URL
+  bool get isNetworkUrl => imagePath.startsWith('http://') ||
+      imagePath.startsWith('https://');
+
   @override
   String toString() {
     return 'MealPhotoRecord(id: $id, size: ${getSizeFormatted()}, processed: ${!needsProcessing})';
   }
 }
-
-// import 'dart:io';
-//
-// import '../../../utils/helpers/meal_photo_helper.dart';
-// import 'meal_analysis_result_model.dart';
-//
-// /// Model for meal photo with analysis data
-// class MealPhotoRecord {
-//   final String id;
-//   final String localPath;
-//   final int fileSize;
-//   final DateTime uploadTime;
-//   final bool needsProcessing;
-//   final MealAnalysisResult? analysisResult;
-//
-//   const MealPhotoRecord({
-//     required this.id,
-//     required this.localPath,
-//     required this.fileSize,
-//     required this.uploadTime,
-//     this.needsProcessing = true,
-//     this.analysisResult,
-//   });
-//
-//   Map<String, dynamic> toJson() => {
-//     'id': id,
-//     'localPath': localPath,
-//     'fileSize': fileSize,
-//     'uploadTime': uploadTime.toIso8601String(),
-//     'needsProcessing': needsProcessing,
-//     if (analysisResult != null) 'analysisResult': analysisResult!.toJson(),
-//   };
-//
-//   factory MealPhotoRecord.fromJson(Map<String, dynamic> json) => MealPhotoRecord(
-//     id: json['id'],
-//     localPath: json['localPath'],
-//     fileSize: json['fileSize'],
-//     uploadTime: DateTime.parse(json['uploadTime']),
-//     needsProcessing: json['needsProcessing'] ?? true,
-//     analysisResult: json['analysisResult'] != null
-//         ? MealAnalysisResult.fromJson(json['analysisResult'])
-//         : null,
-//   );
-//
-//   MealPhotoRecord copyWith({
-//     String? id,
-//     String? localPath,
-//     int? fileSize,
-//     DateTime? uploadTime,
-//     bool? needsProcessing,
-//     MealAnalysisResult? analysisResult,
-//   }) => MealPhotoRecord(
-//     id: id ?? this.id,
-//     localPath: localPath ?? this.localPath,
-//     fileSize: fileSize ?? this.fileSize,
-//     uploadTime: uploadTime ?? this.uploadTime,
-//     needsProcessing: needsProcessing ?? this.needsProcessing,
-//     analysisResult: analysisResult ?? this.analysisResult,
-//   );
-//
-//   /// Get formatted file size
-//   String getSizeFormatted() => MealPhotoHelper.getFormattedSize(File(localPath));
-//
-//   /// Check if photo has been analyzed
-//   bool get isAnalyzed => analysisResult != null && !needsProcessing;
-//
-//   /// Get GL value if available
-//   double? get glycemicLoad => analysisResult?.totalGL;
-//
-//   /// Get GL category if available
-//   String? get glCategory => analysisResult?.glCategory;
-//
-//   /// Check if analysis has errors
-//   bool get hasAnalysisError => analysisResult?.hasError ?? false;
-// }

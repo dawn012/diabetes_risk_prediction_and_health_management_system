@@ -82,7 +82,9 @@ class CommentHeader extends StatelessWidget {
                   ),
                   const SizedBox(width: TSizes.xs),
                   Text(
-                    comment.createdAt.fromNow(),
+                    comment.wasEdited
+                        ? '${comment.updatedAt.fromNow()} (edited)'
+                        : comment.createdAt.fromNow(),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: isDark ? TColors.darkGrey : TColors.textSecondary,
                     ),

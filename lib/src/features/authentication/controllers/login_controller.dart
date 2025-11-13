@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
@@ -5,6 +6,7 @@ import 'package:get_storage/get_storage.dart';
 
 import '../../../common/loaders/loaders.dart';
 import '../../../data/repositories/authentication/authentication_repository.dart';
+import '../../../data/repositories/user/user_repository.dart';
 import '../../../utils/constants/image_strings.dart';
 import '../../../utils/constants/text_strings.dart';
 import '../../../utils/helpers/network_manager.dart';
@@ -14,18 +16,17 @@ import '../../personalization/controllers/user_controller.dart';
 class LoginController extends GetxController {
   static LoginController get instance => Get.find();
 
-  // TextField Controllers to get data from TextFields
-  final _rememberMe = false.obs;
+  // TextField Controllers
   final _hidePassword = true.obs;
   final email = TextEditingController();
   final password = TextEditingController();
   final localStorage = GetStorage();
   GlobalKey<FormState> loginFormKey = GlobalKey<FormState>();
-  final userController = Get.put(UserController());
+  final userController = UserController.instance;
+  final _userRepository = UserRepository.instance;
 
   // Getter
   bool get hidePassword => _hidePassword.value;
-  bool get rememberMe => _rememberMe.value;
 
   @override
   void onInit() {
@@ -34,55 +35,98 @@ class LoginController extends GetxController {
       email.text = localStorage.read('REMEMBER_ME_EMAIL') ?? '';
       password.text = localStorage.read('REMEMBER_ME_PASSWORD') ?? '';
     } catch (e) {
-      print('GetStorage error on web: $e');
-      // Set default values if storage fails
+      print('GetStorage error: $e');
       email.text = '';
       password.text = '';
     }
   }
 
-  // Email and Password Login
+  // Email and Password Login (Mobile App - User Only)
   Future<void> emailAndPasswordSignIn() async {
     try {
       // Start Loading
-      // TFullScreenLoader.openLoadingDialog('Logging you in...', TImages.loadingAnimation);
+      TFullScreenLoader.openLoadingDialog(
+        'Logging you in...',
+        TImages.loadingAnimation,
+      );
 
       // Check Internet Connectivity
-      // final isConnected = await NetworkManager.instance.isConnected();
-      // if (!isConnected) {
-      //   // Remove loader
-      //   TFullScreenLoader.stopLoading();
-      //   return;
-      // }
-
-      // Form Validation
-      if (!loginFormKey.currentState!.validate()) {
-        // Remove loader
-        // TFullScreenLoader.stopLoading();
+      final isConnected = await NetworkManager.instance.isConnected();
+      if (!isConnected) {
+        TFullScreenLoader.stopLoading();
         return;
       }
 
-      // Save data if Remember Me is selected
-      // if (_rememberMe.value) {
-      //   localStorage.write('REMEMBER_ME_EMAIL', email.text.trim());
-      //   localStorage.write('REMEMBER_ME_PASSWORD', password.text.trim());
-      // }
+      // Form Validation
+      if (!loginFormKey.currentState!.validate()) {
+        TFullScreenLoader.stopLoading();
+        return;
+      }
 
-      // Login user using Email & Password Authentication
-      final userCredentials = await AuthenticationRepository.instance.loginWithEmailAndPassword(email.text.trim(), password.text.trim());
+      final emailAddress = email.text.trim();
+      final userPassword = password.text.trim();
 
-      // Remove Loader
-      // TFullScreenLoader.stopLoading();
+      // Check if user exists
+      final userData = await _userRepository.getUserByEmail(emailAddress);
 
-      // Redirect
-      AuthenticationRepository.instance.screenRedirect();
-    } catch (e) {
-      print('Error: $e');
-      // Remove loader
+      if (userData == null) {
+        TFullScreenLoader.stopLoading();
+        TLoaders.errorSnackBar(
+          title: TTexts.error,
+          message: TTexts.incorrectEmailOrPassword,
+        );
+        return;
+      }
+
+      final userType = userData['userType'] ?? 'user';
+
+      // Check if account is an admin account (cannot login from mobile app)
+      if (userType != 'user') {
+        TFullScreenLoader.stopLoading();
+        TLoaders.errorSnackBar(
+          title: TTexts.error,
+          message: TTexts.adminCannotLoginFromMobile,
+        );
+        return;
+      }
+
+      // Try to authenticate with Firebase Auth
+      UserCredential? userCredential;
+      try {
+        userCredential = await AuthenticationRepository.instance
+            .loginWithEmailAndPassword(emailAddress, userPassword);
+      } on FirebaseAuthException catch (e) {
+        // Wrong password
+        TFullScreenLoader.stopLoading();
+        TLoaders.errorSnackBar(
+          title: TTexts.error,
+          message: TTexts.incorrectEmailOrPassword,
+        );
+        return;
+      }
+
+      // Check if account is available
+      final accountAvailable = userData['accountAvailable'] ?? true;
+      if (!accountAvailable) {
+        TFullScreenLoader.stopLoading();
+        TLoaders.errorSnackBar(
+          title: TTexts.accountDisabled,
+          message: TTexts.accountDisabledMessage,
+        );
+        return;
+      }
+
+      // All checks passed - stop loading and redirect
       TFullScreenLoader.stopLoading();
+      AuthenticationRepository.instance.screenRedirect();
 
-      // Show some generic error to the user
-      TLoaders.errorSnackBar(title: TTexts.error, message: e.toString());
+    } catch (e) {
+      print('Login Error: $e');
+      TFullScreenLoader.stopLoading();
+      TLoaders.errorSnackBar(
+        title: TTexts.error,
+        message: TTexts.commonErrorMessage,
+      );
     }
   }
 
@@ -90,18 +134,21 @@ class LoginController extends GetxController {
   Future<void> googleSignIn() async {
     try {
       // Start Loading
-      TFullScreenLoader.openLoadingDialog('Logging you in...', TImages.loadingAnimation);
+      TFullScreenLoader.openLoadingDialog(
+        'Logging you in...',
+        TImages.loadingAnimation,
+      );
 
       // Check Internet Connectivity
       final isConnected = await NetworkManager.instance.isConnected();
       if (!isConnected) {
-        // Remove loader
         TFullScreenLoader.stopLoading();
         return;
       }
 
       // Google Authentication
-      final userCredentials = await AuthenticationRepository.instance.signInWithGoogle();
+      final userCredentials = await AuthenticationRepository.instance
+          .signInWithGoogle();
 
       // Save user record
       await userController.saveUserRecord(userCredentials);
@@ -112,9 +159,11 @@ class LoginController extends GetxController {
       // Redirect
       AuthenticationRepository.instance.screenRedirect();
     } catch (e) {
-      // Remove Loader
       TFullScreenLoader.stopLoading();
-      TLoaders.errorSnackBar(title: TTexts.error, message: e.toString(),);
+      TLoaders.errorSnackBar(
+        title: TTexts.error,
+        message: e.toString(),
+      );
     }
   }
 
@@ -122,18 +171,21 @@ class LoginController extends GetxController {
   Future<void> facebookSignIn() async {
     try {
       // Start Loading
-      TFullScreenLoader.openLoadingDialog('Logging you in...', TImages.loadingAnimation);
+      TFullScreenLoader.openLoadingDialog(
+        'Logging you in...',
+        TImages.loadingAnimation,
+      );
 
       // Check Internet Connectivity
       final isConnected = await NetworkManager.instance.isConnected();
       if (!isConnected) {
-        // Remove loader
         TFullScreenLoader.stopLoading();
         return;
       }
 
       // Facebook Authentication
-      final userCredentials = await AuthenticationRepository.instance.signInWithFacebook();
+      final userCredentials = await AuthenticationRepository.instance
+          .signInWithFacebook();
 
       // Save user record
       await userController.saveUserRecord(userCredentials);
@@ -143,38 +195,23 @@ class LoginController extends GetxController {
 
       // Redirect
       AuthenticationRepository.instance.screenRedirect();
-      // Get.offAll(() => Homepage());
     } catch (e) {
-      // Remove Loader
       TFullScreenLoader.stopLoading();
-
-      TLoaders.errorSnackBar(title: TTexts.error, message: e.toString(),);
+      TLoaders.errorSnackBar(
+        title: TTexts.error,
+        message: e.toString(),
+      );
     }
-
-    // try {
-    //   // isFacebookLoading.value = true;
-    //   final auth = AuthenticationRepository.instance;
-    //   await auth.signInWithFacebook();
-    //   // isFacebookLoading.value = false;
-    //   // auth.setInitialScreen(auth.firebaseUser);
-    //   // 直接登录，不用验证邮箱
-    //   Get.offAll(() => Homepage());
-    // } catch (e) {
-    //   // isFacebookLoading.value = false;
-    //
-    //   // 处理其他类型的错误
-    //   TLoaders.errorSnackBar(
-    //     title: TTexts.error,
-    //     message: e.toString(),
-    //   );
-    // }
   }
 
   void togglePasswordVisibility() {
     _hidePassword.value = !_hidePassword.value;
   }
 
-  void toggleRememberMe() {
-    _rememberMe.value = !_rememberMe.value;
+  @override
+  void onClose() {
+    email.dispose();
+    password.dispose();
+    super.onClose();
   }
 }

@@ -121,8 +121,6 @@ class SignUpController extends GetxController {
         joinDate: DateTime.now(),
         totalScore: 0,
         isVerify: false,
-        loginAttempt: 5,
-        lastAttemptTime: 0,
         accountAvailable: true,
       );
 

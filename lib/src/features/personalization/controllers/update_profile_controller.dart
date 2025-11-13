@@ -1,13 +1,13 @@
+import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../common/loaders/loaders.dart';
 import '../../../data/repositories/user/user_repository.dart';
 import '../../../utils/constants/text_strings.dart';
 import '../../../utils/helpers/network_manager.dart';
-import '../../../utils/validators/user_profile_validator.dart';
-import '../../personalization/models/user_profile_model.dart';
 import 'user_controller.dart';
 
 class UpdateProfileController extends GetxController {
@@ -16,34 +16,12 @@ class UpdateProfileController extends GetxController {
   final userController = UserController.instance;
   final userRepository = UserRepository.instance;
 
-  /// Form keys
-  final basicProfileFormKey = GlobalKey<FormState>();
-  final healthProfileFormKey = GlobalKey<FormState>();
-  final passwordFormKey = GlobalKey<FormState>();
+  /// Observables for pending changes
+  final hasPendingChanges = false.obs;
+  final pendingProfileImage = Rx<File?>(null);
 
-  /// Basic Profile Controllers
-  final username = TextEditingController();
-  final email = TextEditingController();
-  final phoneNumber = TextEditingController();
-
-  /// Health Profile Controllers
-  final weight = TextEditingController();
-  final height = TextEditingController();
-  final dietPreference = TextEditingController();
-  final allergies = TextEditingController();
-  final medicationAdherence = TextEditingController();
-  final sleepDuration = TextEditingController();
-  final waterIntake = TextEditingController();
-
-  /// Goals Controllers
-  final dailyStepsGoal = TextEditingController();
-  final weeklyExerciseTime = TextEditingController();
-
-  /// Observable fields for health profile
-  final selectedGender = ''.obs;
-  final selectedDateOfBirth = Rx<DateTime?>(null);
-  final isTakeMedication = false.obs;
-  final selectedStressLevel = 0.obs;
+  /// Temporary storage for profile changes
+  final pendingChanges = <String, dynamic>{}.obs;
 
   /// Password Controllers
   final oldPassword = TextEditingController();
@@ -53,9 +31,10 @@ class UpdateProfileController extends GetxController {
   final hideNewPassword = true.obs;
   final hideConfirmPassword = true.obs;
 
+  /// Password Form Key
+  final passwordFormKey = GlobalKey<FormState>();
+
   /// Loading states
-  final isBasicProfileLoading = false.obs;
-  final isHealthProfileLoading = false.obs;
   final isPasswordLoading = false.obs;
   final isVerifyingPassword = false.obs;
 
@@ -63,230 +42,202 @@ class UpdateProfileController extends GetxController {
   final isPasswordVerified = false.obs;
   final oldPasswordError = ''.obs;
 
-  // Loading state for goals
-  final isGoalsLoading = false.obs;
-
+  /// Initialize profile data
   @override
   void onInit() {
     super.onInit();
-    initializeProfileData();
+    resetPendingChanges();
   }
 
-  /// Initialize profile data
-  void initializeProfileData() {
+  /// Reset all pending changes
+  void resetPendingChanges() {
+    pendingChanges.clear();
+    pendingProfileImage.value = null;
+    hasPendingChanges.value = false;
+  }
+
+  /// Update pending change for a field
+  void updatePendingChange(String field, dynamic value) {
+    // 对于 username 和 phoneNumber，不应该进入 pending changes
+    if (field == 'username' || field == 'phoneNumber') {
+      print('Warning: $field should not be added to pending changes');
+      return;
+    }
+
     final user = userController.user.value;
     final profile = user.profile;
 
-    // Basic info
-    username.text = user.username;
-    email.text = user.email;
-    phoneNumber.text = user.phoneNumber.isNotEmpty
-        ? TUserProfileValidator.convertToDisplayFormat(user.phoneNumber)
-        : '';
+    // 获取原始值
+    dynamic originalValue;
+    switch (field) {
+      case 'gender':
+        originalValue = profile.gender;
+        break;
+      case 'dateOfBirth':
+        originalValue = profile.dateOfBirth;
+        break;
+      case 'height':
+        originalValue = profile.height;
+        break;
+      case 'dietPreference':
+        originalValue = profile.dietPreference;
+        break;
+      case 'allergies':
+        originalValue = profile.allergies;
+        break;
+      default:
+        originalValue = null;
+    }
 
-    // Health info
-    selectedGender.value = profile.gender;
-    selectedDateOfBirth.value = profile.dateOfBirth.year != 1970 ? profile.dateOfBirth : null;
-    weight.text = profile.weight > 0 ? profile.weight.toString() : '';
-    height.text = profile.height > 0 ? profile.height.toString() : '';
-    dietPreference.text = profile.dietPreference;
-    allergies.text = profile.allergies.join(', ');
-    isTakeMedication.value = profile.isTakeMedication;
-    medicationAdherence.text = profile.medicationAdherence > 0 ? profile.medicationAdherence.toString() : '';
-    sleepDuration.text = profile.sleepDuration > 0 ? profile.sleepDuration.toString() : '';
-    selectedStressLevel.value = profile.stressLevel;
-    waterIntake.text = profile.waterIntake > 0 ? profile.waterIntake.toString() : '';
-    dailyStepsGoal.text = profile.dailyStepsGoal > 0 ? profile.dailyStepsGoal.toString() : '7500';
-    weeklyExerciseTime.text = profile.weeklyExerciseTime > 0 ? profile.weeklyExerciseTime.toString() : '150';
+    // 检查新值是否与原始值相同
+    bool isDifferent = false;
+
+    if (value is List<String> && originalValue is List<String>) {
+      isDifferent = !_areListsEqual(value, originalValue);
+    } else if (value is DateTime && originalValue is DateTime) {
+      isDifferent = value != originalValue;
+    } else {
+      isDifferent = value != originalValue;
+    }
+
+    if (isDifferent) {
+      // 值不同，添加到 pending changes
+      pendingChanges[field] = value;
+    } else {
+      // 值与原始值相同，从 pending changes 中移除
+      pendingChanges.remove(field);
+    }
+
+    // Force update the observable
+    pendingChanges.refresh();
+    _updateHasPendingChanges();
   }
 
-  /// Update basic profile
-  Future<void> updateBasicProfile() async {
+  /// Update pending profile image
+  void updatePendingProfileImage(File? image) {
+    pendingProfileImage.value = image;
+    _updateHasPendingChanges();
+  }
+
+  /// Check if there are any pending changes
+  void _updateHasPendingChanges() {
+    hasPendingChanges.value = pendingChanges.isNotEmpty || pendingProfileImage.value != null;
+  }
+
+  /// Apply all pending changes
+  Future<void> applyAllChanges() async {
+    if (!hasPendingChanges.value) {
+      TLoaders.warningSnackBar(
+        title: 'No Changes',
+        message: 'No changes were made to your profile.',
+      );
+      return;
+    }
+
     try {
       // Check Internet
       final isConnected = await NetworkManager.instance.isConnected();
-      if (!isConnected) {
-        return;
+      if (!isConnected) return;
+
+      // Show loading
+      TLoaders.customToast(message: 'Updating profile...');
+
+      // Upload profile image if changed
+      if (pendingProfileImage.value != null) {
+        await _uploadProfileImage();
       }
 
-      // Form Validation
-      if (!basicProfileFormKey.currentState!.validate()) {
-        return;
+      // 不再处理 username 和 phoneNumber，因为它们已经直接保存了
+      // 只处理其他字段的 pending changes
+
+      // Apply profile-level changes
+      if (_hasProfileChanges()) {
+        await _applyProfileChanges();
       }
 
-      // Start Loading
-      isBasicProfileLoading.value = true;
+      // Clear pending changes
+      resetPendingChanges();
 
-      // Check if there are any changes
-      final currentUser = userController.user.value;
-      final newUsername = username.text.trim();
-      final newPhoneNumber = phoneNumber.text.trim().isNotEmpty
-          ? TUserProfileValidator.convertToStorageFormat(phoneNumber.text.trim())
-          : '';
+      // Refresh user data
+      await userController.fetchUserRecord();
 
-      final hasUsernameChanged = newUsername != currentUser.username;
-      final hasPhoneNumberChanged = newPhoneNumber != currentUser.phoneNumber;
-
-      if (!hasUsernameChanged && !hasPhoneNumberChanged) {
-        isBasicProfileLoading.value = false;
-        TLoaders.warningSnackBar(
-          title: 'No Changes',
-          message: 'No changes were made to your profile.',
-        );
-        return;
-      }
-
-      // Check for username duplication (only if username actually changed)
-      if (hasUsernameChanged) {
-        final isDuplicate = await userRepository.checkUsernameDuplicate(
-          newUsername,
-          currentUser.userId,
-        );
-
-        if (isDuplicate) {
-          isBasicProfileLoading.value = false;
-          TLoaders.errorSnackBar(
-            title: 'Username Taken',
-            message: 'This username is already in use. Please choose another.',
-          );
-          return;
-        }
-      }
-
-      // Update user data
-      Map<String, dynamic> updates = {};
-
-      if (hasUsernameChanged) {
-        updates['username'] = newUsername;
-      }
-
-      if (hasPhoneNumberChanged) {
-        updates['phoneNumber'] = newPhoneNumber;
-      }
-
-      await userRepository.updateSingleField(updates);
-
-      // Update local user model
-      userController.user.value = currentUser.copyWith(
-        username: newUsername,
-        phoneNumber: newPhoneNumber,
-      );
-
-      userController.user.refresh();
-
-      // Stop Loading
-      isBasicProfileLoading.value = false;
-
-      // Success Message
+      // Success message
       TLoaders.successSnackBar(
         title: 'Success',
         message: 'Your profile has been updated successfully.',
       );
-
-      // Go back
-      if (Get.context != null) {
-        Navigator.of(Get.context!, rootNavigator: true).pop();
-      }
     } catch (e) {
-      isBasicProfileLoading.value = false;
-      TLoaders.errorSnackBar(title: TTexts.error, message: e.toString());
+      TLoaders.errorSnackBar(
+        title: TTexts.error,
+        message: e.toString(),
+      );
     }
   }
 
-  /// Update health profile
-  Future<void> updateHealthProfile() async {
-    try {
-      // Check Internet
-      final isConnected = await NetworkManager.instance.isConnected();
-      if (!isConnected) {
-        return;
-      }
-
-      // Form Validation
-      if (!healthProfileFormKey.currentState!.validate()) {
-        return;
-      }
-
-      // Start Loading
-      isHealthProfileLoading.value = true;
-
-      // Parse allergies
-      List<String> allergyList = allergies.text.trim().isNotEmpty
-          ? allergies.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList()
-          : [];
-
-      // Create updated profile
-      final updatedProfile = UserProfileModel(
-        gender: selectedGender.value,
-        dateOfBirth: selectedDateOfBirth.value ?? DateTime.now(),
-        weight: double.tryParse(weight.text.trim()) ?? 0,
-        height: double.tryParse(height.text.trim()) ?? 0,
-        dietPreference: dietPreference.text.trim(),
-        allergies: allergyList,
-        isTakeMedication: isTakeMedication.value,
-        medicationAdherence: int.tryParse(medicationAdherence.text.trim()) ?? 0,
-        sleepDuration: double.tryParse(sleepDuration.text.trim()) ?? 0,
-        stressLevel: selectedStressLevel.value,
-        waterIntake: double.tryParse(waterIntake.text.trim()) ?? 0,
-        updatedAt: DateTime.now(),
-      );
-
-      // Check if there are any changes
-      final currentProfile = userController.user.value.profile;
-
-      if (_areProfilesEqual(currentProfile, updatedProfile)) {
-        isHealthProfileLoading.value = false;
-        TLoaders.warningSnackBar(
-          title: 'No Changes',
-          message: 'No changes were made to your health profile.',
-        );
-        return;
-      }
-
-      // Update profile in Firebase
-      await userRepository.updateUserProfile(
-        userController.user.value.userId,
-        updatedProfile,
-      );
-
-      // Update local user model
-      userController.user.value.profile = updatedProfile;
-      userController.user.refresh();
-
-      // Stop Loading
-      isHealthProfileLoading.value = false;
-
-      // Success Message
-      TLoaders.successSnackBar(
-        title: 'Success',
-        message: 'Your health profile has been updated successfully.',
-      );
-
-      // Go back
-      if (Get.context != null) {
-        Navigator.of(Get.context!, rootNavigator: true).pop();
-      }
-    } catch (e) {
-      isHealthProfileLoading.value = false;
-      TLoaders.errorSnackBar(title: TTexts.error, message: e.toString());
+  /// 获取包含 pending changes 的当前值
+  T getCurrentValueWithPending<T>(String field, T originalValue) {
+    if (pendingChanges.containsKey(field)) {
+      return pendingChanges[field] as T;
     }
+    return originalValue;
   }
 
-  /// Helper method to compare profiles
-  bool _areProfilesEqual(UserProfileModel profile1, UserProfileModel profile2) {
-    return profile1.gender == profile2.gender &&
-        profile1.dateOfBirth.year == profile2.dateOfBirth.year &&
-        profile1.dateOfBirth.month == profile2.dateOfBirth.month &&
-        profile1.dateOfBirth.day == profile2.dateOfBirth.day &&
-        profile1.weight == profile2.weight &&
-        profile1.height == profile2.height &&
-        profile1.dietPreference == profile2.dietPreference &&
-        _areListsEqual(profile1.allergies, profile2.allergies) &&
-        profile1.isTakeMedication == profile2.isTakeMedication &&
-        profile1.medicationAdherence == profile2.medicationAdherence &&
-        profile1.sleepDuration == profile2.sleepDuration &&
-        profile1.stressLevel == profile2.stressLevel &&
-        profile1.waterIntake == profile2.waterIntake;
+  /// Upload profile image
+  Future<void> _uploadProfileImage() async {
+    if (pendingProfileImage.value == null) return;
+
+    final imageUrl = await userRepository.uploadImage(
+      'profile/images',
+      XFile(pendingProfileImage.value!.path),
+    );
+
+    if (imageUrl.isEmpty) {
+      throw 'Failed to upload image';
+    }
+
+    await userRepository.updateSingleField({'profileImg': imageUrl});
+  }
+
+  /// Check if there are profile-level changes (排除 username 和 phoneNumber)
+  bool _hasProfileChanges() {
+    return pendingChanges.containsKey('gender') ||
+        pendingChanges.containsKey('dateOfBirth') ||
+        pendingChanges.containsKey('height') ||
+        pendingChanges.containsKey('dietPreference') ||
+        pendingChanges.containsKey('allergies');
+  }
+
+  /// Apply profile-level changes
+  Future<void> _applyProfileChanges() async {
+    final currentProfile = userController.user.value.profile;
+
+    // Track if critical fields are being changed
+    bool genderChanged = false;
+    bool dobChanged = false;
+
+    if (pendingChanges.containsKey('gender') && currentProfile.hasGender) {
+      genderChanged = true;
+    }
+
+    if (pendingChanges.containsKey('dateOfBirth') && currentProfile.hasDateOfBirth) {
+      dobChanged = true;
+    }
+
+    final updatedProfile = currentProfile.copyWith(
+      gender: pendingChanges['gender'] as String? ?? currentProfile.gender,
+      dateOfBirth: pendingChanges['dateOfBirth'] as DateTime? ?? currentProfile.dateOfBirth,
+      height: pendingChanges['height'] as double? ?? currentProfile.height,
+      dietPreference: pendingChanges['dietPreference'] as String? ?? currentProfile.dietPreference,
+      allergies: pendingChanges['allergies'] as List<String>? ?? currentProfile.allergies,
+      hasChangedGender: genderChanged || currentProfile.hasChangedGender,
+      hasChangedDateOfBirth: dobChanged || currentProfile.hasChangedDateOfBirth,
+      updatedAt: DateTime.now(),
+    );
+
+    await userRepository.updateUserProfile(
+      userController.user.value.userId,
+      updatedProfile,
+    );
   }
 
   /// Helper method to compare lists
@@ -297,6 +248,8 @@ class UpdateProfileController extends GetxController {
     }
     return true;
   }
+
+  // ========== PASSWORD MANAGEMENT ==========
 
   /// Verify old password
   Future<void> verifyOldPassword() async {
@@ -404,6 +357,9 @@ class UpdateProfileController extends GetxController {
         message: 'Your password has been changed successfully.',
       );
 
+      // Refresh user data before going back
+      await userController.fetchUserRecord();
+
       // Go back
       Get.back();
     } catch (e) {
@@ -420,6 +376,8 @@ class UpdateProfileController extends GetxController {
     hideNewPassword.value = true;
     hideConfirmPassword.value = true;
   }
+
+  // ========== GOALS MANAGEMENT ==========
 
   /// Update single goal (called from dialog)
   Future<void> updateSingleGoal(String goalType, int value) async {
@@ -487,21 +445,10 @@ class UpdateProfileController extends GetxController {
 
   @override
   void onClose() {
-    username.dispose();
-    email.dispose();
-    phoneNumber.dispose();
-    weight.dispose();
-    height.dispose();
-    dietPreference.dispose();
-    allergies.dispose();
-    medicationAdherence.dispose();
-    sleepDuration.dispose();
-    waterIntake.dispose();
+    resetPendingChanges();
     oldPassword.dispose();
     newPassword.dispose();
     confirmPassword.dispose();
-    dailyStepsGoal.dispose();
-    weeklyExerciseTime.dispose();
     super.onClose();
   }
 }

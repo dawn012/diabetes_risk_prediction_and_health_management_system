@@ -16,6 +16,7 @@ class TAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.iconTheme,
     this.automaticallyImplyLeading = false,
     this.bottom,
+    this.customBackAction,
   });
 
   final Widget? title;
@@ -27,6 +28,7 @@ class TAppBar extends StatelessWidget implements PreferredSizeWidget {
   final IconThemeData? iconTheme;
   final bool automaticallyImplyLeading;
   final PreferredSizeWidget? bottom;
+  final VoidCallback? customBackAction; // 新增：自定义返回操作
 
   @override
   Widget build(BuildContext context) {
@@ -36,7 +38,7 @@ class TAppBar extends StatelessWidget implements PreferredSizeWidget {
         automaticallyImplyLeading: automaticallyImplyLeading,
         leading: showBackArrow
             ? IconButton(
-          onPressed: () => Get.back(),
+          onPressed: customBackAction ?? () => Get.back(), // 优先使用自定义返回操作
           icon: const Icon(Iconsax.arrow_left_2_outline),
         )
             : leadingIcon != null

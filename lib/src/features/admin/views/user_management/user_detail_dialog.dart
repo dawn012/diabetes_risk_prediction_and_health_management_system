@@ -330,62 +330,62 @@ class UserDetailDialog extends StatelessWidget {
             SizedBox(width: 16),
 
             // Login Attempts card
-            Expanded(
-              child: _buildStatCard(
-                'Login Attempts',
-                '${user.loginAttempt}',
-                Iconsax.login_bold,
-                user.loginAttempt > 3 ? TAdminColors.warning : TAdminColors.success,
-                isDark,
-              ),
-            ),
+            // Expanded(
+            //   child: _buildStatCard(
+            //     'Login Attempts',
+            //     '${user.loginAttempt}',
+            //     Iconsax.login_bold,
+            //     user.loginAttempt > 3 ? TAdminColors.warning : TAdminColors.success,
+            //     isDark,
+            //   ),
+            // ),
           ],
         ),
 
-        if (user.lastAttemptTime > 0) ...[
-          SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: TAdminColors.getSurfaceVariantColor(isDark),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: TAdminColors.getBorderColor(isDark),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Iconsax.clock_bold,
-                  size: 20,
-                  color: TAdminColors.getOnSurfaceVariantColor(isDark),
-                ),
-                SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Last Login Attempt',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: TAdminColors.getOnSurfaceColor(isDark),
-                      ),
-                    ),
-                    Text(
-                      _formatTimestamp(user.lastAttemptTime),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: TAdminColors.getOnSurfaceVariantColor(isDark),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
+        // if (user.lastAttemptTime > 0) ...[
+        //   SizedBox(height: 16),
+        //   Container(
+        //     width: double.infinity,
+        //     padding: EdgeInsets.all(16),
+        //     decoration: BoxDecoration(
+        //       color: TAdminColors.getSurfaceVariantColor(isDark),
+        //       borderRadius: BorderRadius.circular(12),
+        //       border: Border.all(
+        //         color: TAdminColors.getBorderColor(isDark),
+        //       ),
+        //     ),
+        //     child: Row(
+        //       children: [
+        //         Icon(
+        //           Iconsax.clock_bold,
+        //           size: 20,
+        //           color: TAdminColors.getOnSurfaceVariantColor(isDark),
+        //         ),
+        //         SizedBox(width: 12),
+        //         Column(
+        //           crossAxisAlignment: CrossAxisAlignment.start,
+        //           children: [
+        //             Text(
+        //               'Last Login Attempt',
+        //               style: TextStyle(
+        //                 fontSize: 14,
+        //                 fontWeight: FontWeight.w500,
+        //                 color: TAdminColors.getOnSurfaceColor(isDark),
+        //               ),
+        //             ),
+        //             Text(
+        //               _formatTimestamp(user.lastAttemptTime),
+        //               style: TextStyle(
+        //                 fontSize: 12,
+        //                 color: TAdminColors.getOnSurfaceVariantColor(isDark),
+        //               ),
+        //             ),
+        //           ],
+        //         ),
+        //       ],
+        //     ),
+        //   ),
+        // ],
       ],
     );
   }

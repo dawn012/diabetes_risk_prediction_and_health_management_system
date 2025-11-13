@@ -165,28 +165,28 @@ class ExportHelper {
   /// Show permission explanation dialog
   static Future<bool> _showPermissionExplanationDialog() async {
     return await Get.dialog<bool>(
-          AlertDialog(
-            title: const Text('Storage Permission Required'),
-            content: const Text(
-              'This app needs storage permission to save exported files to your device. '
+      AlertDialog(
+        title: const Text('Storage Permission Required'),
+        content: const Text(
+          'This app needs storage permission to save exported files to your device. '
               'The files will be saved to your Downloads folder and you can share them with other apps.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Get.back(result: false),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () => Get.back(result: true),
-                style: ElevatedButton.styleFrom(
-                    padding: EdgeInsets.symmetric(horizontal: 10)),
-                child: const Text('Grant Permission', style: TextStyle(
-                  fontSize: 12
-                ),),
-              ),
-            ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(result: false),
+            child: const Text('Cancel'),
           ),
-        ) ??
+          ElevatedButton(
+            onPressed: () => Get.back(result: true),
+            style: ElevatedButton.styleFrom(
+                padding: EdgeInsets.symmetric(horizontal: 10)),
+            child: const Text('Grant Permission', style: TextStyle(
+                fontSize: 12
+            ),),
+          ),
+        ],
+      ),
+    ) ??
         false;
   }
 
@@ -233,12 +233,24 @@ class ExportHelper {
     try {
       TLoaders.customToast(message: 'Generating PDF...');
 
+      debugPrint('=== PDF Export Debug Info ===');
+      debugPrint('Title: ${exportData.title}');
+      debugPrint('Time Range: ${exportData.timeRange}');
+      debugPrint('Period Filter: ${exportData.periodFilter}');
+      debugPrint('Trend Filter: ${exportData.trendFilter}');
+      debugPrint('Has Data: ${exportData.hasData}');
+      debugPrint('Data Count: ${exportData.data.length}');
+
       // Capture chart as image
       final chartImage = await _captureChart(exportData.chartKey);
 
       // Create PDF document
       final pdf = pw.Document();
 
+      // 生成表格页面
+      final tablePages = _buildDataTablePages(exportData.data);
+
+      // 第一页（包含标题、图表和第一页表格）
       pdf.addPage(
         pw.Page(
           pageFormat: PdfPageFormat.a4,
@@ -275,11 +287,17 @@ class ExportHelper {
 
                 // Chart image
                 if (chartImage != null) ...[
-                  pw.Image(pw.MemoryImage(chartImage)),
+                  pw.Container(
+                    padding: const pw.EdgeInsets.all(10),
+                    child: pw.Image(
+                      pw.MemoryImage(chartImage),
+                      fit: pw.BoxFit.contain,
+                    ),
+                  ),
                   pw.SizedBox(height: 20),
                 ],
 
-                // Data table
+                // Data table title
                 pw.Text(
                   'Data Summary',
                   style: pw.TextStyle(
@@ -288,7 +306,21 @@ class ExportHelper {
                   ),
                 ),
                 pw.SizedBox(height: 10),
-                _buildDataTable(exportData.data),
+
+                // 显示第一页表格或无数据信息
+                if (exportData.data.isNotEmpty)
+                  tablePages.first
+                else
+                  pw.Text('No data available'),
+
+                // 如果有多页，显示继续提示
+                if (tablePages.length > 1) ...[
+                  pw.SizedBox(height: 10),
+                  pw.Text(
+                    'Continued on next page... (Total ${exportData.data.length} records)',
+                    style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey),
+                  ),
+                ],
 
                 // Footer
                 pw.Spacer(),
@@ -303,8 +335,46 @@ class ExportHelper {
         ),
       );
 
+      // 添加额外的页面用于显示剩余的表格数据
+      for (int i = 1; i < tablePages.length; i++) {
+        pdf.addPage(
+          pw.Page(
+            pageFormat: PdfPageFormat.a4,
+            build: (pw.Context context) {
+              return pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    '${exportData.title} - Data Summary (Continued)',
+                    style: pw.TextStyle(
+                      fontSize: 18,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                  pw.SizedBox(height: 10),
+                  pw.Text(
+                    'Page ${i + 1} of ${tablePages.length} - Showing records ${(i * 25) + 1} to ${(i + 1) * 25 > exportData.data.length ? exportData.data.length : (i + 1) * 25} of ${exportData.data.length}',
+                    style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey),
+                  ),
+                  pw.SizedBox(height: 10),
+                  tablePages[i],
+                  pw.Spacer(),
+                  pw.Divider(),
+                  pw.Text(
+                    'Page ${i + 1} of ${tablePages.length} - Generated on: ${DateTime.now().toString().substring(0, 19)}',
+                    style: const pw.TextStyle(fontSize: 10),
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+      }
+
       // Save PDF
       await _savePDF(pdf, exportData.title);
+
+      debugPrint('PDF generated successfully');
     } catch (e) {
       throw Exception('PDF generation failed: $e');
     }
@@ -329,10 +399,10 @@ class ExportHelper {
   static Future<Uint8List?> _captureChart(GlobalKey chartKey) async {
     try {
       final RenderRepaintBoundary boundary =
-          chartKey.currentContext?.findRenderObject() as RenderRepaintBoundary;
-      final ui.Image image = await boundary.toImage(pixelRatio: 2.0);
+      chartKey.currentContext?.findRenderObject() as RenderRepaintBoundary;
+      final ui.Image image = await boundary.toImage(pixelRatio: 1.5);
       final ByteData? byteData =
-          await image.toByteData(format: ui.ImageByteFormat.png);
+      await image.toByteData(format: ui.ImageByteFormat.png);
       return byteData?.buffer.asUint8List();
     } catch (e) {
       debugPrint('Failed to capture chart: $e');
@@ -340,52 +410,85 @@ class ExportHelper {
     }
   }
 
-  /// Build data table for PDF
-  static pw.Widget _buildDataTable(List<Map<String, dynamic>> data) {
+  /// Build data table for PDF - 支持多页显示
+  static List<pw.Widget> _buildDataTablePages(List<Map<String, dynamic>> data) {
     if (data.isEmpty) {
-      return pw.Text('No data available');
+      debugPrint('PDF Table: No data available');
+      return [pw.Text('No data available')];
     }
 
     // Get headers from first data entry
     final headers = data.first.keys.toList();
 
-    return pw.Table(
-      border: pw.TableBorder.all(),
-      children: [
-        // Header row
-        pw.TableRow(
-          decoration: const pw.BoxDecoration(color: PdfColors.grey300),
-          children: headers
-              .map(
-                (header) => pw.Padding(
+    // 在PDF表格生成前添加调试信息
+    debugPrint("📊 PDF TABLE DEBUG - Headers: $headers");
+    if (data.isNotEmpty) {
+      debugPrint("📊 PDF TABLE DEBUG - First row: ${data.first}");
+    }
+
+    // 每页显示的行数
+    const rowsPerPage = 25;
+    final totalPages = (data.length / rowsPerPage).ceil();
+    final List<pw.Widget> pages = [];
+
+    for (int page = 0; page < totalPages; page++) {
+      final startIndex = page * rowsPerPage;
+      final endIndex = (startIndex + rowsPerPage) < data.length
+          ? startIndex + rowsPerPage
+          : data.length;
+      final pageData = data.sublist(startIndex, endIndex);
+
+      // 动态计算列宽
+      final columnWidths = <int, pw.FlexColumnWidth>{};
+      for (int i = 0; i < headers.length; i++) {
+        if (i == 0) {
+          columnWidths[i] = const pw.FlexColumnWidth(1.5); // 日期时间列宽一些
+        } else {
+          columnWidths[i] = const pw.FlexColumnWidth(1);
+        }
+      }
+
+      final table = pw.Table(
+        border: pw.TableBorder.all(),
+        columnWidths: columnWidths,
+        children: [
+          // Header row
+          pw.TableRow(
+            decoration: const pw.BoxDecoration(color: PdfColors.grey300),
+            children: headers.map((header) {
+              return pw.Padding(
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Text(
+                  header.toUpperCase(),
+                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                  textAlign: pw.TextAlign.left,
+                ),
+              );
+            }).toList(),
+          ),
+          // Data rows for current page
+          ...pageData.map((row) {
+            return pw.TableRow(
+              children: headers.map((header) {
+                final value = row[header]?.toString() ?? '';
+                return pw.Padding(
                   padding: const pw.EdgeInsets.all(8),
                   child: pw.Text(
-                    header.toString().toUpperCase(),
-                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                    value,
+                    textAlign: pw.TextAlign.left,
+                    style: const pw.TextStyle(fontSize: 10),
                   ),
-                ),
-              )
-              .toList(),
-        ),
-        // Data rows
-        ...data
-            .take(20)
-            .map(
-              (row) => // Limit to first 20 rows for PDF
-                  pw.TableRow(
-                children: headers
-                    .map(
-                      (header) => pw.Padding(
-                        padding: const pw.EdgeInsets.all(8),
-                        child: pw.Text(row[header]?.toString() ?? ''),
-                      ),
-                    )
-                    .toList(),
-              ),
-            )
-            .toList(),
-      ],
-    );
+                );
+              }).toList(),
+            );
+          }).toList(),
+        ],
+      );
+
+      pages.add(table);
+    }
+
+    return pages;
   }
 
   /// Generate CSV content
@@ -407,6 +510,12 @@ class ExportHelper {
     if (exportData.data.isEmpty) {
       buffer.writeln('No data available');
       return buffer.toString();
+    }
+
+    // 在CSV生成前添加调试信息
+    debugPrint("📊 CSV DEBUG - Headers: ${exportData.data.first.keys.toList()}");
+    if (exportData.data.isNotEmpty) {
+      debugPrint("📊 CSV DEBUG - First row: ${exportData.data.first}");
     }
 
     // Add headers
@@ -567,12 +676,12 @@ class ExportHelper {
           ElevatedButton(
             onPressed: exportData.hasData && exportData.data.isNotEmpty
                 ? () {
-                    Get.back();
-                    exportChart(
-                      exportData: exportData,
-                      exportType: ExportType.csv,
-                    );
-                  }
+              Get.back();
+              exportChart(
+                exportData: exportData,
+                exportType: ExportType.csv,
+              );
+            }
                 : null,
             style: ElevatedButton.styleFrom(
                 padding: EdgeInsets.symmetric(horizontal: 10)),
@@ -584,12 +693,12 @@ class ExportHelper {
           ElevatedButton(
             onPressed: exportData.hasData && exportData.data.isNotEmpty
                 ? () {
-                    Get.back();
-                    exportChart(
-                      exportData: exportData,
-                      exportType: ExportType.pdf,
-                    );
-                  }
+              Get.back();
+              exportChart(
+                exportData: exportData,
+                exportType: ExportType.pdf,
+              );
+            }
                 : null,
             style: ElevatedButton.styleFrom(
                 padding: EdgeInsets.symmetric(horizontal: 10)),

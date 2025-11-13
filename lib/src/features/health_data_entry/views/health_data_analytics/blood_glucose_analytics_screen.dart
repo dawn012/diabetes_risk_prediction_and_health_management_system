@@ -1,11 +1,15 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:intl/intl.dart';
 
+import '../../../../common/widgets/appbar/appbar.dart';
 import '../../../../utils/constants/colors.dart';
 import '../../../../utils/constants/enums.dart';
+import '../../../../utils/constants/health_data_range.dart';
 import '../../../../utils/constants/sizes.dart';
+import '../../../../utils/formatters/formatter.dart';
 import '../../../../utils/helpers/helper_functions.dart';
 import '../../controllers/blood_glucose_controller.dart';
 import '../health_data_entry/health_data_entry_screen.dart';
@@ -24,27 +28,26 @@ class BloodGlucoseAnalyticsScreen extends StatelessWidget {
     final darkMode = THelperFunctions.isDarkMode(context);
 
     return Scaffold(
-      backgroundColor: darkMode ? TColors.dark : TColors.light,
-      appBar: AppBar(
+      backgroundColor: darkMode ? const Color(0xFF0A0A0B) : TColors.light,
+      appBar: TAppBar(
         backgroundColor: TColors.primary,
-        foregroundColor: TColors.white,
         title: const Text(
           'Blood Glucose',
-          style: TextStyle(fontWeight: FontWeight.bold, color: TColors.white,),
+          style: TextStyle(fontWeight: FontWeight.bold, color: TColors.white),
         ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () {
-            controller.resetFilters();
-            Get.back();
-          },
-        ),
+        showBackArrow: true,
+        customBackAction: () {
+          controller.resetFilters();
+          Get.back();
+        },
+        iconTheme: IconThemeData(color: TColors.white),
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
             color: TColors.white,
             onPressed: () {
-              Get.to(() => const HealthDataEntryScreen(initialSections: ['Blood Glucose'],));
+              Get.to(() => const HealthDataEntryScreen(
+                  initialSections: ['Blood Glucose']));
             },
           ),
         ],
@@ -54,9 +57,10 @@ class BloodGlucoseAnalyticsScreen extends StatelessWidget {
           children: [
             /// Time Range Selector
             Obx(() => HealthAnalyticsTimeRangeSelector(
-              selectedTimeRange: controller.selectedTimeRange.value,
-              onTap: () => _showTimeRangePicker(context, controller, darkMode),
-            )),
+                  selectedTimeRange: controller.selectedTimeRange.value,
+                  onTap: () =>
+                      _showTimeRangePicker(context, controller, darkMode),
+                )),
 
             /// Last Record Info
             Obx(() => _buildLastRecordInfo(context, controller, darkMode)),
@@ -67,132 +71,158 @@ class BloodGlucoseAnalyticsScreen extends StatelessWidget {
             const SizedBox(height: TSizes.defaultSpace),
 
             /// Statistics Cards
-            Obx(() => HealthStatisticsTable(
-              title: 'Blood Glucose',
-              selectedFilter: controller.selectedPeriodFilter.value,
-              onFilterTap: () => PeriodFilter.show(
-                context: context,
-                selectedValue: controller.selectedPeriodFilter.value,
-                onValueChanged: (filter) {
-                  controller.updatePeriodFilter(filter);
-                },
-                options: PhysiologicalTimePeriod.getAllDisplayNames(),
-              ),
-              statisticsRows: [
-                StatisticsRow(
-                  label: 'Glucose Level',
-                  lowestValue: controller.lowestValue.value.toStringAsFixed(1),
-                  highestValue: controller.highestValue.value.toStringAsFixed(1),
-                  averageValue: controller.averageValue.value.toStringAsFixed(1),
-                  lowestColor: TColors.glucoseLow,
-                  highestColor: TColors.glucoseHigh,
-                  averageColor: TColors.glucoseGood,
-                  onLowestTap: () => controller.navigateToLowestRecord(),
-                  onHighestTap: () => controller.navigateToHighestRecord(),
-                  onAverageTap: () => controller.showAllRecords(),
-                ),
-              ],
-            )),
+            Obx(() {
+              // Format average value display
+              final lowestDisplay = controller.lowestValue.value >= 0
+                  ? controller.lowestValue.value.toStringAsFixed(1)
+                  : '-';
+              final highestDisplay = controller.highestValue.value >= 0
+                  ? controller.highestValue.value.toStringAsFixed(1)
+                  : '-';
+              final averageDisplay = controller.averageValue.value >= 0
+                  ? controller.averageValue.value.toStringAsFixed(1)
+                  : '-';
+
+              // Determine if taps are enabled
+              final hasRecords = controller.totalCount.value > 0;
+
+              return Column(
+                children: [
+                  HealthStatisticsTable(
+                    title: 'Blood Glucose',
+                    selectedFilter: controller.selectedPeriodFilter.value,
+                    onFilterTap: () => PeriodFilter.show(
+                      context: context,
+                      selectedValue: controller.selectedPeriodFilter.value,
+                      onValueChanged: (filter) {
+                        controller.updatePeriodFilter(filter);
+                      },
+                      options: PhysiologicalTimePeriod.getAllDisplayNames(),
+                    ),
+                    statisticsRows: [
+                      StatisticsRow(
+                        label: 'Glucose Level',
+                        lowestValue: lowestDisplay,
+                        highestValue: highestDisplay,
+                        averageValue: averageDisplay,
+                        lowestColor: controller
+                            .getGlucoseLevelColor(controller.lowestValue.value),
+                        highestColor: controller
+                            .getGlucoseLevelColor(controller.highestValue.value),
+                        averageColor: controller
+                            .getGlucoseLevelColor(controller.averageValue.value),
+                        onLowestTap: hasRecords ? () => controller.navigateToLowestRecord() : null,
+                        onHighestTap: hasRecords ? () => controller.navigateToHighestRecord() : null,
+                        onAverageTap: hasRecords ? () => controller.showAllRecords() : null,
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            }),
 
             const SizedBox(height: TSizes.defaultSpace),
 
             /// Distribution Chart
             Obx(() => HealthDistributionChart(
-              title: 'Distribution',
-              distributionData: [
-                DistributionData(
-                  label: 'Good',
-                  count: controller.goodCount.value,
-                  color: TColors.glucoseGood,
-                  onTap: () => controller.showGoodRecords(),
-                ),
-                DistributionData(
-                  label: 'High',
-                  count: controller.highCount.value,
-                  color: TColors.glucoseHigh,
-                  onTap: () => controller.showHighRecords(),
-                ),
-                DistributionData(
-                  label: 'Low',
-                  count: controller.lowCount.value,
-                  color: TColors.glucoseLow,
-                  onTap: () => controller.showLowRecords(),
-                ),
-                DistributionData(
-                  label: 'Total',
-                  count: controller.totalCount.value,
-                  color: darkMode ? TColors.grey : TColors.darkGrey,
-                  onTap: () => controller.showAllRecords(),
-                ),
-              ],
-              pieChartSections: controller.totalCount.value > 0 ? [
-                PieChartSectionData(
-                  value: controller.goodCount.value.toDouble(),
-                  color: TColors.glucoseGood,
-                  radius: 25,
-                  showTitle: false,
-                ),
-                PieChartSectionData(
-                  value: controller.highCount.value.toDouble(),
-                  color: TColors.glucoseHigh,
-                  radius: 25,
-                  showTitle: false,
-                ),
-                PieChartSectionData(
-                  value: controller.lowCount.value.toDouble(),
-                  color: TColors.glucoseLow,
-                  radius: 25,
-                  showTitle: false,
-                ),
-              ] : [],
-              hasData: controller.totalCount.value > 0,
-            )),
+                  title: 'Distribution',
+                  distributionData: [
+                    DistributionData(
+                      label: 'Normal',
+                      count: controller.normalCount.value,
+                      color: TColors.glucoseNormal,
+                      onTap: () => controller.showNormalRecords(),
+                    ),
+                    DistributionData(
+                      label: 'High',
+                      count: controller.highCount.value,
+                      color: TColors.glucoseHigh,
+                      onTap: () => controller.showHighRecords(),
+                    ),
+                    DistributionData(
+                      label: 'Low',
+                      count: controller.lowCount.value,
+                      color: TColors.glucoseLow,
+                      onTap: () => controller.showLowRecords(),
+                    ),
+                    DistributionData(
+                      label: 'Total',
+                      count: controller.totalCount.value,
+                      color: darkMode ? TColors.grey : TColors.darkGrey,
+                      onTap: () => controller.showAllRecords(),
+                    ),
+                  ],
+                  pieChartSections: controller.totalCount.value > 0
+                      ? [
+                          PieChartSectionData(
+                            value: controller.normalCount.value.toDouble(),
+                            color: TColors.glucoseNormal,
+                            radius: 25,
+                            showTitle: false,
+                          ),
+                          PieChartSectionData(
+                            value: controller.highCount.value.toDouble(),
+                            color: TColors.glucoseHigh,
+                            radius: 25,
+                            showTitle: false,
+                          ),
+                          PieChartSectionData(
+                            value: controller.lowCount.value.toDouble(),
+                            color: TColors.glucoseLow,
+                            radius: 25,
+                            showTitle: false,
+                          ),
+                        ]
+                      : [],
+                  hasData: controller.totalCount.value > 0,
+                )),
 
             const SizedBox(height: TSizes.defaultSpace),
 
             /// Trends Chart
             Obx(() => HealthTrendsChart(
-              title: 'Blood Glucose Trends',
-              selectedFilter: controller.selectedTrendFilter.value,
-              onFilterTap: () => PeriodFilter.show(
-                context: context,
-                selectedValue: controller.selectedTrendFilter.value,
-                onValueChanged: (filter) {
-                  controller.updateTrendFilter(filter);
-                },
-                options: [
-                  'All',
-                  'Before Meal',
-                  'After Meal',
-                  'Before Exercise',
-                  'After Exercise',
-                  'Wake-up',
-                  'Bedtime',
-                  'Others'
-                ],
-              ),
-              lineBarData: [
-                LineChartBarData(
-                  isCurved: true,
-                  color: TColors.primary,
-                  barWidth: 3,
-                  dotData: const FlDotData(show: true),
-                  belowBarData: BarAreaData(show: false),
-                  spots: controller.trendsData,
-                ),
-              ],
-              labels: controller.trendsLabels,
-              minY: 0,
-              maxY: 30,
-              yAxisUnit: '',
-              hasData: controller.trendsData.isNotEmpty,
-              timeRange: controller.selectedTimeRange.value,
-              periodFilter: controller.selectedPeriodFilter.value,
-              trendFilter: controller.selectedTrendFilter.value,
-              legendItems: [
-                LegendItem(label: 'Blood Glucose', color: TColors.primary),
-              ],
-            )),
+                  title: 'Blood Glucose Trends',
+                  selectedFilter: controller.selectedTrendFilter.value,
+                  onFilterTap: () => PeriodFilter.show(
+                    context: context,
+                    selectedValue: controller.selectedTrendFilter.value,
+                    onValueChanged: (filter) {
+                      controller.updateTrendFilter(filter);
+                    },
+                    options: [
+                      'All',
+                      'Before Meal',
+                      'After Meal',
+                      'Before Exercise',
+                      'After Exercise',
+                      'Wake-up',
+                      'Bedtime',
+                      'Others'
+                    ],
+                  ),
+                  lineBarData: [
+                    LineChartBarData(
+                      isCurved: true,
+                      color: TColors.primary,
+                      barWidth: 3,
+                      dotData: const FlDotData(show: true),
+                      belowBarData: BarAreaData(show: false),
+                      spots: controller.trendsData,
+                    ),
+                  ],
+                  labels: controller.trendsLabels,
+                  minY: 0,
+                  maxY: HealthDataRanges.maxGlucoseMmolL,
+                  yAxisUnit: 'mmol/L',
+                  hasData: controller.trendsData.isNotEmpty,
+                  timeRange: controller.selectedTimeRange.value,
+                  periodFilter: controller.selectedPeriodFilter.value,
+                  trendFilter: controller.selectedTrendFilter.value,
+                  legendItems: [
+                    LegendItem(label: 'Blood Glucose', color: TColors.primary),
+                  ],
+                  originalDateTimes: controller.trendsOriginalDateTimes,
+                )),
 
             const SizedBox(height: TSizes.defaultSpace),
 
@@ -207,19 +237,18 @@ class BloodGlucoseAnalyticsScreen extends StatelessWidget {
   }
 
   /// Last Record Info
-  Widget _buildLastRecordInfo(BuildContext context, BloodGlucoseController controller, bool darkMode) {
-    if (controller.lastRecord.value == null) {
-      return const SizedBox.shrink();
-    }
+  Widget _buildLastRecordInfo(
+      BuildContext context, BloodGlucoseController controller, bool darkMode) {
+    final lastRecord = controller.lastRecord.value;
+    if (lastRecord == null) return const SizedBox.shrink();
 
-    final lastRecord = controller.lastRecord.value!;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: TSizes.defaultSpace),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
-            'Last Record: ${DateFormat('HH:mm').format(lastRecord.logDateTime)}',
+            'Last Record: ${TFormatter.formatLastRecordDate(lastRecord.logDateTime)}',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: darkMode ? TColors.grey : TColors.darkGrey,
             ),
@@ -238,7 +267,7 @@ class BloodGlucoseAnalyticsScreen extends StatelessWidget {
         children: [
           _buildLegendItem('Low', TColors.glucoseLow, darkMode),
           const SizedBox(width: TSizes.md),
-          _buildLegendItem('Good', TColors.glucoseGood, darkMode),
+          _buildLegendItem('Normal', TColors.glucoseNormal, darkMode),
           const SizedBox(width: TSizes.md),
           _buildLegendItem('High', TColors.glucoseHigh, darkMode),
         ],
@@ -272,15 +301,16 @@ class BloodGlucoseAnalyticsScreen extends StatelessWidget {
   }
 
   /// Comparison Chart (Before vs After Meals)
-  Widget _buildComparisonChart(BuildContext context, BloodGlucoseController controller, bool darkMode) {
+  Widget _buildComparisonChart(
+      BuildContext context, BloodGlucoseController controller, bool darkMode) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: TSizes.defaultSpace),
       padding: const EdgeInsets.all(TSizes.md),
       decoration: BoxDecoration(
-        color: darkMode ? TColors.darkerGrey : Colors.white,
+        color: darkMode ? TColors.dark : Colors.white,
         borderRadius: BorderRadius.circular(TSizes.cardRadiusLg),
         border: Border.all(
-          color: darkMode ? Colors.grey.shade700 : Colors.grey.shade200,
+          color: darkMode ? TColors.dark : Colors.grey.shade200,
         ),
       ),
       child: Column(
@@ -297,7 +327,8 @@ class BloodGlucoseAnalyticsScreen extends StatelessWidget {
               ),
               const Spacer(),
               GestureDetector(
-                onTap: () => _showComparisonFilter(context, controller, darkMode),
+                onTap: () =>
+                    _showComparisonFilter(context, controller, darkMode),
                 child: Row(
                   children: [
                     Obx(() => Text(
@@ -320,96 +351,105 @@ class BloodGlucoseAnalyticsScreen extends StatelessWidget {
           ),
           const SizedBox(height: TSizes.md),
 
-          /// Comparison Indicators
-          if (controller.comparisonData.isNotEmpty) ...[
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: controller.comparisonData.entries.map((entry) {
-                final difference = entry.value;
-                final isPositive = difference > 0;
-                return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: TSizes.sm, vertical: TSizes.xs),
-                  decoration: BoxDecoration(
-                    color: isPositive ? TColors.glucoseHighLight : TColors.glucoseLowLight,
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                  child: Text(
-                    '${isPositive ? '+' : ''}${difference.toStringAsFixed(1)}',
-                    style: TextStyle(
-                      color: isPositive ? TColors.glucoseHigh : TColors.glucoseLow,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: TSizes.md),
-          ],
-
-          /// Bar Chart
+          /// Bar Chart with difference indicators
           SizedBox(
-            height: 200,
+            height: 240, // Increased height to accommodate difference indicators
             child: controller.comparisonBarData.isNotEmpty
-                ? BarChart(
-              BarChartData(
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  horizontalInterval: 10,
-                  getDrawingHorizontalLine: (value) => FlLine(
-                    color: darkMode ? Colors.grey.shade700 : Colors.grey.shade300,
-                    strokeWidth: 1,
-                  ),
-                ),
-                titlesData: FlTitlesData(
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 40,
-                      getTitlesWidget: (value, meta) => Text(
-                        value.toInt().toString(),
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: darkMode ? TColors.white : TColors.black,
-                        ),
+                ? Stack(
+              children: [
+                BarChart(
+                  BarChartData(
+                    gridData: FlGridData(
+                      show: true,
+                      drawVerticalLine: false,
+                      horizontalInterval: _getComparisonChartInterval(controller),
+                      getDrawingHorizontalLine: (value) => FlLine(
+                        color: darkMode
+                            ? Colors.grey.shade700
+                            : Colors.grey.shade300,
+                        strokeWidth: 1,
                       ),
                     ),
-                  ),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 40,
-                      getTitlesWidget: (value, meta) {
-                        if (value.toInt() < controller.comparisonLabels.length) {
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 8.0),
-                            child: Text(
-                              controller.comparisonLabels[value.toInt()],
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: darkMode ? TColors.white : TColors.black,
-                              ),
-                            ),
-                          );
+                    titlesData: FlTitlesData(
+                      leftTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 40,
+                          interval: _getComparisonChartInterval(controller), // Use dynamic interval
+                          getTitlesWidget: (value, meta) {
+                            // Show labels based on the interval
+                            final interval = _getComparisonChartInterval(controller);
+                            if (value % interval == 0) {
+                              return Text(
+                                value.toInt().toString(),
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: darkMode ? TColors.white : TColors.black,
+                                ),
+                              );
+                            }
+                            return const SizedBox.shrink();
+                          },
+                        ),
+                      ),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 50, // Increased for longer labels
+                          getTitlesWidget: (value, meta) {
+                            if (value.toInt() <
+                                controller.comparisonLabels.length) {
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 8.0),
+                                child: Text(
+                                  controller.comparisonLabels[value.toInt()],
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: darkMode
+                                        ? TColors.white
+                                        : TColors.black,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                ),
+                              );
+                            }
+                            return const SizedBox.shrink();
+                          },
+                        ),
+                      ),
+                      rightTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false)),
+                      topTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false)),
+                    ),
+                    borderData: FlBorderData(show: true),
+                    maxY: _getComparisonChartMaxY(controller),
+                    minY: 0,
+                    barGroups: controller.comparisonBarData,
+                    barTouchData: BarTouchData(
+                      touchCallback:
+                          (FlTouchEvent event, BarTouchResponse? response) {
+                        if (response?.spot != null) {
+                          // TODO: Show details for this comparison data
                         }
-                        return const SizedBox.shrink();
                       },
                     ),
                   ),
-                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                 ),
-                borderData: FlBorderData(show: true),
-                maxY: 40,
-                barGroups: controller.comparisonBarData,
-                barTouchData: BarTouchData(
-                  touchCallback: (FlTouchEvent event, BarTouchResponse? response) {
-                    if (response?.spot != null) {
-                      // TODO: Show details for this comparison data
-                    }
-                  },
+
+                // Difference indicators positioned above bars (outside the chart area)
+                IgnorePointer(
+                  child: CustomPaint(
+                    painter: _DifferenceIndicatorPainter(
+                      barGroups: controller.comparisonBarData,
+                      differences: controller.comparisonData.entries.toList(),
+                      maxY: _getComparisonChartMaxY(controller),
+                      chartWidth: MediaQuery.of(context).size.width - TSizes.defaultSpace * 2 - TSizes.md * 2,
+                    ),
+                  ),
                 ),
-              ),
+              ],
             )
                 : Center(
               child: Column(
@@ -418,13 +458,18 @@ class BloodGlucoseAnalyticsScreen extends StatelessWidget {
                   Icon(
                     Icons.bar_chart,
                     size: 48,
-                    color: darkMode ? Colors.grey.shade600 : Colors.grey.shade300,
+                    color: darkMode
+                        ? Colors.grey.shade600
+                        : Colors.grey.shade300,
                   ),
                   const SizedBox(height: TSizes.sm),
                   Text(
                     'No Comparison Data',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: darkMode ? Colors.grey.shade500 : Colors.grey.shade400,
+                    style:
+                    Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: darkMode
+                          ? Colors.grey.shade500
+                          : Colors.grey.shade400,
                     ),
                   ),
                 ],
@@ -436,9 +481,57 @@ class BloodGlucoseAnalyticsScreen extends StatelessWidget {
     );
   }
 
+  /// Get dynamic max Y value for comparison chart
+  double _getComparisonChartMaxY(BloodGlucoseController controller) {
+    if (controller.comparisonBarData.isEmpty) return 30;
+
+    double maxValue = 0;
+    for (final group in controller.comparisonBarData) {
+      for (final rod in group.barRods) {
+        if (rod.toY > maxValue) {
+          maxValue = rod.toY;
+        }
+      }
+    }
+
+    // Always add extra space for difference indicators
+    // If max value is 20, we want to show up to 30
+    // If max value is 25, we want to show up to 30
+    // If max value is 30, we want to show up to 40
+    double roundedMax = (maxValue / 10).ceil() * 10.0;
+
+    // Ensure we have enough space for the highest value plus some padding
+    if (maxValue <= roundedMax - 5) {
+      // If there's enough space, use the current rounded max
+      return roundedMax;
+    } else {
+      // If the max value is too close to the rounded max, go to the next level
+      return roundedMax + 10;
+    }
+  }
+
+  /// Get dynamic interval for comparison chart
+  double _getComparisonChartInterval(BloodGlucoseController controller) {
+    final maxY = _getComparisonChartMaxY(controller);
+
+    if (maxY <= 10) return 2;    // 0, 2, 4, 6, 8, 10
+    if (maxY <= 20) return 5;    // 0, 5, 10, 15, 20
+    if (maxY <= 30) return 10;   // 0, 10, 20, 30
+    if (maxY <= 40) return 10;   // 0, 10, 20, 30, 40
+    return 10;
+  }
+
   /// Show Time Range Picker
-  void _showTimeRangePicker(BuildContext context, BloodGlucoseController controller, bool darkMode) {
-    final timeRanges = ['Past 7 Days', 'Past 14 Days', 'Past 30 Days', 'Past 60 Days', 'Past 90 Days', 'Custom Range'];
+  void _showTimeRangePicker(
+      BuildContext context, BloodGlucoseController controller, bool darkMode) {
+    final timeRanges = [
+      'Past 7 Days',
+      'Past 14 Days',
+      'Past 30 Days',
+      'Past 60 Days',
+      'Past 90 Days',
+      'Custom Range'
+    ];
 
     Get.bottomSheet(
       Container(
@@ -467,33 +560,38 @@ class BloodGlucoseAnalyticsScreen extends StatelessWidget {
                   Text(
                     'Select Time Range',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                   ),
                 ],
               ),
             ),
 
             /// Time Range Options
-            ...timeRanges.map((range) => ListTile(
-              title: Text(
-                range,
-                style: TextStyle(
-                  color: darkMode ? TColors.white : TColors.black,
-                  fontWeight: range == controller.selectedTimeRange.value ? FontWeight.bold : FontWeight.normal,
-                ),
-              ),
-              selected: range == controller.selectedTimeRange.value,
-              selectedTileColor: TColors.primary.withOpacity(0.1),
-              onTap: () {
-                controller.updateTimeRange(range);
-                Get.back();
-              },
-              trailing: range == controller.selectedTimeRange.value
-                  ? const Icon(Icons.check, color: TColors.primary)
-                  : null,
-            )).toList(),
+            ...timeRanges
+                .map((range) => ListTile(
+                      title: Text(
+                        range,
+                        style: TextStyle(
+                          color: darkMode ? TColors.white : TColors.black,
+                          fontWeight:
+                              range == controller.selectedTimeRange.value
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                        ),
+                      ),
+                      selected: range == controller.selectedTimeRange.value,
+                      selectedTileColor: TColors.primary.withOpacity(0.1),
+                      onTap: () {
+                        controller.updateTimeRange(range);
+                        Get.back();
+                      },
+                      trailing: range == controller.selectedTimeRange.value
+                          ? const Icon(Icons.check, color: TColors.primary)
+                          : null,
+                    ))
+                .toList(),
 
             const SizedBox(height: TSizes.defaultSpace),
           ],
@@ -503,8 +601,12 @@ class BloodGlucoseAnalyticsScreen extends StatelessWidget {
   }
 
   /// Show Comparison Filter
-  void _showComparisonFilter(BuildContext context, BloodGlucoseController controller, bool darkMode) {
-    final comparisonFilters = ['Before vs. After Meal', 'Morning vs. Evening', 'Pre vs. Post Exercise'];
+  void _showComparisonFilter(
+      BuildContext context, BloodGlucoseController controller, bool darkMode) {
+    final comparisonFilters = [
+      'Before vs. After Meal',
+      'Before vs. After Exercise'
+    ];
 
     Get.bottomSheet(
       Container(
@@ -533,33 +635,40 @@ class BloodGlucoseAnalyticsScreen extends StatelessWidget {
                   Text(
                     'Comparison Type',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                   ),
                 ],
               ),
             ),
 
             /// Comparison Filter Options
-            ...comparisonFilters.map((filter) => ListTile(
-              title: Text(
-                filter,
-                style: TextStyle(
-                  color: darkMode ? TColors.white : TColors.black,
-                  fontWeight: filter == controller.selectedComparisonFilter.value ? FontWeight.bold : FontWeight.normal,
-                ),
-              ),
-              selected: filter == controller.selectedComparisonFilter.value,
-              selectedTileColor: TColors.primary.withOpacity(0.1),
-              onTap: () {
-                controller.updateComparisonFilter(filter);
-                Get.back();
-              },
-              trailing: filter == controller.selectedComparisonFilter.value
-                  ? const Icon(Icons.check, color: TColors.primary)
-                  : null,
-            )).toList(),
+            ...comparisonFilters
+                .map((filter) => ListTile(
+                      title: Text(
+                        filter,
+                        style: TextStyle(
+                          color: darkMode ? TColors.white : TColors.black,
+                          fontWeight: filter ==
+                                  controller.selectedComparisonFilter.value
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        ),
+                      ),
+                      selected:
+                          filter == controller.selectedComparisonFilter.value,
+                      selectedTileColor: TColors.primary.withOpacity(0.1),
+                      onTap: () {
+                        controller.updateComparisonFilter(filter);
+                        Get.back();
+                      },
+                      trailing:
+                          filter == controller.selectedComparisonFilter.value
+                              ? const Icon(Icons.check, color: TColors.primary)
+                              : null,
+                    ))
+                .toList(),
 
             const SizedBox(height: TSizes.defaultSpace),
           ],
@@ -567,4 +676,97 @@ class BloodGlucoseAnalyticsScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Custom painter to draw difference indicators above bars
+class _DifferenceIndicatorPainter extends CustomPainter {
+  final List<BarChartGroupData> barGroups;
+  final List<MapEntry<String, double>> differences;
+  final double maxY;
+  final double chartWidth;
+
+  _DifferenceIndicatorPainter({
+    required this.barGroups,
+    required this.differences,
+    required this.maxY,
+    required this.chartWidth,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (barGroups.isEmpty || differences.isEmpty) return;
+
+    final barWidth = 30.0; // Width of bar group
+    final spacing = (chartWidth + 35 - (barGroups.length * barWidth)) / (barGroups.length + 1);
+
+    for (int i = 0; i < barGroups.length; i++) {
+      if (i < differences.length) {
+        final difference = differences[i].value;
+        final isPositive = difference > 0;
+
+        // Calculate x position for the center of the bar group
+        final x = spacing + (i * (barWidth + spacing)) + (barWidth / 2);
+
+        // Find the maximum value in this bar group to position the indicator above it
+        double maxBarValue = 0;
+        for (final rod in barGroups[i].barRods) {
+          if (rod.toY > maxBarValue) {
+            maxBarValue = rod.toY;
+          }
+        }
+
+        // Position the indicator above the highest bar with some margin
+        // Using fixed position at the top of the chart area (outside the bars)
+        final y = 15; // Fixed position at the top
+
+        // Draw difference indicator
+        final textSpan = TextSpan(
+          text: '${isPositive ? '+' : ''}${difference.toStringAsFixed(1)}',
+          style: TextStyle(
+            color: isPositive ? TColors.glucoseHigh : TColors.glucoseLow,
+            fontWeight: FontWeight.bold,
+            fontSize: 10,
+          ),
+        );
+
+        final textPainter = TextPainter(
+          text: textSpan,
+          textDirection: TextDirection.ltr,
+        );
+        textPainter.layout();
+
+        // Draw background with border
+        final backgroundRect = RRect.fromRectAndRadius(
+          Rect.fromCenter(
+            center: Offset(x, y.toDouble()),
+            width: textPainter.width + 8,
+            height: textPainter.height + 4,
+          ),
+          const Radius.circular(8),
+        );
+
+        final paint = Paint()
+          ..color = isPositive ? TColors.glucoseHighLight : TColors.glucoseLowLight
+          ..style = PaintingStyle.fill;
+
+        // Draw border
+        final borderPaint = Paint()
+          ..color = isPositive ? TColors.glucoseHigh : TColors.glucoseLow
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1;
+
+        canvas.drawRRect(backgroundRect, paint);
+        canvas.drawRRect(backgroundRect, borderPaint);
+
+        // Draw text
+        textPainter.paint(
+          canvas,
+          Offset(x - textPainter.width / 2, y - textPainter.height / 2),
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }

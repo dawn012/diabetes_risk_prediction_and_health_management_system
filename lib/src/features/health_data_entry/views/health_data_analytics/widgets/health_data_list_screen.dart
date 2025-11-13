@@ -7,10 +7,13 @@ import '../../../../../utils/constants/colors.dart';
 import '../../../../../utils/constants/enums.dart';
 import '../../../../../utils/constants/sizes.dart';
 import '../../../../../utils/helpers/helper_functions.dart';
+import '../../../../diabetes_prediction/models/diabetes_risk_prediction_model.dart';
+import '../../../../diabetes_prediction/views/diabetes_output/diabetes_risk_detail_screen.dart';
 import '../../../controllers/blood_glucose_controller.dart';
 import '../../../controllers/blood_pressure_controller.dart';
 import '../../../controllers/weight_controller.dart';
 import '../../../controllers/exercise_controller.dart';
+import '../../../controllers/diabetes_risk_controller.dart';
 import '../../../models/health_data_model.dart';
 import '../../health_data_entry/health_data_entry_screen.dart';
 
@@ -31,7 +34,7 @@ class HealthDataListScreen extends StatelessWidget {
     final darkMode = THelperFunctions.isDarkMode(context);
 
     return Scaffold(
-      backgroundColor: darkMode ? TColors.dark : TColors.light,
+      backgroundColor: darkMode ? const Color(0xFF0A0A0B) : TColors.light,
       appBar: AppBar(
         backgroundColor: TColors.primary,
         foregroundColor: TColors.white,
@@ -93,10 +96,19 @@ class HealthDataListScreen extends StatelessWidget {
               ? _buildEmptyState(context, darkMode)
               : _buildDataList(context, darkMode, healthDataList);
         });
+
+      case HealthDataType.diabetesRisk:
+        final controller = Get.find<DiabetesRiskController>();
+        return Obx(() {
+          final predictionList = _getFilteredDiabetesRiskList(controller.getFilteredData());
+          return predictionList.isEmpty
+              ? _buildEmptyState(context, darkMode)
+              : _buildDiabetesRiskList(context, darkMode, predictionList);
+        });
     }
   }
 
-  /// Apply additional filtering based on filterType
+  /// Apply additional filtering based on filterType for health data
   List<HealthDataModel> _getFilteredList(List<HealthDataModel> data) {
     if (filterType == null || filterType == 'all') {
       return data;
@@ -106,17 +118,17 @@ class HealthDataListScreen extends StatelessWidget {
       case HealthDataType.bloodGlucose:
         final controller = Get.find<BloodGlucoseController>();
         switch (filterType) {
-          case 'good':
+          case 'normal':
             return data.where((d) =>
-            controller.getGlucoseLevel(d.bloodGlucose.glucoseLevel) == GlucoseLevel.good
+            controller.getGlucoseLevel(d.bloodGlucose.glucoseLevel) == HealthLevel.normal
             ).toList();
           case 'high':
             return data.where((d) =>
-            controller.getGlucoseLevel(d.bloodGlucose.glucoseLevel) == GlucoseLevel.high
+            controller.getGlucoseLevel(d.bloodGlucose.glucoseLevel) == HealthLevel.high
             ).toList();
           case 'low':
             return data.where((d) =>
-            controller.getGlucoseLevel(d.bloodGlucose.glucoseLevel) == GlucoseLevel.low
+            controller.getGlucoseLevel(d.bloodGlucose.glucoseLevel) == HealthLevel.low
             ).toList();
         }
         break;
@@ -150,6 +162,36 @@ class HealthDataListScreen extends StatelessWidget {
       case HealthDataType.physicalActivity:
       // Add activity filtering logic if needed
         break;
+
+      case HealthDataType.diabetesRisk:
+      // Handled separately in _getFilteredDiabetesRiskList
+        break;
+    }
+
+    return data;
+  }
+
+  /// Apply filtering for diabetes risk data
+  List<DiabetesRiskPredictionModel> _getFilteredDiabetesRiskList(
+      List<DiabetesRiskPredictionModel> data) {
+    if (filterType == null || filterType == 'all') {
+      return data;
+    }
+
+    final controller = Get.find<DiabetesRiskController>();
+    switch (filterType) {
+      case 'low':
+        return data
+            .where((d) => controller.getRiskLevel(d.riskScore) == 'low')
+            .toList();
+      case 'medium':
+        return data
+            .where((d) => controller.getRiskLevel(d.riskScore) == 'medium')
+            .toList();
+      case 'high':
+        return data
+            .where((d) => controller.getRiskLevel(d.riskScore) == 'high')
+            .toList();
     }
 
     return data;
@@ -157,12 +199,20 @@ class HealthDataListScreen extends StatelessWidget {
 
   /// Empty State Widget
   Widget _buildEmptyState(BuildContext context, bool darkMode) {
+    String emptyMessage = 'Start tracking your health data to see insights here';
+    IconData emptyIcon = Icons.insert_chart_outlined;
+
+    if (healthDataType == HealthDataType.diabetesRisk) {
+      emptyMessage = 'Complete a diabetes risk assessment to see results here';
+      emptyIcon = Icons.assessment_outlined;
+    }
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.insert_chart_outlined,
+            emptyIcon,
             size: 64,
             color: darkMode ? Colors.grey.shade600 : Colors.grey.shade300,
           ),
@@ -175,7 +225,7 @@ class HealthDataListScreen extends StatelessWidget {
           ),
           const SizedBox(height: TSizes.sm),
           Text(
-            'Start tracking your health data to see insights here',
+            emptyMessage,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: darkMode ? Colors.grey.shade600 : Colors.grey.shade500,
             ),
@@ -186,7 +236,7 @@ class HealthDataListScreen extends StatelessWidget {
     );
   }
 
-  /// Data List Widget
+  /// Data List Widget for Health Data
   Widget _buildDataList(BuildContext context, bool darkMode, List<HealthDataModel> healthDataList) {
     // Group data by date
     final groupedData = <String, List<HealthDataModel>>{};
@@ -282,6 +332,70 @@ class HealthDataListScreen extends StatelessWidget {
     );
   }
 
+  /// Data List Widget for Diabetes Risk
+  Widget _buildDiabetesRiskList(BuildContext context, bool darkMode,
+      List<DiabetesRiskPredictionModel> predictionList) {
+    // Group data by date
+    final groupedData = <String, List<DiabetesRiskPredictionModel>>{};
+
+    for (final data in predictionList) {
+      final dateKey = DateFormat('EEEE, M/d/yyyy').format(data.predictionDateTime);
+      groupedData.putIfAbsent(dateKey, () => []).add(data);
+    }
+
+    // Sort groups by date (newest first)
+    final sortedGroups = groupedData.entries.toList()
+      ..sort((a, b) {
+        final dateA = predictionList
+            .firstWhere((d) =>
+        DateFormat('EEEE, M/d/yyyy').format(d.predictionDateTime) == a.key)
+            .predictionDateTime;
+        final dateB = predictionList
+            .firstWhere((d) =>
+        DateFormat('EEEE, M/d/yyyy').format(d.predictionDateTime) == b.key)
+            .predictionDateTime;
+        return dateB.compareTo(dateA);
+      });
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(TSizes.defaultSpace),
+      itemCount: sortedGroups.length,
+      itemBuilder: (context, groupIndex) {
+        final group = sortedGroups[groupIndex];
+        final dateLabel = group.key;
+        final dayData = group.value;
+
+        // Sort data within each day by time (newest first)
+        dayData.sort((a, b) => b.predictionDateTime.compareTo(a.predictionDateTime));
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            /// Date Header
+            if (groupIndex == 0 ||
+                sortedGroups[groupIndex - 1].key != dateLabel)
+              Container(
+                margin: const EdgeInsets.only(bottom: TSizes.md),
+                child: Text(
+                  dateLabel,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: darkMode ? TColors.grey : TColors.darkGrey,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+
+            /// Records
+            ...dayData.map((data) =>
+                _buildDiabetesRiskItem(context, data, darkMode)),
+
+            const SizedBox(height: TSizes.md),
+          ],
+        );
+      },
+    );
+  }
+
   /// Health Data Item Widget
   Widget _buildHealthDataItem(
       BuildContext context, HealthDataModel data, bool darkMode) {
@@ -295,10 +409,10 @@ class HealthDataListScreen extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(TSizes.md),
           decoration: BoxDecoration(
-            color: darkMode ? TColors.darkerGrey : Colors.white,
+            color: darkMode ? TColors.dark : TColors.white,
             borderRadius: BorderRadius.circular(TSizes.cardRadiusMd),
             border: Border.all(
-              color: darkMode ? Colors.grey.shade700 : Colors.grey.shade200,
+              color: darkMode ? TColors.dark : Colors.grey.shade200,
             ),
           ),
           child: Row(
@@ -348,14 +462,7 @@ class HealthDataListScreen extends StatelessWidget {
                               fontWeight: FontWeight.w500,
                             ),
                           ),
-                          Text(
-                            _getHealthDataValue(data, healthDataType),
-                            style:
-                            Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              color: levelColor,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                          _buildHealthDataValue(context, data, healthDataType),
                         ],
                       ),
                     ),
@@ -382,6 +489,139 @@ class HealthDataListScreen extends StatelessWidget {
                     size: 18,
                   ),
                 ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Diabetes Risk Item Widget
+  Widget _buildDiabetesRiskItem(
+      BuildContext context, DiabetesRiskPredictionModel prediction, bool darkMode) {
+    final controller = Get.find<DiabetesRiskController>();
+    final riskColor = controller.getRiskLevelColor(prediction.riskScore);
+    final riskLevel = controller.getRiskLevel(prediction.riskScore);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: TSizes.sm),
+      child: GestureDetector(
+        onTap: () => Get.to(() => DiabetesRiskDetailScreen(prediction: prediction)),
+        child: Container(
+          padding: const EdgeInsets.all(TSizes.md),
+          decoration: BoxDecoration(
+            color: darkMode ? TColors.dark : TColors.white,
+            borderRadius: BorderRadius.circular(TSizes.cardRadiusMd),
+            border: Border.all(
+              color: darkMode ? TColors.dark : Colors.grey.shade200,
+            ),
+          ),
+          child: Row(
+            children: [
+              /// Time
+              SizedBox(
+                width: 50,
+                child: Text(
+                  DateFormat('HH:mm').format(prediction.predictionDateTime),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: darkMode ? TColors.grey : TColors.darkGrey,
+                  ),
+                ),
+              ),
+
+              const SizedBox(width: TSizes.md),
+
+              /// Risk Icon and Info
+              Expanded(
+                child: Row(
+                  children: [
+                    /// Icon
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: riskColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.favorite_border,
+                        color: riskColor,
+                        size: 20,
+                      ),
+                    ),
+
+                    const SizedBox(width: TSizes.sm),
+
+                    /// Data Info
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Diabetes Risk Score',
+                            style:
+                            Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: darkMode
+                                  ? TColors.white
+                                  : TColors.black,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: [
+                              Text(
+                                prediction.riskScore.toStringAsFixed(1),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .headlineSmall
+                                    ?.copyWith(
+                                  color: riskColor,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'pts',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(color: riskColor),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: riskColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  riskLevel.toUpperCase(),
+                                  style: TextStyle(
+                                    color: riskColor,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              /// Arrow
+              Icon(
+                Icons.arrow_forward_ios,
+                size: 16,
+                color: darkMode ? Colors.grey.shade500 : Colors.grey.shade400,
               ),
             ],
           ),
@@ -423,6 +663,9 @@ class HealthDataListScreen extends StatelessWidget {
           Get.find<ExerciseController>().deleteHealthRecord(logId);
         }
         break;
+      case HealthDataType.diabetesRisk:
+      // Diabetes risk records are not deletable from this screen
+        break;
     }
   }
 
@@ -441,16 +684,12 @@ class HealthDataListScreen extends StatelessWidget {
         );
 
       case HealthDataType.bodyComposition:
+        final controller = Get.find<WeightController>();
         final weight = data.bodyComposition.weight;
-        final height = data.bodyComposition.bodyFat / 100;
-        if (weight > 0 && height > 0) {
-          final bmi = weight / (height * height);
-          if (bmi < 18.5) return TColors.weightUnderweight;
-          if (bmi < 25) return TColors.weightNormal;
-          if (bmi < 30) return TColors.weightOverweight;
-          return TColors.weightObese;
+        if (weight > 0) {
+          return controller.getWeightStatusColor(weight);
         }
-        return TColors.weightNormal;
+        return TColors.grey;
 
       case HealthDataType.physicalActivity:
         final intensity = data.physicalActivity.intensityLevel;
@@ -464,6 +703,10 @@ class HealthDataListScreen extends StatelessWidget {
           default:
             return TColors.primary;
         }
+
+      case HealthDataType.diabetesRisk:
+      // This won't be called for diabetes risk items
+        return TColors.primary;
     }
   }
 
@@ -478,6 +721,8 @@ class HealthDataListScreen extends StatelessWidget {
         return Icons.monitor_weight;
       case HealthDataType.physicalActivity:
         return Icons.directions_run;
+      case HealthDataType.diabetesRisk:
+        return Icons.favorite_border;
     }
   }
 
@@ -492,6 +737,8 @@ class HealthDataListScreen extends StatelessWidget {
         return 'Weight';
       case HealthDataType.physicalActivity:
         return 'Exercise';
+      case HealthDataType.diabetesRisk:
+        return 'Diabetes Risk';
     }
   }
 
@@ -546,6 +793,129 @@ class HealthDataListScreen extends StatelessWidget {
               : ', ${intensity.displayName}';
         }
         return activityString.isEmpty ? 'No data' : activityString;
+
+      case HealthDataType.diabetesRisk:
+      // This won't be called for diabetes risk items
+        return '';
+    }
+  }
+
+  /// Build health data value widget with individual colors for each metric
+  Widget _buildHealthDataValue(BuildContext context, HealthDataModel data, HealthDataType type) {
+    final headlineStyle = Theme.of(context).textTheme.headlineSmall?.copyWith(
+      fontWeight: FontWeight.bold,
+    );
+
+    switch (type) {
+      case HealthDataType.bloodGlucose:
+        final controller = Get.find<BloodGlucoseController>();
+        final color = controller.getGlucoseLevelColor(data.bloodGlucose.glucoseLevel);
+        return Text(
+          '${data.bloodGlucose.glucoseLevel.toStringAsFixed(1)} mmol/L',
+          style: headlineStyle?.copyWith(color: color),
+        );
+
+      case HealthDataType.bloodPressure:
+        final controller = Get.find<BloodPressureController>();
+        final systolic = data.bloodPressure.systolic;
+        final diastolic = data.bloodPressure.diastolic;
+        final pulse = data.bloodPressure.pulse;
+
+        final bpColor = controller.getBPLevelColor(systolic, diastolic);
+        final pulseColor = controller.getPulseLevelColor(pulse);
+
+        List<TextSpan> spans = [];
+
+        // Add blood pressure
+        if (systolic > 0 || diastolic > 0) {
+          spans.add(TextSpan(
+            text: '$systolic/$diastolic mmHg',
+            style: headlineStyle?.copyWith(color: bpColor),
+          ));
+        }
+
+        // Add pulse
+        if (pulse > 0) {
+          if (spans.isNotEmpty) {
+            spans.add(TextSpan(
+              text: ', ',
+              style: headlineStyle,
+            ));
+          }
+          spans.add(TextSpan(
+            text: '$pulse bpm',
+            style: headlineStyle?.copyWith(color: pulseColor),
+          ));
+        }
+
+        if (spans.isEmpty) {
+          return Text(
+            'No data',
+            style: headlineStyle?.copyWith(color: TColors.darkGrey),
+          );
+        }
+
+        return RichText(
+          text: TextSpan(children: spans),
+        );
+
+      case HealthDataType.bodyComposition:
+        final controller = Get.find<WeightController>();
+        final weight = data.bodyComposition.weight;
+        final bodyFat = data.bodyComposition.bodyFat;
+
+        final weightColor = weight > 0
+            ? controller.getWeightStatusColor(weight)
+            : TColors.darkGrey;
+        final bodyFatColor = bodyFat > 0
+            ? controller.getBodyFatStatusColor(bodyFat)
+            : TColors.darkGrey;
+
+        List<TextSpan> spans = [];
+
+        // Add weight
+        if (weight > 0) {
+          spans.add(TextSpan(
+            text: '${weight.toStringAsFixed(1)} kg',
+            style: headlineStyle?.copyWith(color: weightColor),
+          ));
+        }
+
+        // Add body fat
+        if (bodyFat > 0) {
+          if (spans.isNotEmpty) {
+            spans.add(TextSpan(
+              text: ', ',
+              style: headlineStyle,
+            ));
+          }
+          spans.add(TextSpan(
+            text: '${bodyFat.toStringAsFixed(1)}%',
+            style: headlineStyle?.copyWith(color: bodyFatColor),
+          ));
+        }
+
+        if (spans.isEmpty) {
+          return Text(
+            'No data',
+            style: headlineStyle?.copyWith(color: TColors.darkGrey),
+          );
+        }
+
+        return RichText(
+          text: TextSpan(children: spans),
+        );
+
+      case HealthDataType.physicalActivity:
+        final levelColor = _getHealthDataColor(data, healthDataType);
+        return Text(
+          _getHealthDataValue(data, healthDataType),
+          style: headlineStyle?.copyWith(color: levelColor),
+        );
+
+      case HealthDataType.diabetesRisk:
+      // This won't be called for diabetes risk items
+        return const SizedBox.shrink();
     }
   }
 }

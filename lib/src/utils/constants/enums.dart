@@ -34,6 +34,31 @@ enum RankChange {
   new_entry,
 }
 
+/// 媒体选项类型
+enum MediaOptionType {
+  gallery,
+  camera,
+  video,
+}
+
+/// Health Data Type Enum
+enum HealthDataType {
+  bloodGlucose,
+  bloodPressure,
+  bodyComposition,
+  physicalActivity,
+  diabetesRisk,
+}
+
+/// Health Level Enum
+enum HealthLevel {
+  low,
+  normal,
+  elevated,
+  high,
+  invalid
+}
+
 enum PostType {
   general('General Discussion'),
   tips('Tips & Tricks'),

@@ -14,6 +14,7 @@ import * as authentication from "./authentication";
 import * as comments from "./comments";
 import * as reminder from "./reminder/reminder";
 import * as reminder_notification from "./reminder/reminder_notification";
+import * as user from "./user/weight_sync";
 import {analyzeMealPhotos} from "./fatsecret/meal_analysis";
 
 // 导出 authentication 函数
@@ -46,6 +47,12 @@ export const {
   handleSnoozeReminder,
   handleDismissReminder
 } = reminder_notification;
+
+export const {
+  onHealthLogCreated,
+  onHealthLogUpdated,
+  onHealthLogDeleted
+} = user;
 
 export { analyzeMealPhotos };
 

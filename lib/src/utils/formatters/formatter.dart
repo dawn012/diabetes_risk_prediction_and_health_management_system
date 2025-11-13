@@ -19,6 +19,32 @@ class TFormatter {
     }
   }
 
+  /// Smart formatter for record time display
+  /// Today → "Today, HH:mm"
+  /// Yesterday → "Yesterday, HH:mm"
+  /// 2–6 days ago → "3 days ago"
+  /// 7–29 days ago → "on 10 days ago"
+  /// >=30 days → "on MMM d, yyyy"
+  static String formatLastRecordDate(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final recordDate = DateTime(date.year, date.month, date.day);
+    final difference = today.difference(recordDate).inDays;
+
+    if (difference == 0) {
+      // Same day
+      return 'Today, ${DateFormat('HH:mm').format(date)}';
+    } else if (difference == 1) {
+      return 'Yesterday, ${DateFormat('HH:mm').format(date)}';
+    } else if (difference >= 2 && difference <= 6) {
+      return '${difference} days ago';
+    } else if (difference >= 7 && difference < 30) {
+      return 'on ${difference} days ago';
+    } else {
+      return 'on ${DateFormat('MMM d, yyyy').format(date)}';
+    }
+  }
+
   /// Format time in HH:mm format
   static String formatTime(DateTime date) {
     return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
@@ -36,7 +62,7 @@ class TFormatter {
 
   static String formatDateTime(DateTime? date) {
     date ??= DateTime.now();
-    return DateFormat('dd-MMM-yyyy HH:mm').format(date);
+    return DateFormat('dd MMM yyyy HH:mm').format(date);
   }
 
   static String formatFullDate(DateTime date) {

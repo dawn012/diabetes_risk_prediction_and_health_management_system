@@ -8,6 +8,7 @@ class TColors {
   static const Color primary = Color(0xff017aff);
   static const Color secondary = Color(0xff143371);
   static const Color third = Color(0xff5f94c2);
+  static const Color primaryLight = Color(0xFF818CF8);
   static const Color accent = Color(0xffb0c7ff);
   static const Color lightBlueColor = Color(0xffe9f2ff);
 
@@ -78,7 +79,7 @@ class TColors {
   static const Color glucoseLowLight = Color(0xFFDDD6FE);
   static const Color glucoseLowDark = Color(0xFF7C3AED);
 
-  static const Color glucoseGood = Color(0xFF10B981);       // Green for good (reuse success)
+  static const Color glucoseNormal = Color(0xFF10B981);       // Green for good (reuse success)
   static const Color glucoseGoodLight = Color(0xFFD1FAE5);
   static const Color glucoseGoodDark = Color(0xFF047857);
 
@@ -87,7 +88,8 @@ class TColors {
   static const Color glucoseHighDark = Color(0xFFE55B2B);
 
   // Blood Pressure Levels
-  static const Color bpLow = Color(0xFF06B6D4);            // Cyan for low BP
+  // static const Color bpLow = Color(0xFF06B6D4);            // Cyan for low BP
+  static const Color bpLow = Color(0xFF8B5CF6);
   static const Color bpLowLight = Color(0xFFCFFAFE);
   static const Color bpLowDark = Color(0xFF0891B2);
 
@@ -95,19 +97,24 @@ class TColors {
   static const Color bpNormalLight = Color(0xFFD1FAE5);
   static const Color bpNormalDark = Color(0xFF047857);
 
-  static const Color bpElevated = Color(0xFFF59E0B);       // Yellow for elevated
-  static const Color bpElevatedLight = Color(0xFFFEF3C7);
-  static const Color bpElevatedDark = Color(0xFFD97706);
+  static const Color bpElevated = Color(0xFFFF6B35);       // Yellow for elevated
+  static const Color bpElevatedLight = Color(0xFFFFE4DD);
+  static const Color bpElevatedDark = Color(0xFFE55B2B);
 
   static const Color bpHigh = Color(0xFFEF4444);           // Red for high
   static const Color bpHighLight = Color(0xFFFECECE);
   static const Color bpHighDark = Color(0xFFDC2626);
 
   /* -- Weight Status Colors -- */
-  static const Color weightUnderweight = Color(0xFF06B6D4);
+  static const Color weightUnderweight = Color(0xFF8B5CF6);
   static const Color weightNormal = Color(0xFF10B981);
-  static const Color weightOverweight = Color(0xFFF59E0B);
+  static const Color weightOverweight = Color(0xFFFF6B35);
   static const Color weightObese = Color(0xFFEF4444);
+
+  static const Color bodyFatLow = Color(0xFF8B5CF6);
+  static const Color bodyFatNormal = Color(0xFF10B981);
+  static const Color bodyFatElevated = Color(0xFFFF6B35);
+  static const Color bodyFatHigh = Color(0xFFEF4444);
 
   /* -- Exercise Intensity Colors -- */
   static const Color exerciseLowIntensity = Color(0xFF06B6D4);      // Cyan for low intensity

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 
 import '../../../../../utils/constants/colors.dart';
 import '../../../../../utils/constants/sizes.dart';
@@ -228,155 +227,198 @@ class ActivityTimeRangePicker extends StatelessWidget {
     final years = _generateValidYears();
     final months = _generateMonths();
 
-    // Parse current selection to get initial indices
-    final currentParts = selectedRange.split(' ');
-    final currentMonth = currentParts.length > 0 ? currentParts[0] : 'Sep';
-    final currentYear = currentParts.length > 1 ? currentParts[1] : '2025';
+    // 默认选择当前月份和年份
+    final now = DateTime.now();
+    final currentMonthName = _getMonthName(now.month);
+    final currentYearStr = now.year.toString();
 
-    int selectedYearIndex = years.indexOf(currentYear);
-    int selectedMonthIndex = months.indexOf(currentMonth);
+    int selectedYearIndex = years.indexOf(currentYearStr);
+    int selectedMonthIndex = months.indexOf(currentMonthName);
 
+    // 如果当前年份不在列表中，使用第一个
+    if (selectedYearIndex == -1) {
+      selectedYearIndex = 0;
+    }
+
+    // 获取有效月份
+    final validMonths = _getValidMonthsForYear(years[selectedYearIndex], months);
+
+    // 确保选中的月份在有效月份中
+    if (!validMonths.contains(currentMonthName)) {
+      selectedMonthIndex = months.indexOf(validMonths.last);
+    } else {
+      selectedMonthIndex = months.indexOf(currentMonthName);
+    }
+
+    // 最终安全检查
     if (selectedYearIndex == -1) selectedYearIndex = 0;
-    if (selectedMonthIndex == -1) selectedMonthIndex = 0;
+    if (selectedMonthIndex == -1) {
+      selectedMonthIndex = months.indexOf(validMonths.last);
+    }
 
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) {
-          // Get valid months for currently selected year
-          final validMonths = _getValidMonthsForYear(years[selectedYearIndex], months);
+      builder: (context) {
+        // 使用 ValueNotifier 来管理状态
+        final yearNotifier = ValueNotifier<int>(selectedYearIndex);
+        final monthNotifier = ValueNotifier<int>(selectedMonthIndex);
 
-          // Ensure selected month is valid for the current year
-          if (!validMonths.contains(months[selectedMonthIndex])) {
-            selectedMonthIndex = months.indexOf(validMonths.first);
-          }
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return ValueListenableBuilder<int>(
+              valueListenable: yearNotifier,
+              builder: (context, currentYearIndex, _) {
+                return ValueListenableBuilder<int>(
+                  valueListenable: monthNotifier,
+                  builder: (context, currentMonthIndex, _) {
+                    // 获取当前年份的有效月份
+                    final currentValidMonths = _getValidMonthsForYear(years[currentYearIndex], months);
 
-          return Container(
-            height: MediaQuery.of(context).size.height * 0.6,
-            decoration: BoxDecoration(
-              color: darkMode ? TColors.dark : Colors.white,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(TSizes.cardRadiusLg),
-                topRight: Radius.circular(TSizes.cardRadiusLg),
-              ),
-            ),
-            child: Column(
-              children: [
-                // Header
-                Container(
-                  padding: const EdgeInsets.all(TSizes.defaultSpace),
-                  decoration: BoxDecoration(
-                    color: TColors.primary,
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(TSizes.cardRadiusLg),
-                      topRight: Radius.circular(TSizes.cardRadiusLg),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Text(
-                        'Year / Month',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
+                    return Container(
+                      height: MediaQuery.of(context).size.height * 0.6,
+                      decoration: BoxDecoration(
+                        color: darkMode ? TColors.dark : Colors.white,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(TSizes.cardRadiusLg),
+                          topRight: Radius.circular(TSizes.cardRadiusLg),
                         ),
                       ),
-                    ],
-                  ),
-                ),
-
-                // Year/Month Selection
-                Expanded(
-                  child: Row(
-                    children: [
-                      // Years
-                      Expanded(
-                        child: _buildScrollableYearPicker(
-                          years,
-                          selectedYearIndex,
-                          darkMode,
-                          setState,
-                          onChanged: (index) {
-                            selectedYearIndex = index;
-                            // When year changes, reset month to first valid month
-                            final newValidMonths = _getValidMonthsForYear(years[selectedYearIndex], months);
-                            selectedMonthIndex = months.indexOf(newValidMonths.first);
-                          },
-                        ),
-                      ),
-                      Container(
-                        width: 1,
-                        height: 200,
-                        color: darkMode ? TColors.darkGrey : TColors.borderPrimary,
-                      ),
-                      // Months
-                      Expanded(
-                        child: _buildScrollableMonthPicker(
-                          validMonths,
-                          validMonths.indexOf(months[selectedMonthIndex]),
-                          darkMode,
-                          setState,
-                          onChanged: (index) {
-                            selectedMonthIndex = months.indexOf(validMonths[index]);
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Action Buttons
-                Container(
-                  padding: const EdgeInsets.all(TSizes.defaultSpace),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: TSizes.md),
-                            side: BorderSide(color: TColors.primary),
-                          ),
-                          child: Text(
-                            'CANCEL',
-                            style: TextStyle(
+                      child: Column(
+                        children: [
+                          // Header
+                          Container(
+                            padding: const EdgeInsets.all(TSizes.defaultSpace),
+                            decoration: BoxDecoration(
                               color: TColors.primary,
-                              fontWeight: FontWeight.bold,
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(TSizes.cardRadiusLg),
+                                topRight: Radius.circular(TSizes.cardRadiusLg),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Text(
+                                  'Year / Month',
+                                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: TSizes.md),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () {
-                            final newSelection = '${months[selectedMonthIndex]} ${years[selectedYearIndex]}';
-                            Navigator.pop(context);
-                            onRangeChanged(newSelection);
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: TColors.primary,
-                            padding: const EdgeInsets.symmetric(vertical: TSizes.md),
-                          ),
-                          child: const Text(
-                            'DONE',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
+
+                          // 显示当前选择的年月 - 直接使用值
+                          Container(
+                            padding: const EdgeInsets.all(TSizes.defaultSpace),
+                            child: Text(
+                              '${months[currentMonthIndex]} ${years[currentYearIndex]}',
+                              style: TextStyle(
+                                color: darkMode ? TColors.white : TColors.textPrimary,
+                                fontSize: TSizes.fontSizeLg,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
-                        ),
+
+                          // Year/Month Selection
+                          Expanded(
+                            child: Row(
+                              children: [
+                                // Years
+                                Expanded(
+                                  child: _buildScrollableYearPicker(
+                                    years,
+                                    currentYearIndex,
+                                    darkMode,
+                                    setState,
+                                    onChanged: (index) {
+                                      yearNotifier.value = index;
+                                      // 当年份变化时，重置月份为最后一个有效月份
+                                      final newValidMonths = _getValidMonthsForYear(years[index], months);
+                                      monthNotifier.value = months.indexOf(newValidMonths.last);
+                                    },
+                                  ),
+                                ),
+                                Container(
+                                  width: 1,
+                                  height: 200,
+                                  color: darkMode ? TColors.darkGrey : TColors.borderPrimary,
+                                ),
+                                // Months
+                                Expanded(
+                                  child: _buildScrollableMonthPicker(
+                                    currentValidMonths,
+                                    currentValidMonths.indexOf(months[currentMonthIndex]).clamp(0, currentValidMonths.length - 1),
+                                    darkMode,
+                                    setState,
+                                    onChanged: (index) {
+                                      final selectedMonth = currentValidMonths[index];
+                                      monthNotifier.value = months.indexOf(selectedMonth);
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Action Buttons
+                          Container(
+                            padding: const EdgeInsets.all(TSizes.defaultSpace),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    style: OutlinedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(vertical: TSizes.md),
+                                      side: BorderSide(color: TColors.primary),
+                                    ),
+                                    child: Text(
+                                      'CANCEL',
+                                      style: TextStyle(
+                                        color: TColors.primary,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: TSizes.md),
+                                Expanded(
+                                  child: ElevatedButton(
+                                    onPressed: () {
+                                      final newSelection = '${months[monthNotifier.value]} ${years[yearNotifier.value]}';
+                                      Navigator.pop(context);
+                                      onRangeChanged(newSelection);
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: TColors.primary,
+                                      padding: const EdgeInsets.symmetric(vertical: TSizes.md),
+                                    ),
+                                    child: const Text(
+                                      'DONE',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
+                    );
+                  },
+                );
+              },
+            );
+          },
+        );
+      },
     );
   }
 
@@ -431,8 +473,11 @@ class ActivityTimeRangePicker extends StatelessWidget {
       StateSetter setState,
       {required Function(int) onChanged}
       ) {
-    final controller = FixedExtentScrollController(initialItem: selectedIndex);
-    int currentSelected = selectedIndex;
+    // 确保 selectedIndex 在有效范围内
+    final validIndex = selectedIndex.clamp(0, options.length - 1);
+
+    final controller = FixedExtentScrollController(initialItem: validIndex);
+    int currentSelected = validIndex;
 
     return ListWheelScrollView.useDelegate(
       controller: controller,
@@ -522,11 +567,19 @@ class ActivityTimeRangePicker extends StatelessWidget {
     final selectedYear = int.parse(year);
 
     if (selectedYear == currentYear) {
-      // For current year, only show months up to current month
+      // For current year, show months up to and INCLUDING current month
       return allMonths.sublist(0, currentMonth);
     } else {
       // For past years, show all months
       return allMonths;
     }
+  }
+
+  String _getMonthName(int month) {
+    final months = _generateMonths();
+    if (month >= 1 && month <= 12) {
+      return months[month - 1];
+    }
+    return months[0]; // 默认返回一月
   }
 }

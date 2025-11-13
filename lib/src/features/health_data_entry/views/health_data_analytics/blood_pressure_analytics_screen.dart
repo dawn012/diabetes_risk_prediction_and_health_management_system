@@ -3,9 +3,12 @@ import 'package:get/get.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../common/widgets/appbar/appbar.dart';
 import '../../../../utils/constants/colors.dart';
 import '../../../../utils/constants/enums.dart';
+import '../../../../utils/constants/health_data_range.dart';
 import '../../../../utils/constants/sizes.dart';
+import '../../../../utils/formatters/formatter.dart';
 import '../../../../utils/helpers/helper_functions.dart';
 import '../../controllers/blood_pressure_controller.dart';
 import '../health_data_entry/health_data_entry_screen.dart';
@@ -24,27 +27,26 @@ class BloodPressureAnalyticsScreen extends StatelessWidget {
     final darkMode = THelperFunctions.isDarkMode(context);
 
     return Scaffold(
-      backgroundColor: darkMode ? TColors.dark : TColors.light,
-      appBar: AppBar(
+      backgroundColor: darkMode ? const Color(0xFF0A0A0B) : TColors.light,
+      appBar: TAppBar(
         backgroundColor: TColors.primary,
-        foregroundColor: Colors.white,
         title: const Text(
           'Blood Pressure',
           style: TextStyle(fontWeight: FontWeight.bold, color: TColors.white,),
         ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () {
-            controller.resetFilters();
-            Get.back();
-          },
-        ),
+        showBackArrow: true,
+        customBackAction: () {
+          controller.resetFilters();
+          Get.back();
+        },
+        iconTheme: IconThemeData(color: TColors.white),
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
             color: TColors.white,
             onPressed: () {
-              Get.to(() => const HealthDataEntryScreen(initialSections: ['Blood Pressure & Pulse']));
+              Get.to(() => const HealthDataEntryScreen(
+                  initialSections: ['Blood Pressure & Pulse']));
             },
           ),
         ],
@@ -67,44 +69,92 @@ class BloodPressureAnalyticsScreen extends StatelessWidget {
             const SizedBox(height: TSizes.defaultSpace),
 
             /// Blood Pressure Statistics
-            Obx(() => HealthStatisticsTable(
-              title: 'Blood Pressure',
-              selectedFilter: controller.selectedBpPeriodFilter.value,
-              onFilterTap: () => PeriodFilter.show(
-                context: context,
-                selectedValue: controller.selectedBpPeriodFilter.value,
-                onValueChanged: (filter) {
-                  controller.updateBpPeriodFilter(filter);
-                },
-                options: PhysiologicalTimePeriod.getAllDisplayNames(),
-              ),
-              statisticsRows: [
-                StatisticsRow(
-                  label: 'Systolic',
-                  lowestValue: controller.systolicLowest.value.toString(),
-                  highestValue: controller.systolicHighest.value.toString(),
-                  averageValue: controller.systolicAverage.value.toStringAsFixed(0),
-                  lowestColor: controller.getBPLevelColor(controller.systolicLowest.value, controller.diastolicLowest.value),
-                  highestColor: controller.getBPLevelColor(controller.systolicHighest.value, controller.diastolicHighest.value),
-                  averageColor: controller.getBPLevelColor(controller.systolicAverage.value.round(), controller.diastolicAverage.value.round()),
-                  onLowestTap: () => controller.navigateToLowestSystolicRecord(),
-                  onHighestTap: () => controller.navigateToHighestSystolicRecord(),
-                  onAverageTap: () => controller.showAllBPRecords(),
-                ),
-                StatisticsRow(
-                  label: 'Diastolic',
-                  lowestValue: controller.diastolicLowest.value.toString(),
-                  highestValue: controller.diastolicHighest.value.toString(),
-                  averageValue: controller.diastolicAverage.value.toStringAsFixed(0),
-                  lowestColor: controller.getBPLevelColor(controller.systolicLowest.value, controller.diastolicLowest.value),
-                  highestColor: controller.getBPLevelColor(controller.systolicHighest.value, controller.diastolicHighest.value),
-                  averageColor: controller.getBPLevelColor(controller.systolicAverage.value.round(), controller.diastolicAverage.value.round()),
-                  onLowestTap: () => controller.navigateToLowestDiastolicRecord(),
-                  onHighestTap: () => controller.navigateToHighestDiastolicRecord(),
-                  onAverageTap: () => controller.showAllBPRecords(),
-                ),
-              ],
-            )),
+            Obx(() {
+              final systolicLowestDisplay = controller.systolicLowest.value >= 0
+                  ? controller.systolicLowest.value.toString()
+                  : '-';
+              final systolicHighestDisplay = controller.systolicHighest.value >= 0
+                  ? controller.systolicHighest.value.toString()
+                  : '-';
+              final systolicAverageDisplay = controller.systolicAverage.value >= 0
+                  ? controller.systolicAverage.value.toStringAsFixed(0)
+                  : '-';
+
+              final diastolicLowestDisplay = controller.diastolicLowest.value >= 0
+                  ? controller.diastolicLowest.value.toString()
+                  : '-';
+              final diastolicHighestDisplay = controller.diastolicHighest.value >= 0
+                  ? controller.diastolicHighest.value.toString()
+                  : '-';
+              final diastolicAverageDisplay = controller.diastolicAverage.value >= 0
+                  ? controller.diastolicAverage.value.toStringAsFixed(0)
+                  : '-';
+
+              final hasRecords = controller.totalCount.value > 0;
+
+              return Column(
+                children: [
+                  HealthStatisticsTable(
+                    title: 'Blood Pressure',
+                    selectedFilter: controller.selectedBpPeriodFilter.value,
+                    onFilterTap: () => PeriodFilter.show(
+                      context: context,
+                      selectedValue: controller.selectedBpPeriodFilter.value,
+                      onValueChanged: (filter) {
+                        controller.updateBpPeriodFilter(filter);
+                      },
+                      options: PhysiologicalTimePeriod.getAllDisplayNames(),
+                    ),
+                    statisticsRows: [
+                      StatisticsRow(
+                        label: 'Systolic',
+                        lowestValue: systolicLowestDisplay,
+                        highestValue: systolicHighestDisplay,
+                        averageValue: systolicAverageDisplay,
+                        lowestColor: controller.getBPLevelColor(
+                            controller.systolicLowest.value, controller.diastolicLowest.value),
+                        highestColor: controller.getBPLevelColor(
+                            controller.systolicHighest.value, controller.diastolicHighest.value),
+                        averageColor: controller.getBPLevelColor(
+                            controller.systolicAverage.value.round(),
+                            controller.diastolicAverage.value.round()),
+                        onLowestTap: controller.systolicLowest.value > 0
+                            ? () => controller.navigateToLowestSystolicRecord()
+                            : null,
+                        onHighestTap: controller.systolicHighest.value > 0
+                            ? () => controller.navigateToHighestSystolicRecord()
+                            : null,
+                        onAverageTap: controller.systolicAverage.value > 0
+                            ? () => controller.showAllBPRecords()
+                            : null,
+                      ),
+                      StatisticsRow(
+                        label: 'Diastolic',
+                        lowestValue: diastolicLowestDisplay,
+                        highestValue: diastolicHighestDisplay,
+                        averageValue: diastolicAverageDisplay,
+                        lowestColor: controller.getBPLevelColor(
+                            controller.systolicLowest.value, controller.diastolicLowest.value),
+                        highestColor: controller.getBPLevelColor(
+                            controller.systolicHighest.value, controller.diastolicHighest.value),
+                        averageColor: controller.getBPLevelColor(
+                            controller.systolicAverage.value.round(),
+                            controller.diastolicAverage.value.round()),
+                        onLowestTap: hasRecords
+                            ? () => controller.navigateToLowestDiastolicRecord()
+                            : null,
+                        onHighestTap: hasRecords
+                            ? () => controller.navigateToHighestDiastolicRecord()
+                            : null,
+                        onAverageTap: hasRecords
+                            ? () => controller.showAllBPRecords()
+                            : null,
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            }),
 
             const SizedBox(height: TSizes.defaultSpace),
 
@@ -174,7 +224,7 @@ class BloodPressureAnalyticsScreen extends StatelessWidget {
 
             const SizedBox(height: TSizes.defaultSpace),
 
-            /// Blood Pressure Trends Chart - 使用血压趋势过滤器
+            /// Blood Pressure Trends Chart
             Obx(() => HealthTrendsChart(
               title: 'Blood Pressure Trends',
               selectedFilter: controller.selectedBpTrendFilter.value,
@@ -214,9 +264,9 @@ class BloodPressureAnalyticsScreen extends StatelessWidget {
                 ),
               ],
               labels: controller.trendsLabels,
-              minY: 0,
-              maxY: 200,
-              yAxisUnit: '',
+              minY: HealthDataRanges.minDiastolic.toDouble(),
+              maxY: HealthDataRanges.maxSystolic.toDouble(),
+              yAxisUnit: 'mmHg',
               hasData: controller.systolicTrendsData.isNotEmpty || controller.diastolicTrendsData.isNotEmpty,
               timeRange: controller.selectedTimeRange.value,
               periodFilter: controller.selectedBpPeriodFilter.value,
@@ -225,41 +275,67 @@ class BloodPressureAnalyticsScreen extends StatelessWidget {
                 LegendItem(label: 'Systolic', color: TColors.bpHigh),
                 LegendItem(label: 'Diastolic', color: TColors.bpNormal),
               ],
+              originalDateTimes: controller.bpTrendsOriginalDateTimes,
             )),
 
             const SizedBox(height: TSizes.defaultSpace),
 
-            /// Pulse Statistics - 使用脉搏过滤器
-            Obx(() => HealthStatisticsTable(
-              title: 'Pulse',
-              selectedFilter: controller.selectedPulsePeriodFilter.value,
-              onFilterTap: () => PeriodFilter.show(
-                context: context,
-                selectedValue: controller.selectedPulsePeriodFilter.value,
-                onValueChanged: (filter) {
-                  controller.updatePulsePeriodFilter(filter);
-                },
-                options: PhysiologicalTimePeriod.getAllDisplayNames(),
-              ),
-              statisticsRows: [
-                StatisticsRow(
-                  label: 'Pulse',
-                  lowestValue: controller.pulseLowest.value.toString(),
-                  highestValue: controller.pulseHighest.value.toString(),
-                  averageValue: controller.pulseAverage.value.toStringAsFixed(0),
-                  lowestColor: controller.getPulseLevelColor(controller.pulseLowest.value),
-                  highestColor: controller.getPulseLevelColor(controller.pulseHighest.value),
-                  averageColor: controller.getPulseLevelColor(controller.pulseAverage.value.round()),
-                  onLowestTap: () => controller.navigateToLowestPulseRecord(),
-                  onHighestTap: () => controller.navigateToHighestPulseRecord(),
-                  onAverageTap: () => controller.showAllPulseRecords(),
-                ),
-              ],
-            )),
+            /// Pulse Statistics
+            Obx(() {
+              final pulseLowestDisplay = controller.pulseLowest.value >= 0
+                  ? controller.pulseLowest.value.toString()
+                  : '-';
+              final pulseHighestDisplay = controller.pulseHighest.value >= 0
+                  ? controller.pulseHighest.value.toString()
+                  : '-';
+              final pulseAverageDisplay = controller.pulseAverage.value >= 0
+                  ? controller.pulseAverage.value.toStringAsFixed(0)
+                  : '-';
+
+              final hasRecords = controller.totalCount.value > 0;
+
+              return Column(
+                children: [
+                  HealthStatisticsTable(
+                    title: 'Pulse',
+                    selectedFilter: controller.selectedPulsePeriodFilter.value,
+                    onFilterTap: () => PeriodFilter.show(
+                      context: context,
+                      selectedValue: controller.selectedPulsePeriodFilter.value,
+                      onValueChanged: (filter) {
+                        controller.updatePulsePeriodFilter(filter);
+                      },
+                      options: PhysiologicalTimePeriod.getAllDisplayNames(),
+                    ),
+                    statisticsRows: [
+                      StatisticsRow(
+                        label: 'Pulse',
+                        lowestValue: pulseLowestDisplay,
+                        highestValue: pulseHighestDisplay,
+                        averageValue: pulseAverageDisplay,
+                        lowestColor: controller.getPulseLevelColor(controller.pulseLowest.value),
+                        highestColor: controller.getPulseLevelColor(controller.pulseHighest.value),
+                        averageColor: controller.getPulseLevelColor(
+                            controller.pulseAverage.value.round()),
+                        onLowestTap: hasRecords
+                            ? () => controller.navigateToLowestPulseRecord()
+                            : null,
+                        onHighestTap: hasRecords
+                            ? () => controller.navigateToHighestPulseRecord()
+                            : null,
+                        onAverageTap: hasRecords
+                            ? () => controller.showAllPulseRecords()
+                            : null,
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            }),
 
             const SizedBox(height: TSizes.defaultSpace),
 
-            /// Pulse Trends Chart - 使用脉搏趋势过滤器
+            /// Pulse Trends Chart
             Obx(() => HealthTrendsChart(
               title: 'Pulse Trends',
               selectedFilter: controller.selectedPulseTrendFilter.value,
@@ -291,9 +367,9 @@ class BloodPressureAnalyticsScreen extends StatelessWidget {
                 ),
               ],
               labels: controller.trendsLabels,
-              minY: 40,
-              maxY: 120,
-              yAxisUnit: ' bpm',
+              minY: HealthDataRanges.minPulse.toDouble(),
+              maxY: HealthDataRanges.maxPulse.toDouble(),
+              yAxisUnit: 'bpm',
               hasData: controller.pulseTrendsData.isNotEmpty,
               timeRange: controller.selectedTimeRange.value,
               periodFilter: controller.selectedPulsePeriodFilter.value,
@@ -301,6 +377,7 @@ class BloodPressureAnalyticsScreen extends StatelessWidget {
               legendItems: [
                 LegendItem(label: 'Pulse Rate', color: TColors.info),
               ],
+              originalDateTimes: controller.pulseTrendsOriginalDateTimes,
             )),
 
             const SizedBox(height: TSizes.defaultSpace),
@@ -311,19 +388,18 @@ class BloodPressureAnalyticsScreen extends StatelessWidget {
   }
 
   /// Last Record Info
-  Widget _buildLastRecordInfo(BuildContext context, BloodPressureController controller, bool darkMode) {
-    if (controller.lastRecord.value == null) {
-      return const SizedBox.shrink();
-    }
+  Widget _buildLastRecordInfo(
+      BuildContext context, BloodPressureController controller, bool darkMode) {
+    final lastRecord = controller.lastRecord.value;
+    if (lastRecord == null) return const SizedBox.shrink();
 
-    final lastRecord = controller.lastRecord.value!;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: TSizes.defaultSpace),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
-            'Last Record: ${DateFormat('HH:mm').format(lastRecord.logDateTime)}',
+            'Last Record: ${TFormatter.formatLastRecordDate(lastRecord.logDateTime)}',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: darkMode ? TColors.grey : TColors.darkGrey,
             ),

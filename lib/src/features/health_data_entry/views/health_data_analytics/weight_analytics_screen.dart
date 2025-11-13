@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:fl_chart/fl_chart.dart';
 
+import '../../../../common/widgets/appbar/appbar.dart';
 import '../../../../utils/constants/colors.dart';
 import '../../../../utils/constants/enums.dart';
+import '../../../../utils/constants/health_data_range.dart';
 import '../../../../utils/constants/sizes.dart';
+import '../../../../utils/formatters/formatter.dart';
 import '../../../../utils/helpers/helper_functions.dart';
 import '../../controllers/weight_controller.dart';
 import '../health_data_entry/health_data_entry_screen.dart';
@@ -22,25 +25,26 @@ class WeightAnalyticsScreen extends StatelessWidget {
     final darkMode = THelperFunctions.isDarkMode(context);
 
     return Scaffold(
-      backgroundColor: darkMode ? TColors.dark : TColors.light,
-      appBar: AppBar(
+      backgroundColor: darkMode ? const Color(0xFF0A0A0B) : TColors.light,
+      appBar: TAppBar(
         backgroundColor: TColors.primary,
         title: const Text(
           'Weight',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () {
-            controller.resetFilters();
-            Get.back();
-          }
-        ),
+        showBackArrow: true,
+        customBackAction: () {
+          controller.resetFilters();
+          Get.back();
+        },
+        iconTheme: IconThemeData(color: TColors.white),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add, color: Colors.white),
+            icon: const Icon(Icons.add),
+            color: TColors.white,
             onPressed: () {
-              Get.to(() => const HealthDataEntryScreen(initialSections: ['Weight & Body Fat']));
+              Get.to(() => const HealthDataEntryScreen(
+                  initialSections: ['Weight & Body Fat']));
             },
           ),
         ],
@@ -57,12 +61,12 @@ class WeightAnalyticsScreen extends StatelessWidget {
             /// Last Record Info
             Obx(() => _buildLastRecordInfo(context, controller, darkMode)),
 
-            /// Legend
-            _buildLegend(context, darkMode),
+            /// Weight BMI Legend
+            _buildWeightLegend(context, darkMode),
 
             const SizedBox(height: TSizes.spaceBtwSections),
 
-            /// Weight Statistics - 使用体重过滤器
+            /// Weight Statistics
             Obx(() => HealthStatisticsTable(
               title: 'Weight',
               selectedFilter: controller.selectedWeightPeriodFilter.value,
@@ -76,23 +80,42 @@ class WeightAnalyticsScreen extends StatelessWidget {
               ),
               statisticsRows: [
                 StatisticsRow(
-                  label: 'Lowest',
-                  lowestValue: controller.weightLowest.value > 0 ? controller.weightLowest.value.toStringAsFixed(1) : '-',
-                  highestValue: controller.weightHighest.value > 0 ? controller.weightHighest.value.toStringAsFixed(1) : '-',
-                  averageValue: controller.weightCurrent.value > 0 ? controller.weightCurrent.value.toStringAsFixed(1) : '-',
-                  lowestColor: controller.getWeightStatusColor(controller.weightLowest.value),
-                  highestColor: controller.getWeightStatusColor(controller.weightHighest.value),
-                  averageColor: controller.getWeightStatusColor(controller.weightCurrent.value),
-                  onLowestTap: () => controller.navigateToLowestWeightRecord(),
-                  onHighestTap: () => controller.navigateToHighestWeightRecord(),
-                  onAverageTap: () => controller.showAllWeightRecords(),
+                  label: 'Weight',
+                  lowestValue: controller.weightLowest.value > 0
+                      ? controller.weightLowest.value.toStringAsFixed(1)
+                      : '-',
+                  highestValue: controller.weightHighest.value > 0
+                      ? controller.weightHighest.value.toStringAsFixed(1)
+                      : '-',
+                  averageValue: controller.weightCurrent.value > 0
+                      ? controller.weightCurrent.value.toStringAsFixed(1)
+                      : '-',
+                  lowestColor: controller.weightLowest.value > 0
+                      ? controller.getWeightStatusColor(controller.weightLowest.value)
+                      : TColors.darkGrey,
+                  highestColor: controller.weightHighest.value > 0
+                      ? controller.getWeightStatusColor(controller.weightHighest.value)
+                      : TColors.darkGrey,
+                  averageColor: controller.weightCurrent.value > 0
+                      ? controller.getWeightStatusColor(controller.weightCurrent.value)
+                      : TColors.darkGrey,
+                  onLowestTap: controller.weightLowest.value > 0
+                      ? () => controller.navigateToLowestWeightRecord()
+                      : null,
+                  onHighestTap: controller.weightHighest.value > 0
+                      ? () => controller.navigateToHighestWeightRecord()
+                      : null,
+                  onAverageTap: controller.weightCurrent.value > 0
+                      ? () => controller.showAllWeightRecords()
+                      : null,
+                  averageLabel: 'Current',
                 ),
               ],
             )),
 
             const SizedBox(height: TSizes.spaceBtwSections),
 
-            /// Weight Trends Chart - 使用体重趋势过滤器
+            /// Weight Trends Chart
             Obx(() => HealthTrendsChart(
               title: 'Weight Trends',
               selectedFilter: controller.selectedWeightTrendFilter.value,
@@ -116,36 +139,39 @@ class WeightAnalyticsScreen extends StatelessWidget {
               lineBarData: [
                 LineChartBarData(
                   isCurved: true,
-                  color: TColors.darkGrey,
-                  barWidth: 2,
+                  color: TColors.primary,
+                  barWidth: 3,
                   dotData: FlDotData(
                     show: true,
-                    getDotPainter: (spot, percent, barData, index) {
-                      return FlDotCirclePainter(
-                        radius: 3,
-                        color: TColors.primary,
-                        strokeWidth: 0,
-                      );
-                    },
                   ),
                   belowBarData: BarAreaData(show: false),
                   spots: controller.weightTrendsData,
                 ),
               ],
-              labels: controller.trendsLabels,
-              minY: controller.getMinWeightForChart(),
-              maxY: controller.getMaxWeightForChart(),
-              yAxisUnit: ' kg',
+              labels: controller.weightTrendsLabels,
+              minY: HealthDataRanges.minWeightKg,
+              maxY: HealthDataRanges.maxWeightKg,
+              yAxisUnit: 'kg',
               hasData: controller.weightTrendsData.isNotEmpty,
               timeRange: controller.selectedTimeRange.value,
               periodFilter: controller.selectedWeightPeriodFilter.value,
               trendFilter: controller.selectedWeightTrendFilter.value,
-              legendItems: [],
+              legendItems: [
+                LegendItem(label: 'Weight', color: TColors.info),
+              ],
+              trendValue: controller.weightTrendValue.value,
+              trendDirection: controller.weightTrendDirection.value,
+              originalDateTimes: controller.weightTrendsOriginalDateTimes,
             )),
 
             const SizedBox(height: TSizes.spaceBtwSections),
 
-            /// Body Fat Statistics - 使用体脂过滤器
+            /// Body Fat Legend
+            _buildBodyFatLegend(context, darkMode),
+
+            const SizedBox(height: TSizes.spaceBtwSections),
+
+            /// Body Fat Statistics
             Obx(() => HealthStatisticsTable(
               title: 'Body Fat',
               selectedFilter: controller.selectedBodyFatPeriodFilter.value,
@@ -160,22 +186,41 @@ class WeightAnalyticsScreen extends StatelessWidget {
               statisticsRows: [
                 StatisticsRow(
                   label: 'Body Fat',
-                  lowestValue: controller.bodyFatLowest.value.toStringAsFixed(1),
-                  highestValue: controller.bodyFatHighest.value.toStringAsFixed(1),
-                  averageValue: controller.bodyFatCurrent.value.toStringAsFixed(1),
-                  lowestColor: controller.getBodyFatStatusColor(controller.bodyFatLowest.value),
-                  highestColor: controller.getBodyFatStatusColor(controller.bodyFatHighest.value),
-                  averageColor: controller.getBodyFatStatusColor(controller.bodyFatCurrent.value),
-                  onLowestTap: () => controller.navigateToLowestBodyFatRecord(),
-                  onHighestTap: () => controller.navigateToHighestBodyFatRecord(),
-                  onAverageTap: () => controller.showAllBodyFatRecords(),
+                  lowestValue: controller.bodyFatLowest.value > 0
+                      ? controller.bodyFatLowest.value.toStringAsFixed(1)
+                      : '-',
+                  highestValue: controller.bodyFatHighest.value > 0
+                      ? controller.bodyFatHighest.value.toStringAsFixed(1)
+                      : '-',
+                  averageValue: controller.bodyFatCurrent.value > 0
+                      ? controller.bodyFatCurrent.value.toStringAsFixed(1)
+                      : '-',
+                  lowestColor: controller.bodyFatLowest.value > 0
+                      ? controller.getBodyFatStatusColor(controller.bodyFatLowest.value)
+                      : TColors.darkGrey,
+                  highestColor: controller.bodyFatHighest.value > 0
+                      ? controller.getBodyFatStatusColor(controller.bodyFatHighest.value)
+                      : TColors.darkGrey,
+                  averageColor: controller.bodyFatCurrent.value > 0
+                      ? controller.getBodyFatStatusColor(controller.bodyFatCurrent.value)
+                      : TColors.darkGrey,
+                  onLowestTap: controller.bodyFatLowest.value > 0
+                      ? () => controller.navigateToLowestBodyFatRecord()
+                      : null,
+                  onHighestTap: controller.bodyFatHighest.value > 0
+                      ? () => controller.navigateToHighestBodyFatRecord()
+                      : null,
+                  onAverageTap: controller.bodyFatCurrent.value > 0
+                      ? () => controller.showAllBodyFatRecords()
+                      : null,
+                  averageLabel: 'Current',
                 ),
               ],
             )),
 
             const SizedBox(height: TSizes.spaceBtwSections),
 
-            /// Body Fat Trends Chart - 使用体脂趋势过滤器
+            /// Body Fat Trends Chart
             Obx(() => HealthTrendsChart(
               title: 'Body Fat Trends',
               selectedFilter: controller.selectedBodyFatTrendFilter.value,
@@ -199,31 +244,27 @@ class WeightAnalyticsScreen extends StatelessWidget {
               lineBarData: [
                 LineChartBarData(
                   isCurved: true,
-                  color: TColors.darkGrey,
-                  barWidth: 2,
-                  dotData: FlDotData(
-                    show: true,
-                    getDotPainter: (spot, percent, barData, index) {
-                      return FlDotCirclePainter(
-                        radius: 3,
-                        color: TColors.primary,
-                        strokeWidth: 0,
-                      );
-                    },
-                  ),
+                  color: TColors.primary,
+                  barWidth: 3,
+                  dotData: FlDotData(show: true,),
                   belowBarData: BarAreaData(show: false),
                   spots: controller.bodyFatTrendsData,
                 ),
               ],
-              labels: controller.trendsLabels,
-              minY: controller.getMinBodyFatForChart(),
-              maxY: controller.getMaxBodyFatForChart(),
-              yAxisUnit: ' %',
+              labels: controller.bodyFatTrendsLabels,
+              minY: HealthDataRanges.minBodyFatPercent,
+              maxY: HealthDataRanges.maxBodyFatPercent,
+              yAxisUnit: '%',
               hasData: controller.bodyFatTrendsData.isNotEmpty,
               timeRange: controller.selectedTimeRange.value,
               periodFilter: controller.selectedBodyFatPeriodFilter.value,
               trendFilter: controller.selectedBodyFatTrendFilter.value,
-              legendItems: [],
+              legendItems: [
+                LegendItem(label: 'Body Fat', color: TColors.info),
+              ],
+              trendValue: controller.bodyFatTrendValue.value,
+              trendDirection: controller.bodyFatTrendDirection.value,
+              originalDateTimes: controller.bodyFatTrendsOriginalDateTimes,
             )),
 
             const SizedBox(height: TSizes.spaceBtwSections),
@@ -234,13 +275,10 @@ class WeightAnalyticsScreen extends StatelessWidget {
   }
 
   /// Last Record Info
-  Widget _buildLastRecordInfo(BuildContext context, WeightController controller, bool darkMode) {
-    if (controller.lastRecord.value == null) {
-      return const SizedBox.shrink();
-    }
-
-    final lastRecord = controller.lastRecord.value!;
-    final daysAgo = DateTime.now().difference(lastRecord.logDateTime).inDays;
+  Widget _buildLastRecordInfo(
+      BuildContext context, WeightController controller, bool darkMode) {
+    final lastRecord = controller.lastRecord.value;
+    if (lastRecord == null) return const SizedBox.shrink();
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: TSizes.defaultSpace),
@@ -248,7 +286,7 @@ class WeightAnalyticsScreen extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
-            'Last Record : $daysAgo days ago',
+            'Last Record: ${TFormatter.formatLastRecordDate(lastRecord.logDateTime)}',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: darkMode ? TColors.grey : TColors.darkGrey,
             ),
@@ -258,18 +296,39 @@ class WeightAnalyticsScreen extends StatelessWidget {
     );
   }
 
-  /// Legend
-  Widget _buildLegend(BuildContext context, bool darkMode) {
+  /// Weight BMI Legend
+  Widget _buildWeightLegend(BuildContext context, bool darkMode) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: TSizes.defaultSpace),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _buildLegendItem('Low', TColors.weightUnderweight, darkMode),
+          _buildLegendItem('Underweight', TColors.weightUnderweight, darkMode),
           const SizedBox(width: TSizes.md),
-          _buildLegendItem('Good', TColors.weightNormal, darkMode),
+          _buildLegendItem('Normal', TColors.weightNormal, darkMode),
           const SizedBox(width: TSizes.md),
-          _buildLegendItem('High', TColors.weightOverweight, darkMode),
+          _buildLegendItem('Overweight', TColors.weightOverweight, darkMode),
+          const SizedBox(width: TSizes.md),
+          _buildLegendItem('Obese', TColors.weightObese, darkMode),
+        ],
+      ),
+    );
+  }
+
+  /// Body Fat Legend
+  Widget _buildBodyFatLegend(BuildContext context, bool darkMode) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: TSizes.defaultSpace),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _buildLegendItem('Low', TColors.bodyFatLow, darkMode),
+          const SizedBox(width: TSizes.md),
+          _buildLegendItem('Normal', TColors.bodyFatNormal, darkMode),
+          const SizedBox(width: TSizes.md),
+          _buildLegendItem('Elevated', TColors.bodyFatElevated, darkMode),
+          const SizedBox(width: TSizes.md),
+          _buildLegendItem('High', TColors.bodyFatHigh, darkMode),
         ],
       ),
     );

@@ -12,11 +12,15 @@ class ChartBarData {
   final String label;
   final double value;
   final List<StackData>? stackData;
+  final DateTime? startDate;    // 时间段的开始日期
+  final DateTime? endDate;      // 时间段的结束日期
 
   ChartBarData({
     required this.label,
     required this.value,
     this.stackData,
+    this.startDate,
+    this.endDate,
   });
 }
 
@@ -239,11 +243,14 @@ class ActivityBarChart extends StatelessWidget {
           const SizedBox(height: TSizes.md),
         ],
 
-        // Chart
+        // Chart - 这是主要的图表显示部分
         SizedBox(
           height: 200,
           child: Padding(
-            padding: const EdgeInsets.only(right: TSizes.md),
+            padding: const EdgeInsets.only(
+              top: TSizes.md,
+              right: TSizes.md,
+            ),
             child: RepaintBoundary(
               key: _chartKey,
               child: BarChart(
@@ -497,46 +504,177 @@ class ActivityBarChart extends StatelessWidget {
   ChartExportData _buildExportData() {
     final exportData = <Map<String, dynamic>>[];
 
-    for (final chartData in data) {
-      final Map<String, dynamic> row = {
-        'Period': chartData.label,
-      };
+    debugPrint('=== Chart Data Debug ===');
+    debugPrint('isWeekView: $isWeekView');
+    debugPrint('data length: ${data.length}');
+    for (int i = 0; i < data.length; i++) {
+      debugPrint('Data $i - label: "${data[i].label}", value: ${data[i].value}');
+      debugPrint('Data $i - startDate: ${data[i].startDate}, endDate: ${data[i].endDate}');
+    }
+
+    // 计算总计
+    double totalValue = 0;
+    double totalLowIntensity = 0;
+    double totalModerateIntensity = 0;
+    double totalHighIntensity = 0;
+
+    for (int i = 0; i < data.length; i++) {
+      final chartData = data[i];
+      final Map<String, dynamic> row = {};
+
+      // 使用传入的日期信息生成正确的 Period 格式
+      if (isWeekView) {
+        // 周视图: Sun (10/26), Mon (10/27) 等
+        row['Period'] = _getWeeklyExportPeriodLabel(i, chartData);
+      } else {
+        // 月视图: Week 1 (10/26 - 11/1), Week 2 (11/2 - 11/8) 等
+        row['Period'] = _getMonthlyExportPeriodLabel(i, chartData);
+      }
 
       if (chartData.stackData != null && chartData.stackData!.isNotEmpty) {
         // Stacked data - add each stack as separate column
-        double totalValue = 0;
-        for (int i = 0; i < chartData.stackData!.length; i++) {
-          final stackItem = chartData.stackData![i];
-          final legendLabel = i < legendItems.length
-              ? legendItems[i].label
-              : 'Category ${i + 1}';
+        double rowTotalValue = 0;
+        for (int j = 0; j < chartData.stackData!.length; j++) {
+          final stackItem = chartData.stackData![j];
+          final legendLabel = j < legendItems.length
+              ? legendItems[j].label
+              : 'Category ${j + 1}';
           row[legendLabel] = '${stackItem.value.toInt()} ${unit ?? ''}';
-          totalValue += stackItem.value;
+          rowTotalValue += stackItem.value;
+
+          // 累加各强度类型的总计
+          if (legendLabel.toLowerCase().contains('low')) {
+            totalLowIntensity += stackItem.value;
+          } else if (legendLabel.toLowerCase().contains('moderate')) {
+            totalModerateIntensity += stackItem.value;
+          } else if (legendLabel.toLowerCase().contains('high')) {
+            totalHighIntensity += stackItem.value;
+          }
         }
-        row['Total'] = '${totalValue.toInt()} ${unit ?? ''}';
+        row['Total'] = '${rowTotalValue.toInt()} ${unit ?? ''}';
+        totalValue += rowTotalValue;
+
+        // Goal Progress 计算
+        if (goalValue != null) {
+          final progress = (rowTotalValue / goalValue! * 100).toStringAsFixed(1);
+          row['Goal Progress'] = '$progress%';
+        }
       } else {
         // Single value data
         row['Value'] = '${chartData.value.toInt()} ${unit ?? ''}';
-      }
+        totalValue += chartData.value;
 
-      // Add goal comparison if applicable
-      if (goalValue != null) {
-        final progress = (chartData.value / goalValue! * 100).toStringAsFixed(1);
-        row['Goal Progress'] = '$progress%';
+        // Goal Progress 计算
+        if (goalValue != null) {
+          final progress = (chartData.value / goalValue! * 100).toStringAsFixed(1);
+          row['Goal Progress'] = '$progress%';
+        }
       }
 
       exportData.add(row);
+    }
+
+    // 添加总计行
+    if (exportData.isNotEmpty) {
+      final totalRow = <String, dynamic>{'Period': 'TOTAL'};
+
+      if (legendItems.isNotEmpty) {
+        // 如果有图例项，添加各强度类型的总计
+        for (final legend in legendItems) {
+          if (legend.label.toLowerCase().contains('low')) {
+            totalRow[legend.label] = '${totalLowIntensity.toInt()} ${unit ?? ''}';
+          } else if (legend.label.toLowerCase().contains('moderate')) {
+            totalRow[legend.label] = '${totalModerateIntensity.toInt()} ${unit ?? ''}';
+          } else if (legend.label.toLowerCase().contains('high')) {
+            totalRow[legend.label] = '${totalHighIntensity.toInt()} ${unit ?? ''}';
+          }
+        }
+      }
+
+      totalRow['Total'] = '${totalValue.toInt()} ${unit ?? ''}';
+
+      // 总计行的 Goal Progress 计算
+      if (goalValue != null) {
+        final totalProgress = (totalValue / goalValue! * 100).toStringAsFixed(1);
+        totalRow['Goal Progress'] = '$totalProgress%';
+      }
+
+      exportData.add(totalRow);
+    }
+
+    // 调试信息：检查导出的数据
+    debugPrint('=== Export Data Debug ===');
+    debugPrint('Title: $title');
+    debugPrint('Time Range: ${_getFormattedTimeRange()}');
+    debugPrint('Data count: ${exportData.length}');
+    if (exportData.isNotEmpty) {
+      debugPrint('First row Period: ${exportData.first['Period']}');
+      debugPrint('First row keys: ${exportData.first.keys.toList()}');
     }
 
     return ChartExportData(
       title: title,
       data: exportData,
       chartKey: _chartKey,
-      timeRange: timeRange,
+      timeRange: _getFormattedTimeRange(),
       periodFilter: periodFilter,
       trendFilter: trendFilter,
       hasData: !showNoData && data.isNotEmpty && data.any((item) => item.value > 0),
     );
+  }
+
+  /// 生成周视图导出的 Period 标签（使用传入的日期）
+  String _getWeeklyExportPeriodLabel(int index, ChartBarData chartData) {
+    if (chartData.startDate != null) {
+      // 使用传入的日期，格式: "Mon (10/28)"
+      final days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      final dayName = days[chartData.startDate!.weekday % 7];
+      return '$dayName (${chartData.startDate!.month}/${chartData.startDate!.day})';
+    }
+
+    // 回退到原来的逻辑
+    return chartData.label;
+  }
+
+  /// 生成月视图导出的 Period 标签（使用传入的日期）
+  String _getMonthlyExportPeriodLabel(int index, ChartBarData chartData) {
+    if (chartData.startDate != null && chartData.endDate != null) {
+      // 导出也使用简化的开始日期，与图表显示保持一致
+      return '${chartData.startDate!.month}/${chartData.startDate!.day}';
+    }
+
+    // 回退到原来的逻辑
+    return chartData.label;
+  }
+
+  /// 格式化时间范围，添加年份
+  String _getFormattedTimeRange() {
+    if (timeRange.isEmpty) return '';
+
+    // 检查是否已经包含年份
+    if (timeRange.contains(RegExp(r'\d{4}'))) {
+      return timeRange;
+    }
+
+    final currentYear = DateTime.now().year;
+
+    // 处理不同的时间范围格式
+    if (timeRange.contains('-')) {
+      // 格式如: "10/26 - 11/1"
+      final parts = timeRange.split(' - ');
+      if (parts.length == 2) {
+        return '${parts[0]}/$currentYear - ${parts[1]}/$currentYear';
+      }
+    } else if (timeRange.contains(' to ')) {
+      // 格式如: "Oct 26 to Nov 1"
+      final parts = timeRange.split(' to ');
+      if (parts.length == 2) {
+        return '${parts[0]} $currentYear to ${parts[1]} $currentYear';
+      }
+    }
+
+    // 如果无法解析，直接添加年份
+    return '$timeRange $currentYear';
   }
 }
 

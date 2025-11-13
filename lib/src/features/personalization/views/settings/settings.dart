@@ -16,6 +16,9 @@ import '../../../subscription/views/subscription_history_screen.dart';
 import '../../../subscription/views/subscription_plan_selection_screen.dart';
 import '../../../subscription/views/transaction_history_screen.dart';
 import '../profile/profile.dart';
+import 'help_support_screen.dart';
+import 'terms_conditions_screen.dart';
+import 'privacy_policy_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -181,9 +184,7 @@ class SettingsScreen extends StatelessWidget {
                     subtitle: 'Get help with your account',
                     iconColor: const Color(0xFF8B5CF6),
                     iconBgColor: const Color(0xFF8B5CF6).withOpacity(0.1),
-                    onTap: () {
-                      // TODO: Navigate to help screen
-                    },
+                    onTap: () => Get.to(() => const HelpSupportScreen()),
                     darkMode: darkMode,
                   ),
                   const SizedBox(height: TSizes.sm),
@@ -195,9 +196,7 @@ class SettingsScreen extends StatelessWidget {
                     subtitle: 'Read our terms of service',
                     iconColor: const Color(0xFF06B6D4),
                     iconBgColor: const Color(0xFF06B6D4).withOpacity(0.1),
-                    onTap: () {
-                      // TODO: Navigate to terms screen
-                    },
+                    onTap: () => Get.to(() => const TermsConditionsScreen()),
                     darkMode: darkMode,
                   ),
                   const SizedBox(height: TSizes.sm),
@@ -209,9 +208,7 @@ class SettingsScreen extends StatelessWidget {
                     subtitle: 'Learn how we protect your data',
                     iconColor: const Color(0xFFEC4899),
                     iconBgColor: const Color(0xFFEC4899).withOpacity(0.1),
-                    onTap: () {
-                      // TODO: Navigate to privacy policy screen
-                    },
+                    onTap: () => Get.to(() => const PrivacyPolicyScreen()),
                     darkMode: darkMode,
                   ),
 
@@ -373,13 +370,6 @@ class SettingsScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-
-                // Arrow Icon
-                // Icon(
-                //   Icons.chevron_right_sharp,
-                //   size: 20,
-                //   color: darkMode ? TColors.darkGrey : TColors.textSecondary,
-                // ),
               ],
             ),
           ),

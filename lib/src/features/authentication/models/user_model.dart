@@ -1,67 +1,47 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-
 import '../../../utils/constants/firebase_field_names.dart';
-import '../../../utils/formatters/formatter.dart';
 import '../../personalization/models/user_profile_model.dart';
+import 'base_account_model.dart';
 
-class UserModel {
-  final String userId;
-  final String username;
-  final String userType;
-  final String email;
-  String phoneNumber;
-  String profileImg;
-  final DateTime joinDate;
+class UserModel extends BaseAccountModel {
   int totalScore;
   int lastScoreUpdateTime;
-  final bool isVerify;
-  int loginAttempt;
-  int lastAttemptTime;
-  final bool accountAvailable;
-  UserProfileModel profile;
+  final UserProfileModel profile;
 
-  /// Constructor
   UserModel({
-    required this.userId,
-    required this.username,
-    required this.userType,
-    required this.email,
-    this.phoneNumber = '',
-    this.profileImg = '',
-    required this.joinDate,
+    required super.userId,
+    required super.username,
+    required super.userType,
+    required super.email,
+    super.phoneNumber,
+    super.profileImg,
+    required super.joinDate,
+    required super.isVerify,
+    required super.accountAvailable,
     this.totalScore = 0,
     this.lastScoreUpdateTime = 0,
-    required this.isVerify,
-    this.loginAttempt = 5,
-    this.lastAttemptTime = 0,
-    required this.accountAvailable,
     UserProfileModel? profile,
   }) : profile = profile ?? UserProfileModel.empty();
 
-  /// Helper function to format phone number
-  String get formattedPhoneNo => TFormatter.formatPhoneNumber(phoneNumber);
-
-  /// Static function to create an empty user model
+  /// empty factory
   static UserModel empty() {
     return UserModel(
       userId: '',
       username: '',
-      userType: '',
+      userType: 'user',
       email: '',
       phoneNumber: '',
       profileImg: '',
       joinDate: DateTime.now(),
+      isVerify: false,
+      accountAvailable: true,
       totalScore: 0,
       lastScoreUpdateTime: 0,
-      isVerify: false,
-      loginAttempt: 0,
-      lastAttemptTime: 0,
-      accountAvailable: true,
       profile: UserProfileModel.empty(),
     );
   }
 
-  /// CopyWith method to create a new instance with updated fields
+  /// copyWith
   UserModel copyWith({
     String? userId,
     String? username,
@@ -70,12 +50,10 @@ class UserModel {
     String? phoneNumber,
     String? profileImg,
     DateTime? joinDate,
+    bool? isVerify,
+    bool? accountAvailable,
     int? totalScore,
     int? lastScoreUpdateTime,
-    bool? isVerify,
-    int? loginAttempt,
-    int? lastAttemptTime,
-    bool? accountAvailable,
     UserProfileModel? profile,
   }) {
     return UserModel(
@@ -86,46 +64,23 @@ class UserModel {
       phoneNumber: phoneNumber ?? this.phoneNumber,
       profileImg: profileImg ?? this.profileImg,
       joinDate: joinDate ?? this.joinDate,
+      isVerify: isVerify ?? this.isVerify,
+      accountAvailable: accountAvailable ?? this.accountAvailable,
       totalScore: totalScore ?? this.totalScore,
       lastScoreUpdateTime: lastScoreUpdateTime ?? this.lastScoreUpdateTime,
-      isVerify: isVerify ?? this.isVerify,
-      loginAttempt: loginAttempt ?? this.loginAttempt,
-      lastAttemptTime: lastAttemptTime ?? this.lastAttemptTime,
-      accountAvailable: accountAvailable ?? this.accountAvailable,
       profile: profile ?? this.profile,
     );
   }
 
-  /// Convert model to JSON structure for storing data in Firebase
-  Map<String, dynamic> toJson() {
-    return {
-      FirebaseFieldNames.userId: userId,
-      FirebaseFieldNames.username: username,
-      FirebaseFieldNames.userType: userType,
-      FirebaseFieldNames.email: email,
-      FirebaseFieldNames.phoneNumber: phoneNumber,
-      FirebaseFieldNames.profileImg: profileImg,
-      FirebaseFieldNames.joinDate: joinDate.millisecondsSinceEpoch,
-      FirebaseFieldNames.totalScore: totalScore,
-      FirebaseFieldNames.lastScoreUpdateTime: lastScoreUpdateTime,
-      FirebaseFieldNames.isVerify: isVerify,
-      FirebaseFieldNames.loginAttempt: loginAttempt,
-      FirebaseFieldNames.lastAttemptTime: lastAttemptTime,
-      FirebaseFieldNames.accountAvailable: accountAvailable,
-      FirebaseFieldNames.profile: profile.toJson(),
-    };
-  }
-
-  /// Factory method to create a UserModel from a Firebase document snapshot
-  factory UserModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> document) {
-    final data = document.data();
+  /// fromSnapshot
+  factory UserModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data();
     if (data == null) return UserModel.empty();
 
-    // 处理 profile 数据
     UserProfileModel profile;
-    if (data[FirebaseFieldNames.profile] != null) {
-      final profileData = data[FirebaseFieldNames.profile] as Map<String, dynamic>;
-      profile = UserProfileModel.fromMap(profileData);
+    if (data[FirebaseFieldNames.profile] != null &&
+        data[FirebaseFieldNames.profile] is Map<String, dynamic>) {
+      profile = UserProfileModel.fromMap(data[FirebaseFieldNames.profile]);
     } else {
       profile = UserProfileModel.empty();
     }
@@ -133,20 +88,29 @@ class UserModel {
     return UserModel(
       userId: data[FirebaseFieldNames.userId] ?? '',
       username: data[FirebaseFieldNames.username] ?? '',
-      userType: data[FirebaseFieldNames.userType] ?? '',
+      userType: data[FirebaseFieldNames.userType] ?? 'user',
       email: data[FirebaseFieldNames.email] ?? '',
       phoneNumber: data[FirebaseFieldNames.phoneNumber] ?? '',
       profileImg: data[FirebaseFieldNames.profileImg] ?? '',
       joinDate: data[FirebaseFieldNames.joinDate] != null
           ? DateTime.fromMillisecondsSinceEpoch(data[FirebaseFieldNames.joinDate])
           : DateTime.now(),
+      isVerify: data[FirebaseFieldNames.isVerify] ?? false,
+      accountAvailable: data[FirebaseFieldNames.accountAvailable] ?? true,
       totalScore: data[FirebaseFieldNames.totalScore] ?? 0,
       lastScoreUpdateTime: data[FirebaseFieldNames.lastScoreUpdateTime] ?? 0,
-      isVerify: data[FirebaseFieldNames.isVerify] ?? false,
-      loginAttempt: data[FirebaseFieldNames.loginAttempt] ?? 0,
-      lastAttemptTime: data[FirebaseFieldNames.lastAttemptTime] ?? 0,
-      accountAvailable: data[FirebaseFieldNames.accountAvailable] ?? true,
       profile: profile,
     );
+  }
+
+  @override
+  Map<String, dynamic> toJson() {
+    final map = super.toJson();
+    map.addAll({
+      FirebaseFieldNames.totalScore: totalScore,
+      FirebaseFieldNames.lastScoreUpdateTime: lastScoreUpdateTime,
+      FirebaseFieldNames.profile: profile.toJson(),
+    });
+    return map;
   }
 }

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../../common/widgets/appbar/appbar.dart';
 import '../../../../utils/constants/colors.dart';
+import '../../../../utils/constants/enums.dart';
 import '../../../../utils/constants/sizes.dart';
 import '../../../../utils/helpers/helper_functions.dart';
-import '../../controllers/blood_glucose_controller.dart';
 import '../../controllers/exercise_controller.dart';
+import '../health_data_entry/health_data_entry_screen.dart';
 import 'connect_exercise_apps_screen.dart';
 import 'exercise_goals_info_screen.dart';
 import 'set_goals_screen.dart';
@@ -23,18 +25,24 @@ class ExerciseScreen extends StatelessWidget {
     final darkMode = THelperFunctions.isDarkMode(context);
 
     return Scaffold(
-      backgroundColor: darkMode ? TColors.dark : TColors.light,
-      appBar: AppBar(
+      backgroundColor: darkMode ? const Color(0xFF0A0A0B) : TColors.light,
+      appBar: TAppBar(
         backgroundColor: TColors.primary,
         title: const Text(
           'Exercise',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Get.back(),
-        ),
+        showBackArrow: true,
+        iconTheme: IconThemeData(color: TColors.white),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            color: TColors.white,
+            onPressed: () {
+              Get.to(() => const HealthDataEntryScreen(
+                  initialSections: ['Exercise']));
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.settings, color: Colors.white),
             onPressed: () async {
@@ -151,7 +159,7 @@ class ExerciseScreen extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(TSizes.defaultSpace),
       decoration: BoxDecoration(
-        color: darkMode ? TColors.darkContainer : Colors.white,
+        color: darkMode ? TColors.dark : Colors.white,
         borderRadius: BorderRadius.circular(TSizes.cardRadiusLg),
         boxShadow: [
           BoxShadow(
@@ -227,7 +235,7 @@ class ExerciseScreen extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.all(TSizes.defaultSpace),
         decoration: BoxDecoration(
-          color: darkMode ? TColors.darkContainer : Colors.white,
+          color: darkMode ? TColors.dark : Colors.white,
           borderRadius: BorderRadius.circular(TSizes.cardRadiusLg),
           boxShadow: [
             BoxShadow(
@@ -413,7 +421,7 @@ class ExerciseScreen extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(TSizes.defaultSpace),
       decoration: BoxDecoration(
-        color: darkMode ? TColors.darkContainer : Colors.white,
+        color: darkMode ? TColors.dark : Colors.white,
         borderRadius: BorderRadius.circular(TSizes.cardRadiusLg),
         boxShadow: [
           BoxShadow(
@@ -514,14 +522,14 @@ class ExerciseScreen extends StatelessWidget {
       return Container(
         padding: const EdgeInsets.all(TSizes.md),
         decoration: BoxDecoration(
-          color: TColors.lightGrey.withOpacity(0.5),
+          color: darkMode ? TColors.darkerGrey : TColors.lightGrey.withOpacity(0.5),
           borderRadius: BorderRadius.circular(TSizes.borderRadiusMd),
         ),
         child: Row(
           children: [
             Icon(
               Icons.info_outline,
-              color: TColors.textSecondary,
+              color: darkMode ? TColors.white : TColors.textSecondary,
               size: 20,
             ),
             const SizedBox(width: TSizes.sm),
@@ -529,7 +537,7 @@ class ExerciseScreen extends StatelessWidget {
               child: Text(
                 'Connect your exercise app to view your steps data',
                 style: TextStyle(
-                  color: TColors.textSecondary,
+                  color: darkMode ? TColors.white : TColors.textSecondary,
                   fontSize: TSizes.fontSizeSm,
                 ),
               ),

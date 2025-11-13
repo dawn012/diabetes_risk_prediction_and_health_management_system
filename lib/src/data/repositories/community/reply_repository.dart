@@ -19,7 +19,7 @@ class ReplyRepository extends GetxController {
   final _auth = FirebaseAuth.instance;
 
   /// Create a new reply in comments/{commentId}/replies subcollection
-  Future<String?> createReply({
+  Future<String> createReply({
     required String content,
     required String parentCommentId,
     List<String>? mentions,
@@ -35,7 +35,7 @@ class ReplyRepository extends GetxController {
         content: content,
         likes: const [],
         createdAt: now,
-        updatedAt: now,
+        updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
         mentions: mentions,
       );
 
@@ -56,7 +56,7 @@ class ReplyRepository extends GetxController {
         FirebaseFieldNames.updatedAt: DateTime.now().millisecondsSinceEpoch,
       });
 
-      return null;
+      return replyId;
     } on FirebaseException catch (e) {
       throw TFirebaseException(e.code).message;
     } on FormatException catch (_) {
@@ -77,18 +77,26 @@ class ReplyRepository extends GetxController {
         .collection(FirebaseCollectionNames.comments)
         .doc(parentCommentId)
         .collection(FirebaseCollectionNames.replies)
-        .orderBy(FirebaseFieldNames.createdAt, descending: false) // Replies show oldest first
+        // .orderBy(FirebaseFieldNames.createdAt, descending: false) // Replies show oldest first
         .limit(limit)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs
+      final replies = snapshot.docs
           .map((doc) => ReplyModel.fromSnapshot(doc))
           .toList();
+
+      replies.sort((a, b) {
+        final aTime = a.updatedAt.isAfter(a.createdAt) ? a.updatedAt : a.createdAt;
+        final bTime = b.updatedAt.isAfter(b.createdAt) ? b.updatedAt : b.createdAt;
+        return bTime.compareTo(aTime);
+      });
+
+      return replies;
     });
   }
 
   /// Like/unlike a reply in subcollection
-  Future<String?> toggleReplyLike({
+  Future<void> toggleReplyLike({
     required String replyId,
     required String parentCommentId,
     required List<String> currentLikes,
@@ -105,17 +113,13 @@ class ReplyRepository extends GetxController {
         // Remove like
         await replyRef.update({
           FirebaseFieldNames.likes: FieldValue.arrayRemove([userId]),
-          FirebaseFieldNames.updatedAt: DateTime.now().millisecondsSinceEpoch,
         });
       } else {
         // Add like
         await replyRef.update({
           FirebaseFieldNames.likes: FieldValue.arrayUnion([userId]),
-          FirebaseFieldNames.updatedAt: DateTime.now().millisecondsSinceEpoch,
         });
       }
-
-      return null;
     } on FirebaseException catch (e) {
       throw TFirebaseException(e.code).message;
     } on FormatException catch (_) {
@@ -128,7 +132,7 @@ class ReplyRepository extends GetxController {
   }
 
   /// Update reply content in subcollection
-  Future<String?> updateReply({
+  Future<void> updateReply({
     required String replyId,
     required String parentCommentId,
     required String content,
@@ -143,8 +147,6 @@ class ReplyRepository extends GetxController {
         FirebaseFieldNames.content: content,
         FirebaseFieldNames.updatedAt: DateTime.now().millisecondsSinceEpoch,
       });
-
-      return null;
     } on FirebaseException catch (e) {
       throw TFirebaseException(e.code).message;
     } on FormatException catch (_) {
@@ -157,7 +159,7 @@ class ReplyRepository extends GetxController {
   }
 
   /// Delete reply from subcollection
-  Future<String?> deleteReply({
+  Future<void> deleteReply({
     required String replyId,
     required String parentCommentId,
   }) async {
@@ -178,8 +180,6 @@ class ReplyRepository extends GetxController {
         FirebaseFieldNames.replyCount: FieldValue.increment(-1),
         FirebaseFieldNames.updatedAt: DateTime.now().millisecondsSinceEpoch,
       });
-
-      return null;
     } on FirebaseException catch (e) {
       throw TFirebaseException(e.code).message;
     } on FormatException catch (_) {

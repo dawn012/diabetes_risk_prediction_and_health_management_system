@@ -120,35 +120,10 @@ class TUserProfileValidator {
     return null;
   }
 
-  /// Validate weight (kg)
-  static String? validateWeight(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      // return 'Please enter your weight.';
-      return null;
-    }
-
-    final weight = double.tryParse(value);
-    if (weight == null) {
-      return 'Please enter a valid number.';
-    }
-
-    if (weight <= 0 || weight > 500) {
-      return 'Weight must be between 0.1 and 500.0 kg.';
-    }
-
-    // Check decimal places
-    if (value.contains('.') && value.split('.')[1].length > 1) {
-      return 'Weight can have at most 1 decimal place.';
-    }
-
-    return null;
-  }
-
   /// Validate height (cm)
   static String? validateHeight(String? value) {
     if (value == null || value.trim().isEmpty) {
-      // return 'Please enter your height.';
-      return null;
+      return 'Please enter your height.';
     }
 
     final height = double.tryParse(value);

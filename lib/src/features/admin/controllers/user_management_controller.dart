@@ -270,8 +270,6 @@ class UserManagementController extends GetxController {
           joinDate: user.joinDate,
           totalScore: user.totalScore,
           isVerify: user.isVerify,
-          loginAttempt: user.loginAttempt,
-          lastAttemptTime: user.lastAttemptTime,
           accountAvailable: false,
         );
       }
@@ -301,8 +299,6 @@ class UserManagementController extends GetxController {
           joinDate: user.joinDate,
           totalScore: user.totalScore,
           isVerify: user.isVerify,
-          loginAttempt: user.loginAttempt,
-          lastAttemptTime: user.lastAttemptTime,
           accountAvailable: true,
         );
       }
@@ -338,8 +334,6 @@ class UserManagementController extends GetxController {
             joinDate: user.joinDate,
             totalScore: user.totalScore,
             isVerify: user.isVerify,
-            loginAttempt: user.loginAttempt,
-            lastAttemptTime: user.lastAttemptTime,
             accountAvailable: false,
           );
         }
@@ -381,8 +375,6 @@ class UserManagementController extends GetxController {
             joinDate: user.joinDate,
             totalScore: user.totalScore,
             isVerify: user.isVerify,
-            loginAttempt: user.loginAttempt,
-            lastAttemptTime: user.lastAttemptTime,
             accountAvailable: true,
           );
         }

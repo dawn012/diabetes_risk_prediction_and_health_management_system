@@ -7,47 +7,46 @@ import '../../../common/loaders/loaders.dart';
 import '../../../data/repositories/authentication/authentication_repository.dart';
 import '../../../data/repositories/user/user_repository.dart';
 import '../../../utils/helpers/image_helper.dart';
-import '../../authentication/models/user_model.dart';
+import '../../authentication/models/admin_model.dart';
 
 class AdminProfileController extends GetxController {
   final _authRepo = Get.put(AuthenticationRepository());
   final _userRepo = Get.put(UserRepository());
 
-  // Observable user data
-  final Rx<UserModel> currentUser = UserModel.empty().obs;
+  // Observable admin data
+  final Rx<AdminModel> currentAdmin = AdminModel.empty().obs;
   final RxBool isLoading = false.obs;
 
   @override
   void onInit() {
     super.onInit();
-    loadUserData();
+    loadAdminData();
   }
 
-  /// Load current user data from Firestore
-  Future<void> loadUserData() async {
+  /// Load current admin data from Firestore
+  Future<void> loadAdminData() async {
     try {
       isLoading.value = true;
 
-      // Fetch complete user data from Firestore
-      final userData = await _userRepo.fetchUserDetails();
+      // Fetch admin data from Firestore
+      final adminData = await _userRepo.fetchAdminDetails();
 
-      if (userData.userId.isNotEmpty) {
-        currentUser.value = userData;
+      if (adminData.userId.isNotEmpty) {
+        currentAdmin.value = adminData;
       } else {
-        // Fallback to auth user data if Firestore data not found
+        // Fallback to auth data if Firestore data not found
         final authUser = _authRepo.authUser;
         if (authUser != null) {
-          currentUser.value = UserModel(
+          currentAdmin.value = AdminModel(
             userId: authUser.uid,
             username: authUser.displayName ?? 'Admin User',
-            userType: 'administrator',
+            userType: 'admin',
             email: authUser.email ?? '',
             phoneNumber: authUser.phoneNumber ?? '',
             profileImg: authUser.photoURL ?? '',
             joinDate: DateTime.now(),
-            totalScore: 0,
             isVerify: authUser.emailVerified,
-            loginAttempt: 0,
+            loginAttempt: 5,
             lastAttemptTime: 0,
             accountAvailable: true,
           );
@@ -55,9 +54,7 @@ class AdminProfileController extends GetxController {
       }
     } catch (e) {
       TLoaders.errorSnackBar(
-          title: 'Error',
-          message: 'Failed to load profile data: ${e.toString()}'
-      );
+          title: 'Error', message: 'Failed to load profile data: ${e.toString()}');
     } finally {
       isLoading.value = false;
     }
@@ -66,29 +63,24 @@ class AdminProfileController extends GetxController {
   /// Update profile image
   Future<void> updateProfileImage() async {
     try {
-      // Import image helper
       final pickedImage = await ImageHelper.pickImage();
 
       if (pickedImage != null) {
         isLoading.value = true;
 
         // TODO: Upload image to Firebase Storage and get URL
-        // For now, showing a placeholder message
         TLoaders.customToast(message: 'Image selected! Upload feature coming soon.');
 
-        // Example of how you would update after getting the image URL:
+        // Example after getting imageUrl:
         // await _userRepo.updateSingleField({
         //   FirebaseFieldNames.profileImg: imageUrl,
         // });
-        //
-        // currentUser.value = currentUser.value.copyWith(profileImg: imageUrl);
-        // currentUser.refresh();
+        // currentAdmin.value = currentAdmin.value.copyWith(profileImg: imageUrl);
+        // currentAdmin.refresh();
       }
     } catch (e) {
       TLoaders.errorSnackBar(
-          title: 'Error',
-          message: 'Failed to update profile image: ${e.toString()}'
-      );
+          title: 'Error', message: 'Failed to update profile image: ${e.toString()}');
     } finally {
       isLoading.value = false;
     }
@@ -102,7 +94,7 @@ class AdminProfileController extends GetxController {
     );
   }
 
-  /// Update user profile
+  /// Update admin profile
   Future<void> updateProfile({
     required String username,
     required String phoneNumber,
@@ -110,36 +102,21 @@ class AdminProfileController extends GetxController {
     try {
       isLoading.value = true;
 
-      // Update user data
-      final updatedUser = UserModel(
-        userId: currentUser.value.userId,
+      final updatedAdmin = currentAdmin.value.copyWith(
         username: username,
-        userType: currentUser.value.userType,
-        email: currentUser.value.email,
         phoneNumber: phoneNumber,
-        profileImg: currentUser.value.profileImg,
-        joinDate: currentUser.value.joinDate,
-        totalScore: currentUser.value.totalScore,
-        isVerify: currentUser.value.isVerify,
-        loginAttempt: currentUser.value.loginAttempt,
-        lastAttemptTime: currentUser.value.lastAttemptTime,
-        accountAvailable: currentUser.value.accountAvailable,
       );
 
-      await _userRepo.updateUserDetails(updatedUser);
+      await _userRepo.updateAdminDetails(updatedAdmin);
 
-      currentUser.value = updatedUser;
+      currentAdmin.value = updatedAdmin;
 
       Get.back(); // Close dialog
       TLoaders.successSnackBar(
-          title: 'Success',
-          message: 'Profile updated successfully!'
-      );
+          title: 'Success', message: 'Profile updated successfully!');
     } catch (e) {
       TLoaders.errorSnackBar(
-          title: 'Error',
-          message: 'Failed to update profile: ${e.toString()}'
-      );
+          title: 'Error', message: 'Failed to update profile: ${e.toString()}');
     } finally {
       isLoading.value = false;
     }
@@ -161,19 +138,14 @@ class AdminProfileController extends GetxController {
     try {
       isLoading.value = true;
 
-      // Use Firebase Auth to update password
       await _authRepo.updatePassword(currentPassword, newPassword);
 
       Get.back(); // Close dialog
       TLoaders.successSnackBar(
-          title: 'Success',
-          message: 'Password updated successfully!'
-      );
+          title: 'Success', message: 'Password updated successfully!');
     } catch (e) {
       TLoaders.errorSnackBar(
-          title: 'Error',
-          message: 'Failed to update password: ${e.toString()}'
-      );
+          title: 'Error', message: 'Failed to update password: ${e.toString()}');
     } finally {
       isLoading.value = false;
     }
@@ -187,8 +159,8 @@ class AdminProfileController extends GetxController {
 
   /// Build edit profile dialog
   Widget _buildEditProfileDialog() {
-    final usernameController = TextEditingController(text: currentUser.value.username);
-    final phoneController = TextEditingController(text: currentUser.value.phoneNumber);
+    final usernameController = TextEditingController(text: currentAdmin.value.username);
+    final phoneController = TextEditingController(text: currentAdmin.value.phoneNumber);
     final formKey = GlobalKey<FormState>();
 
     return AlertDialog(
@@ -233,12 +205,11 @@ class AdminProfileController extends GetxController {
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: () => Get.back(),
-          child: Text('Cancel'),
-        ),
+        TextButton(onPressed: () => Get.back(), child: Text('Cancel')),
         Obx(() => ElevatedButton(
-          onPressed: isLoading.value ? null : () {
+          onPressed: isLoading.value
+              ? null
+              : () {
             if (formKey.currentState!.validate()) {
               updateProfile(
                 username: usernameController.text.trim(),
@@ -285,7 +256,9 @@ class AdminProfileController extends GetxController {
                   prefixIcon: Icon(Iconsax.key_bold),
                   suffixIcon: IconButton(
                     onPressed: () => showCurrentPassword.toggle(),
-                    icon: Icon(showCurrentPassword.value ? Iconsax.eye_slash_bold : Iconsax.eye_bold),
+                    icon: Icon(showCurrentPassword.value
+                        ? Iconsax.eye_slash_bold
+                        : Iconsax.eye_bold),
                   ),
                 ),
                 validator: (value) {
@@ -304,7 +277,8 @@ class AdminProfileController extends GetxController {
                   prefixIcon: Icon(Iconsax.key_bold),
                   suffixIcon: IconButton(
                     onPressed: () => showNewPassword.toggle(),
-                    icon: Icon(showNewPassword.value ? Iconsax.eye_slash_bold : Iconsax.eye_bold),
+                    icon: Icon(
+                        showNewPassword.value ? Iconsax.eye_slash_bold : Iconsax.eye_bold),
                   ),
                 ),
                 validator: (value) {
@@ -326,7 +300,9 @@ class AdminProfileController extends GetxController {
                   prefixIcon: Icon(Iconsax.key_bold),
                   suffixIcon: IconButton(
                     onPressed: () => showConfirmPassword.toggle(),
-                    icon: Icon(showConfirmPassword.value ? Iconsax.eye_slash_bold : Iconsax.eye_bold),
+                    icon: Icon(showConfirmPassword.value
+                        ? Iconsax.eye_slash_bold
+                        : Iconsax.eye_bold),
                   ),
                 ),
                 validator: (value) {
@@ -341,12 +317,11 @@ class AdminProfileController extends GetxController {
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: () => Get.back(),
-          child: Text('Cancel'),
-        ),
+        TextButton(onPressed: () => Get.back(), child: Text('Cancel')),
         Obx(() => ElevatedButton(
-          onPressed: isLoading.value ? null : () {
+          onPressed: isLoading.value
+              ? null
+              : () {
             if (formKey.currentState!.validate()) {
               updatePassword(
                 currentPassword: currentPasswordController.text,
@@ -360,7 +335,10 @@ class AdminProfileController extends GetxController {
             height: 16,
             child: CircularProgressIndicator(strokeWidth: 2),
           )
-              : Text('Update', style: TextStyle(fontSize: 12),),
+              : Text(
+            'Update',
+            style: TextStyle(fontSize: 12),
+          ),
         )),
       ],
     );

@@ -1,4 +1,5 @@
 import '../../../utils/constants/firebase_field_names.dart';
+import '../../../utils/helpers/bmi_calculator.dart';
 
 class UserProfileModel {
   final String gender;
@@ -7,16 +8,13 @@ class UserProfileModel {
   final double height;
   final String dietPreference;
   final List<String> allergies;
-  final bool isTakeMedication;
-  final int medicationAdherence;
-  final double sleepDuration;
-  final int stressLevel;
-  final double waterIntake;
   final int dailyStepsGoal;
   final int weeklyExerciseTime;
-  final double bloodGlucose;
-  final int dailyPhysicalActivityDuration;
   final DateTime updatedAt;
+
+  // Track if critical fields have been changed
+  final bool hasChangedGender;
+  final bool hasChangedDateOfBirth;
 
   /// Constructor
   UserProfileModel({
@@ -26,16 +24,11 @@ class UserProfileModel {
     required this.height,
     required this.dietPreference,
     required this.allergies,
-    required this.isTakeMedication,
-    required this.medicationAdherence,
-    required this.sleepDuration,
-    required this.stressLevel,
-    required this.waterIntake,
     this.dailyStepsGoal = 7500,
     this.weeklyExerciseTime = 150,
-    this.bloodGlucose = 0.0,
-    this.dailyPhysicalActivityDuration = 0,
     required this.updatedAt,
+    this.hasChangedGender = false,
+    this.hasChangedDateOfBirth = false,
   });
 
   /// Calculate current age from date of birth
@@ -54,27 +47,75 @@ class UserProfileModel {
     return age;
   }
 
+  /// Calculate age in months
+  int? get ageInMonths {
+    if (isDateUnset(dateOfBirth)) return null;
+
+    final now = DateTime.now();
+    int months = (now.year - dateOfBirth.year) * 12;
+    months += now.month - dateOfBirth.month;
+
+    // Adjust if birthday hasn't occurred yet this month
+    if (now.day < dateOfBirth.day) {
+      months--;
+    }
+
+    return months > 0 ? months : null;
+  }
+
+  /// Calculate BMI using BMICalculator
+  double? get bmi {
+    if (weight <= 0 || height <= 0) return null;
+    return BMICalculator.calculateBMI(weight, height);
+  }
+
+  /// Get BMI category using BMICalculator
+  BMICategory? get bmiCategory {
+    if (weight <= 0 || height <= 0) return null;
+
+    return BMICalculator.getBMICategory(
+      weight: weight,
+      height: height,
+      ageInMonths: ageInMonths,
+      gender: hasGender ? gender : null,
+    );
+  }
+
+  /// Get formatted BMI string
+  String get formattedBMI {
+    final bmiValue = bmi;
+    if (bmiValue == null) return '-';
+    return bmiValue.toStringAsFixed(1);
+  }
+
   bool isDateUnset(DateTime dateOfBirth) => dateOfBirth.millisecondsSinceEpoch == 0;
+
+  /// Check if gender is set
+  bool get hasGender => gender.isNotEmpty;
+
+  /// Check if date of birth is set
+  bool get hasDateOfBirth => !isDateUnset(dateOfBirth);
+
+  /// Check if weight is set
+  bool get hasWeight => weight > 0;
+
+  /// Check if height is set
+  bool get hasHeight => height > 0;
 
   /// Empty factory with default values
   static UserProfileModel empty() {
     return UserProfileModel(
       gender: '',
-      dateOfBirth: DateTime.now(),
+      dateOfBirth: DateTime.fromMillisecondsSinceEpoch(0),
       weight: 0,
       height: 0,
       dietPreference: '',
       allergies: [],
-      isTakeMedication: false,
-      medicationAdherence: 0,
-      sleepDuration: 0,
-      stressLevel: 0,
-      waterIntake: 0,
       dailyStepsGoal: 7500,
       weeklyExerciseTime: 150,
-      bloodGlucose: 0.0,
-      dailyPhysicalActivityDuration: 0,
       updatedAt: DateTime.now(),
+      hasChangedGender: false,
+      hasChangedDateOfBirth: false,
     );
   }
 
@@ -86,16 +127,11 @@ class UserProfileModel {
     double? height,
     String? dietPreference,
     List<String>? allergies,
-    bool? isTakeMedication,
-    int? medicationAdherence,
-    double? sleepDuration,
-    int? stressLevel,
-    double? waterIntake,
     int? dailyStepsGoal,
     int? weeklyExerciseTime,
-    double? bloodGlucose,
-    int? dailyPhysicalActivityDuration,
     DateTime? updatedAt,
+    bool? hasChangedGender,
+    bool? hasChangedDateOfBirth,
   }) {
     return UserProfileModel(
       gender: gender ?? this.gender,
@@ -104,16 +140,11 @@ class UserProfileModel {
       height: height ?? this.height,
       dietPreference: dietPreference ?? this.dietPreference,
       allergies: allergies ?? this.allergies,
-      isTakeMedication: isTakeMedication ?? this.isTakeMedication,
-      medicationAdherence: medicationAdherence ?? this.medicationAdherence,
-      sleepDuration: sleepDuration ?? this.sleepDuration,
-      stressLevel: stressLevel ?? this.stressLevel,
-      waterIntake: waterIntake ?? this.waterIntake,
       dailyStepsGoal: dailyStepsGoal ?? this.dailyStepsGoal,
       weeklyExerciseTime: weeklyExerciseTime ?? this.weeklyExerciseTime,
-      bloodGlucose: bloodGlucose ?? this.bloodGlucose,
-      dailyPhysicalActivityDuration: dailyPhysicalActivityDuration ?? this.dailyPhysicalActivityDuration,
       updatedAt: updatedAt ?? this.updatedAt,
+      hasChangedGender: hasChangedGender ?? this.hasChangedGender,
+      hasChangedDateOfBirth: hasChangedDateOfBirth ?? this.hasChangedDateOfBirth,
     );
   }
 
@@ -126,16 +157,11 @@ class UserProfileModel {
       FirebaseFieldNames.height: height,
       FirebaseFieldNames.dietPreference: dietPreference,
       FirebaseFieldNames.allergies: allergies,
-      FirebaseFieldNames.isTakeMedication: isTakeMedication,
-      FirebaseFieldNames.medicationAdherence: medicationAdherence,
-      FirebaseFieldNames.sleepDuration: sleepDuration,
-      FirebaseFieldNames.stressLevel: stressLevel,
-      FirebaseFieldNames.waterIntake: waterIntake,
       FirebaseFieldNames.dailyStepsGoal: dailyStepsGoal,
       FirebaseFieldNames.weeklyExerciseTime: weeklyExerciseTime,
-      'bloodGlucose': bloodGlucose,
-      'dailyPhysicalActivityDuration': dailyPhysicalActivityDuration,
       FirebaseFieldNames.updatedAt: updatedAt.millisecondsSinceEpoch,
+      FirebaseFieldNames.hasChangedGender: hasChangedGender,
+      FirebaseFieldNames.hasChangedDateOfBirth: hasChangedDateOfBirth,
     };
   }
 
@@ -150,18 +176,13 @@ class UserProfileModel {
       height: (data[FirebaseFieldNames.height] ?? 0).toDouble(),
       dietPreference: data[FirebaseFieldNames.dietPreference] ?? '',
       allergies: List<String>.from(data[FirebaseFieldNames.allergies] ?? []),
-      isTakeMedication: data[FirebaseFieldNames.isTakeMedication] ?? false,
-      medicationAdherence: data[FirebaseFieldNames.medicationAdherence] ?? 0,
-      sleepDuration: (data[FirebaseFieldNames.sleepDuration] ?? 0).toDouble(),
-      stressLevel: data[FirebaseFieldNames.stressLevel] ?? 0,
-      waterIntake: (data[FirebaseFieldNames.waterIntake] ?? 0).toDouble(),
       dailyStepsGoal: data[FirebaseFieldNames.dailyStepsGoal] ?? 7500,
       weeklyExerciseTime: data[FirebaseFieldNames.weeklyExerciseTime] ?? 150,
-      bloodGlucose: (data[FirebaseFieldNames.bloodGlucose] ?? 0).toDouble(),
-      dailyPhysicalActivityDuration: data['dailyPhysicalActivityDuration'] ?? 0,
       updatedAt: data[FirebaseFieldNames.updatedAt] != null
           ? DateTime.fromMillisecondsSinceEpoch(data[FirebaseFieldNames.updatedAt])
           : DateTime.now(),
+      hasChangedGender: data[FirebaseFieldNames.hasChangedGender] ?? false,
+      hasChangedDateOfBirth: data[FirebaseFieldNames.hasChangedDateOfBirth] ?? false,
     );
   }
 }

@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../features/authentication/models/admin_model.dart';
 import '../../../features/authentication/models/user_model.dart';
 import '../../../features/personalization/models/user_profile_model.dart';
 import '../../../utils/constants/firebase_collection_names.dart';
@@ -60,6 +61,126 @@ class UserRepository extends GetxController {
         }
       }
       return false; // Username is available
+    } on FirebaseException catch (e) {
+      throw TFirebaseException(e.code).message;
+    } on FormatException catch (_) {
+      throw const TFormatException();
+    } on PlatformException catch (e) {
+      throw TPlatformException(e.code).message;
+    } catch (e) {
+      throw TTexts.commonErrorMessage;
+    }
+  }
+
+  /// Get user by email (returns raw data for login validation)
+  Future<Map<String, dynamic>?> getUserByEmail(String email) async {
+    try {
+      final querySnapshot = await _db
+          .collection(FirebaseCollectionNames.users)
+          .where(FirebaseFieldNames.email, isEqualTo: email)
+          .limit(1)
+          .get();
+
+      if (querySnapshot.docs.isEmpty) {
+        return null;
+      }
+
+      final doc = querySnapshot.docs.first;
+      final data = doc.data();
+      data['userId'] = doc.id; // Add document ID as userId
+      return data;
+    } on FirebaseException catch (e) {
+      throw TFirebaseException(e.code).message;
+    } on FormatException catch (_) {
+      throw const TFormatException();
+    } on PlatformException catch (e) {
+      throw TPlatformException(e.code).message;
+    } catch (e) {
+      throw TTexts.commonErrorMessage;
+    }
+  }
+
+  /// Reset login attempts to 5 (for successful login or after timeout)
+  Future<void> resetLoginAttempts(String userId) async {
+    try {
+      await _db.collection(FirebaseCollectionNames.users).doc(userId).update({
+        FirebaseFieldNames.loginAttempt: 5,
+        FirebaseFieldNames.lastAttemptTime: DateTime.now().millisecondsSinceEpoch,
+      });
+    } on FirebaseException catch (e) {
+      throw TFirebaseException(e.code).message;
+    } on FormatException catch (_) {
+      throw const TFormatException();
+    } on PlatformException catch (e) {
+      throw TPlatformException(e.code).message;
+    } catch (e) {
+      throw TTexts.commonErrorMessage;
+    }
+  }
+
+  /// Decrement login attempt by 1 (for failed login)
+  Future<void> decrementLoginAttempt(String userId) async {
+    try {
+      // Get current login attempt
+      final doc = await _db
+          .collection(FirebaseCollectionNames.users)
+          .doc(userId)
+          .get();
+
+      if (!doc.exists) return;
+
+      final currentAttempt = doc.data()?[FirebaseFieldNames.loginAttempt] ?? 5;
+      final newAttempt = currentAttempt > 0 ? currentAttempt - 1 : 0;
+
+      await _db.collection(FirebaseCollectionNames.users).doc(userId).update({
+        FirebaseFieldNames.loginAttempt: newAttempt,
+        FirebaseFieldNames.lastAttemptTime: DateTime.now().millisecondsSinceEpoch,
+      });
+    } on FirebaseException catch (e) {
+      throw TFirebaseException(e.code).message;
+    } on FormatException catch (_) {
+      throw const TFormatException();
+    } on PlatformException catch (e) {
+      throw TPlatformException(e.code).message;
+    } catch (e) {
+      throw TTexts.commonErrorMessage;
+    }
+  }
+
+  /// Fetch admin details based on current user ID
+  Future<AdminModel> fetchAdminDetails() async {
+    try {
+      final currentUserId = AuthenticationRepository.instance.authUser?.uid;
+      if (currentUserId == null) throw 'User not authenticated';
+
+      final documentSnapshot = await _db
+          .collection(FirebaseCollectionNames.users)
+          .doc(currentUserId)
+          .get();
+
+      if (documentSnapshot.exists) {
+        return AdminModel.fromSnapshot(documentSnapshot);
+      } else {
+        return AdminModel.empty();
+      }
+    } on FirebaseException catch (e) {
+      throw TFirebaseException(e.code).message;
+    } on FormatException catch (_) {
+      throw const TFormatException();
+    } on PlatformException catch (e) {
+      throw TPlatformException(e.code).message;
+    } catch (e) {
+      throw TTexts.commonErrorMessage;
+    }
+  }
+
+  /// Update admin details
+  Future<void> updateAdminDetails(AdminModel updatedAdmin) async {
+    try {
+      await _db
+          .collection(FirebaseCollectionNames.users)
+          .doc(updatedAdmin.userId)
+          .update(updatedAdmin.toJson());
     } on FirebaseException catch (e) {
       throw TFirebaseException(e.code).message;
     } on FormatException catch (_) {

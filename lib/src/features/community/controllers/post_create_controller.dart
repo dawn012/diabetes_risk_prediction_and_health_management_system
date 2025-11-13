@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:path/path.dart' as path;
 import 'package:uuid/uuid.dart';
 
+import '../../../common/widgets/camera/media_picker.dart';
 import '../../../utils/constants/enums.dart';
 import '../../../utils/helpers/media_helper.dart';
 import '../../../utils/validators/community_validator.dart';
@@ -546,89 +547,24 @@ class PostCreateController extends GetxController {
 
   /// Show media options bottom sheet
   void showMediaOptions() {
-    Get.bottomSheet(
-      Container(
-        padding: EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Get.theme.scaffoldBackgroundColor,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              margin: EdgeInsets.only(bottom: 20),
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            Text(
-              'Add Media',
-              style: Get.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: 20),
-            _buildMediaOption(
-              icon: Icons.photo_library,
-              title: 'From Gallery',
-              subtitle: 'Select photos and videos',
-              onTap: () {
-                Get.back();
-                addMediaFromGallery();
-              },
-            ),
-            _buildMediaOption(
-              icon: Icons.camera_alt,
-              title: 'Take Photo',
-              subtitle: 'Capture with camera',
-              onTap: () {
-                Get.back();
-                addMediaFromCamera(isVideo: false);
-              },
-            ),
-            _buildMediaOption(
-              icon: Icons.videocam,
-              title: 'Record Video',
-              subtitle: 'Capture video with camera',
-              onTap: () {
-                Get.back();
-                addMediaFromCamera(isVideo: true);
-              },
-            ),
-            SizedBox(height: 10),
-          ],
-        ),
-      ),
-      isScrollControlled: true,
-    );
-  }
-
-  Widget _buildMediaOption({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    return ListTile(
-      leading: Container(
-        padding: EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Get.theme.primaryColor.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(icon, color: Get.theme.primaryColor),
-      ),
-      title: Text(
-        title,
-        style: TextStyle(fontWeight: FontWeight.w500, fontSize: 16),
-      ),
-      subtitle: Text(subtitle, style: TextStyle(fontSize: 14)),
-      onTap: onTap,
-    );
+    MediaPicker.showMediaOptions(
+      context: Get.context!,
+      title: 'Add Media',
+    ).then((option) {
+      if (option != null) {
+        switch (option.type) {
+          case MediaOptionType.gallery:
+            addMediaFromGallery();
+            break;
+          case MediaOptionType.camera:
+            addMediaFromCamera(isVideo: false);
+            break;
+          case MediaOptionType.video:
+            addMediaFromCamera(isVideo: true);
+            break;
+        }
+      }
+    });
   }
 
   /// Create post

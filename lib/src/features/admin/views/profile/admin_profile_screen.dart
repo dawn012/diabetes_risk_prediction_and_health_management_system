@@ -136,13 +136,13 @@ class AdminProfileScreen extends StatelessWidget {
           Stack(
             children: [
               Obx(() => TCircularImage(
-                    image: controller.currentUser.value.profileImg.isNotEmpty
-                        ? controller.currentUser.value.profileImg
+                    image: controller.currentAdmin.value.profileImg.isNotEmpty
+                        ? controller.currentAdmin.value.profileImg
                         : 'assets/images/user/default_avatar.png',
                     width: isWeb ? 120 : 100,
                     height: isWeb ? 120 : 100,
                     isNetworkImage:
-                        controller.currentUser.value.profileImg.isNotEmpty,
+                        controller.currentAdmin.value.profileImg.isNotEmpty,
                   )),
               Positioned(
                 bottom: 0,
@@ -176,9 +176,9 @@ class AdminProfileScreen extends StatelessWidget {
           Obx(() => Column(
                 children: [
                   Text(
-                    controller.currentUser.value.username.isEmpty
+                    controller.currentAdmin.value.username.isEmpty
                         ? 'Admin User'
-                        : controller.currentUser.value.username,
+                        : controller.currentAdmin.value.username,
                     style: TextStyle(
                       fontSize: isWeb ? 24 : 20,
                       fontWeight: FontWeight.bold,
@@ -195,10 +195,10 @@ class AdminProfileScreen extends StatelessWidget {
                           color: TAdminColors.primary.withOpacity(0.3)),
                     ),
                     child: Text(
-                      controller.currentUser.value.userType.isEmpty
+                      controller.currentAdmin.value.userType.isEmpty
                           ? 'Administrator'
                           : controller
-                              .currentUser.value.userType.capitalizeFirst!,
+                              .currentAdmin.value.userType.capitalizeFirst!,
                       style: TextStyle(
                         color: TAdminColors.primary,
                         fontWeight: FontWeight.w600,
@@ -217,7 +217,7 @@ class AdminProfileScreen extends StatelessWidget {
                       ),
                       SizedBox(width: 8),
                       Text(
-                        'Joined ${THelperFunctions.getFormattedDate(controller.currentUser.value.joinDate)}',
+                        'Joined ${THelperFunctions.getFormattedDate(controller.currentAdmin.value.joinDate)}',
                         style: TextStyle(
                           color:
                               TAdminColors.getOnSurfaceVariantColor(darkMode),
@@ -298,36 +298,36 @@ class AdminProfileScreen extends StatelessWidget {
                 children: [
                   _buildInfoRow(
                     'Email',
-                    controller.currentUser.value.email,
+                    controller.currentAdmin.value.email,
                     Iconsax.sms_bold,
                     darkMode,
                     isWeb,
                   ),
                   _buildInfoRow(
                     'Phone',
-                    controller.currentUser.value.phoneNumber.isEmpty
+                    controller.currentAdmin.value.phoneNumber.isEmpty
                         ? 'Not provided'
                         : TFormatter.formatPhoneNumber(
-                            controller.currentUser.value.phoneNumber),
+                            controller.currentAdmin.value.phoneNumber),
                     Iconsax.call_bold,
                     darkMode,
                     isWeb,
                   ),
                   _buildInfoRow(
                     'User ID',
-                    controller.currentUser.value.userId,
+                    controller.currentAdmin.value.userId,
                     Iconsax.code_bold,
                     darkMode,
                     isWeb,
                     copyable: true,
                   ),
-                  _buildInfoRow(
-                    'Total Score',
-                    '${controller.currentUser.value.totalScore} points',
-                    Iconsax.medal_star_bold,
-                    darkMode,
-                    isWeb,
-                  ),
+                  // _buildInfoRow(
+                  //   'Total Score',
+                  //   '${controller.currentAdmin.value.totalScore} points',
+                  //   Iconsax.medal_star_bold,
+                  //   darkMode,
+                  //   isWeb,
+                  // ),
                 ],
               )),
         ],
@@ -377,13 +377,13 @@ class AdminProfileScreen extends StatelessWidget {
                 children: [
                   _buildSecurityRow(
                     'Account Status',
-                    controller.currentUser.value.accountAvailable
+                    controller.currentAdmin.value.accountAvailable
                         ? 'Active'
                         : 'Suspended',
-                    controller.currentUser.value.accountAvailable
+                    controller.currentAdmin.value.accountAvailable
                         ? TAdminColors.success
                         : TAdminColors.error,
-                    controller.currentUser.value.accountAvailable
+                    controller.currentAdmin.value.accountAvailable
                         ? Iconsax.tick_circle_bold
                         : Iconsax.close_circle_bold,
                     darkMode,
@@ -391,13 +391,13 @@ class AdminProfileScreen extends StatelessWidget {
                   ),
                   _buildSecurityRow(
                     'Email Verification',
-                    controller.currentUser.value.isVerify
+                    controller.currentAdmin.value.isVerify
                         ? 'Verified'
                         : 'Unverified',
-                    controller.currentUser.value.isVerify
+                    controller.currentAdmin.value.isVerify
                         ? TAdminColors.success
                         : TAdminColors.warning,
-                    controller.currentUser.value.isVerify
+                    controller.currentAdmin.value.isVerify
                         ? Iconsax.verify_bold
                         : Iconsax.warning_2_bold,
                     darkMode,
@@ -405,7 +405,7 @@ class AdminProfileScreen extends StatelessWidget {
                   ),
                   _buildInfoRow(
                     'Login Attempts',
-                    '${controller.currentUser.value.loginAttempt}',
+                    '${controller.currentAdmin.value.loginAttempt}',
                     Iconsax.login_bold,
                     darkMode,
                     isWeb,

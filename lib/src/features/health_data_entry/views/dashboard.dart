@@ -11,10 +11,12 @@ import '../../../utils/constants/sizes.dart';
 import '../../../utils/helpers/helper_functions.dart';
 import '../controllers/blood_glucose_controller.dart';
 import '../controllers/blood_pressure_controller.dart';
+import '../controllers/diabetes_risk_controller.dart';
 import '../controllers/exercise_controller.dart';
 import '../controllers/weight_controller.dart';
 import 'health_data_analytics/blood_glucose_analytics_screen.dart';
 import 'health_data_analytics/blood_pressure_analytics_screen.dart';
+import 'health_data_analytics/diabetes_risk_analytics_screen.dart';
 import 'health_data_analytics/weight_analytics_screen.dart';
 import 'health_data_analytics/exercise_screen.dart';
 import 'health_data_entry/health_data_entry_screen.dart';
@@ -93,6 +95,7 @@ class _DashboardState extends State<Dashboard> {
     final pressureController = Get.put(BloodPressureController());
     final weightController = Get.put(WeightController());
     final exerciseController = Get.put(ExerciseController());
+    final diabetesRiskController = Get.put(DiabetesRiskController());
 
     return Scaffold(
       backgroundColor:
@@ -148,6 +151,7 @@ class _DashboardState extends State<Dashboard> {
                     pressureController,
                     weightController,
                     exerciseController,
+                    diabetesRiskController
                   ),
                 ],
               ),
@@ -303,6 +307,7 @@ class _DashboardState extends State<Dashboard> {
     BloodPressureController pressureController,
     WeightController weightController,
     ExerciseController exerciseController,
+    DiabetesRiskController diabetesRiskController,
   ) {
     return Column(
       children: [
@@ -326,8 +331,13 @@ class _DashboardState extends State<Dashboard> {
 
         const SizedBox(height: TSizes.lg),
 
-        // Steps Card (placeholder - you can implement StepsController similarly)
+        // Steps Card
         _buildStepsCard(context, darkMode, exerciseController),
+
+        const SizedBox(height: TSizes.lg),
+
+        // Diabetes Risk Card
+        Obx(() => _buildDiabetesRiskCard(context, darkMode, diabetesRiskController)),
       ],
     );
   }
@@ -419,10 +429,12 @@ class _DashboardState extends State<Dashboard> {
                 children: [
                   Text(
                     controller.averageValue.value.toStringAsFixed(1),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFFFF8C42),
+                      color: controller.averageValue.value >= 0
+                          ? controller.getGlucoseLevelColor(controller.averageValue.value)
+                          : (darkMode ? Colors.grey.shade400 : Colors.grey.shade600),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -443,12 +455,12 @@ class _DashboardState extends State<Dashboard> {
               Row(
                 children: [
                   Expanded(
-                    flex: 3,
+                    flex: 2,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildGlucoseStatRow('Good', controller.goodCount.value,
-                            TColors.glucoseGood),
+                        _buildGlucoseStatRow('Normal', controller.normalCount.value,
+                            TColors.glucoseNormal),
                         const SizedBox(height: 8),
                         _buildGlucoseStatRow('High', controller.highCount.value,
                             TColors.glucoseHigh),
@@ -491,7 +503,7 @@ class _DashboardState extends State<Dashboard> {
     return Row(
       children: [
         SizedBox(
-          width: 40,
+          width: 60,
           child: Text(
             label,
             style: TextStyle(
@@ -600,10 +612,14 @@ class _DashboardState extends State<Dashboard> {
                 children: [
                   Text(
                     '${controller.systolicAverage.value.toStringAsFixed(0)}/${controller.diastolicAverage.value.toStringAsFixed(0)}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF9F7AEA),
+                      color: controller.systolicAverage.value > 0 && controller.diastolicAverage.value > 0
+                          ? controller.getBPLevelColor(
+                        controller.systolicAverage.value.round(),
+                        controller.diastolicAverage.value.round(),
+                      ) : (darkMode ? Colors.grey.shade400 : Colors.grey.shade600),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -782,10 +798,10 @@ class _DashboardState extends State<Dashboard> {
                 children: [
                   Text(
                     controller.weightCurrent.value.toStringAsFixed(1),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF38B2AC),
+                      color: controller.getWeightStatusColor(controller.weightCurrent.value),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -1065,15 +1081,15 @@ class _DashboardState extends State<Dashboard> {
         sectionsSpace: 3,
         centerSpaceRadius: 35, // Larger center space for bigger chart
         sections: [
-          if (controller.goodCount.value > 0)
+          if (controller.normalCount.value > 0)
             PieChartSectionData(
-              value: controller.goodCount.value.toDouble(),
-              color: TColors.glucoseGood,
+              value: controller.normalCount.value.toDouble(),
+              color: TColors.glucoseNormal,
               radius: 35,
               // Larger radius
               showTitle: true,
               title:
-                  '${((controller.goodCount.value / controller.past14DaysCount.value) * 100).toInt()}%',
+                  '${((controller.normalCount.value / controller.past14DaysCount.value) * 100).toInt()}%',
               titleStyle: const TextStyle(
                 fontSize: 14, // Slightly larger text
                 fontWeight: FontWeight.bold,
@@ -1265,7 +1281,7 @@ class _DashboardState extends State<Dashboard> {
   Widget _buildWeightTrendChart(WeightController controller, bool darkMode) {
     // 使用 controller 中已经生成的趋势数据和标签
     final weightData = controller.weightTrendsData;
-    final dateLabels = controller.trendsLabels;
+    final dateLabels = controller.weightTrendsLabels;
 
     // 动态计算 Y 轴范围
     double calculateDynamicMinY() {
@@ -1388,6 +1404,250 @@ class _DashboardState extends State<Dashboard> {
                 return FlDotCirclePainter(
                   radius: 4,
                   color: const Color(0xFF38B2AC),
+                  strokeColor: Colors.white,
+                  strokeWidth: 2,
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDiabetesRiskCard(BuildContext context, bool darkMode, DiabetesRiskController controller) {
+    final hasData = controller.past14DaysCount.value > 0;
+
+    return GestureDetector(
+      onTap: () => Get.to(() => const DiabetesRiskAnalyticsScreen()),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: darkMode ? const Color(0xFF1A1A1B) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: darkMode
+                ? Colors.grey.shade800.withOpacity(0.5)
+                : Colors.grey.shade100,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: darkMode
+                  ? Colors.black.withOpacity(0.2)
+                  : Colors.grey.withOpacity(0.1),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF8B5CF6).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.favorite_border,
+                    color: Color(0xFF8B5CF6),
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Diabetes Risk Score',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color:
+                          darkMode ? Colors.white : const Color(0xFF2D3748),
+                        ),
+                      ),
+                      Text(
+                        'Last Assessment',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: darkMode
+                              ? Colors.grey.shade400
+                              : Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 16,
+                  color: darkMode ? Colors.grey.shade500 : Colors.grey.shade400,
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            if (hasData) ...[
+              // Current risk score display
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    controller.currentScore.value.toStringAsFixed(1),
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: controller.currentScore.value > 0
+                          ? controller.getRiskLevelColor(controller.currentScore.value)
+                          : (darkMode ? Colors.grey.shade400 : Colors.grey.shade600),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'pts',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: darkMode
+                          ? Colors.grey.shade400
+                          : Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 20),
+
+              // Trend chart
+              SizedBox(
+                height: 120,
+                child: _buildDiabetesRiskTrendChart(controller, darkMode),
+              ),
+            ] else ...[
+              _buildNoDataWidget(
+                  darkMode, 'Complete an assessment to see your risk score'),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+// Add this chart builder method:
+  Widget _buildDiabetesRiskTrendChart(DiabetesRiskController controller, bool darkMode) {
+    final trendData = controller.trendsData;
+    final dateLabels = controller.trendsLabels;
+
+    // Dynamic Y axis calculation
+    double calculateDynamicMinY() {
+      if (trendData.isEmpty) return 0;
+
+      final allValues = trendData.map((spot) => spot.y).toList();
+      final minValue = allValues.reduce((a, b) => a < b ? a : b);
+
+      double calculatedMin = (minValue ~/ 10) * 10 - 10;
+      return calculatedMin < 0 ? 0 : calculatedMin;
+    }
+
+    double calculateDynamicMaxY() {
+      if (trendData.isEmpty) return 100;
+
+      final allValues = trendData.map((spot) => spot.y).toList();
+      final maxValue = allValues.reduce((a, b) => a > b ? a : b);
+
+      return (maxValue ~/ 10 + 1) * 10 + 10;
+    }
+
+    double calculateYInterval(double minY, double maxY) {
+      final range = maxY - minY;
+      if (range <= 20) return 5;
+      if (range <= 40) return 10;
+      if (range <= 80) return 20;
+      return 25;
+    }
+
+    final dynamicMinY = calculateDynamicMinY();
+    final dynamicMaxY = calculateDynamicMaxY();
+    final yInterval = calculateYInterval(dynamicMinY, dynamicMaxY);
+
+    final dataCount = trendData.length;
+
+    return LineChart(
+      LineChartData(
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          horizontalInterval: yInterval,
+          getDrawingHorizontalLine: (value) {
+            return FlLine(
+              color: darkMode ? Colors.grey.shade800 : Colors.grey.shade200,
+              strokeWidth: 1,
+            );
+          },
+        ),
+        titlesData: FlTitlesData(
+          show: true,
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 40,
+              interval: yInterval,
+              getTitlesWidget: (value, meta) {
+                return Text(
+                  value.toInt().toString(),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: darkMode ? Colors.grey.shade400 : Colors.grey.shade600,
+                  ),
+                );
+              },
+            ),
+          ),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 30,
+              interval: 1,
+              getTitlesWidget: (value, meta) {
+                final index = value.toInt();
+                if (index >= 0 && index < dateLabels.length) {
+                  return Text(
+                    dateLabels[index],
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: darkMode ? Colors.grey.shade400 : Colors.grey.shade600,
+                    ),
+                  );
+                }
+                return const Text('');
+              },
+            ),
+          ),
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        ),
+        borderData: FlBorderData(show: false),
+        minX: 0,
+        maxX: (dataCount - 1).toDouble(),
+        minY: dynamicMinY,
+        maxY: dynamicMaxY,
+        lineBarsData: [
+          LineChartBarData(
+            spots: trendData,
+            isCurved: true,
+            color: const Color(0xFF8B5CF6),
+            barWidth: 3,
+            dotData: FlDotData(
+              show: true,
+              getDotPainter: (spot, percent, barData, index) {
+                return FlDotCirclePainter(
+                  radius: 4,
+                  color: const Color(0xFF8B5CF6),
                   strokeColor: Colors.white,
                   strokeWidth: 2,
                 );

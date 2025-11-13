@@ -61,7 +61,7 @@ class MealPhotosController extends GetxController {
           final threeDaysAgo = DateTime.now().subtract(Duration(days: maxDaysOld));
 
           for (final photo in cache.mealPhotos!) {
-            final file = File(photo.localPath);
+            final file = File(photo.imagePath);
             if (file.existsSync() && photo.uploadTime.isAfter(threeDaysAgo)) {
               validPhotos.add(photo);
             }
@@ -204,7 +204,7 @@ class MealPhotosController extends GetxController {
 
       final photo = MealPhotoRecord(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
-        localPath: processedFile.path,
+        imagePath: processedFile.path,
         fileSize: processedFile.lengthSync(),
         uploadTime: DateTime.now(),
         needsProcessing: true, // Mark as needing processing
@@ -229,7 +229,7 @@ class MealPhotosController extends GetxController {
       final photo = mealPhotos[index];
 
       try {
-        final file = File(photo.localPath);
+        final file = File(photo.imagePath);
         if (file.existsSync()) {
           await file.delete();
         }
@@ -282,7 +282,7 @@ class MealPhotosController extends GetxController {
       // Prepare only unprocessed images as base64
       final images = <Map<String, dynamic>>[];
       for (final photo in unprocessedPhotos) {
-        final file = File(photo.localPath);
+        final file = File(photo.imagePath);
         if (await file.exists()) {
           final bytes = await file.readAsBytes();
           final base64Image = base64Encode(bytes);
@@ -413,7 +413,7 @@ class MealPhotosController extends GetxController {
     // Delete physical files
     for (final photo in mealPhotos) {
       try {
-        final file = File(photo.localPath);
+        final file = File(photo.imagePath);
         if (file.existsSync()) {
           await file.delete();
         }

@@ -109,7 +109,9 @@ class ReplyTile extends StatelessWidget {
                       ),
                       const SizedBox(width: TSizes.xs),
                       Text(
-                        reply.createdAt.fromNow(),
+                        reply.wasEdited
+                            ? '${reply.updatedAt.fromNow()} (edited)'
+                            : reply.createdAt.fromNow(),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: isDark ? TColors.darkGrey : TColors.textSecondary,
                         ),

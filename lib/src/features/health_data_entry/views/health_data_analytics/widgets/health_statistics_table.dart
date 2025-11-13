@@ -7,15 +7,17 @@ import '../../../../../utils/helpers/helper_functions.dart';
 class HealthStatisticsTable extends StatelessWidget {
   final String title;
   final String selectedFilter;
-  final VoidCallback onFilterTap;
+  final VoidCallback? onFilterTap;
   final List<StatisticsRow> statisticsRows;
+  final bool showFilterButton;
 
   const HealthStatisticsTable({
     super.key,
     required this.title,
     required this.selectedFilter,
-    required this.onFilterTap,
+    this.onFilterTap,
     required this.statisticsRows,
+    this.showFilterButton = true,
   });
 
   @override
@@ -30,13 +32,13 @@ class HealthStatisticsTable extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(TSizes.md),
             decoration: BoxDecoration(
-              color: darkMode ? TColors.darkerGrey : Colors.white,
+              color: darkMode ? TColors.dark : TColors.white,
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(TSizes.cardRadiusLg),
                 topRight: Radius.circular(TSizes.cardRadiusLg),
               ),
               border: Border.all(
-                color: darkMode ? Colors.grey.shade700 : Colors.grey.shade200,
+                color: darkMode ? TColors.dark : Colors.grey.shade200,
               ),
             ),
             child: Row(
@@ -49,26 +51,28 @@ class HealthStatisticsTable extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
-                GestureDetector(
-                  onTap: onFilterTap,
-                  child: Row(
-                    children: [
-                      Text(
-                        selectedFilter,
-                        style: const TextStyle(
-                          color: TColors.primary,
-                          fontWeight: FontWeight.w600,
+                // 根据 showFilterButton 决定是否显示过滤器按钮
+                if (showFilterButton)
+                  GestureDetector(
+                    onTap: onFilterTap, // 直接使用，如果为 null 则不会响应点击
+                    child: Row(
+                      children: [
+                        Text(
+                          selectedFilter,
+                          style: const TextStyle(
+                            color: TColors.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: TSizes.xs),
-                      const Icon(
-                        Icons.keyboard_arrow_down,
-                        color: TColors.primary,
-                        size: 16,
-                      ),
-                    ],
+                        const SizedBox(width: TSizes.xs),
+                        const Icon(
+                          Icons.keyboard_arrow_down,
+                          color: TColors.primary,
+                          size: 16,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
               ],
             ),
           ),
@@ -76,13 +80,13 @@ class HealthStatisticsTable extends StatelessWidget {
           /// Statistics Table
           Container(
             decoration: BoxDecoration(
-              color: darkMode ? TColors.darkerGrey : Colors.white,
+              color: darkMode ? TColors.dark : Colors.white,
               borderRadius: const BorderRadius.only(
                 bottomLeft: Radius.circular(TSizes.cardRadiusLg),
                 bottomRight: Radius.circular(TSizes.cardRadiusLg),
               ),
               border: Border.all(
-                color: darkMode ? Colors.grey.shade700 : Colors.grey.shade200,
+                color: darkMode ? TColors.dark : Colors.grey.shade200,
               ),
             ),
             child: Column(
@@ -113,7 +117,7 @@ class HealthStatisticsTable extends StatelessWidget {
                       ),
                       Expanded(
                         child: Text(
-                          'Average',
+                          statisticsRows.isNotEmpty ? statisticsRows.first.averageLabel : 'Average',
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: darkMode ? TColors.grey : TColors.darkGrey,
@@ -130,7 +134,7 @@ class HealthStatisticsTable extends StatelessWidget {
                   decoration: BoxDecoration(
                     border: Border(
                       top: BorderSide(
-                        color: darkMode ? Colors.grey.shade700 : Colors.grey.shade200,
+                        color: darkMode ? TColors.dark : Colors.grey.shade200,
                       ),
                     ),
                   ),
@@ -207,6 +211,7 @@ class StatisticsRow {
   final VoidCallback? onLowestTap;
   final VoidCallback? onHighestTap;
   final VoidCallback? onAverageTap;
+  final String averageLabel;
 
   StatisticsRow({
     required this.label,
@@ -219,5 +224,6 @@ class StatisticsRow {
     this.onLowestTap,
     this.onHighestTap,
     this.onAverageTap,
+    this.averageLabel = 'Average',
   });
 }

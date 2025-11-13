@@ -207,6 +207,8 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
         label: _getWeekDayLabel(i),
         value: dayData['total']?.toDouble() ?? 0,
         stackData: dayData['stackData'],
+        startDate: currentDate,  // 传入具体日期
+        endDate: currentDate,    // 同一天
       ));
     }
 
@@ -300,10 +302,18 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
     final DateTime monthStart = _parseMonthRange(range);
     final chartData = <ChartBarData>[];
 
-    // 生成该月的4周数据
-    for (int weekIndex = 0; weekIndex < 4; weekIndex++) {
-      final weekStart = monthStart.add(Duration(days: weekIndex * 7));
+    // 找到包含本月第一天的那个周的开始日期（星期日）
+    DateTime currentWeekStart = _findFirstDayOfWeek(monthStart);
+
+    int weekIndex = 0;
+
+    // 遍历直到进入下个月且超过第一周
+    while (weekIndex < 6) { // 最多6周，防止无限循环
+      final weekStart = currentWeekStart;
       final weekEnd = weekStart.add(const Duration(days: 6));
+
+      // 如果周开始日期已经超出当前月份且不是第一周，则停止
+      if (weekStart.month != monthStart.month && weekIndex > 0) break;
 
       int weekLowIntensity = 0;
       int weekModerateIntensity = 0;
@@ -333,15 +343,40 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
         StackData(value: weekHighIntensity.toDouble(), color: const Color(0xFFEF4444)),
       ];
 
+      // 生成周标签（显示日期范围）
+      final weekLabel = _getMonthChartLabel(weekStart);
+
       chartData.add(ChartBarData(
-        label: 'Week ${weekIndex + 1}',
+        label: weekLabel,
         value: (weekLowIntensity + weekModerateIntensity + weekHighIntensity).toDouble(),
         stackData: stackData,
+        startDate: weekStart,
+        endDate: weekEnd,
       ));
+
+      // 移动到下一周
+      currentWeekStart = currentWeekStart.add(const Duration(days: 7));
+      weekIndex++;
     }
 
     exerciseChartData.value = chartData;
     _updateExerciseSummary();
+  }
+
+  /// 生成月视图图表标签 - 只显示周开始日期
+  String _getMonthChartLabel(DateTime weekStart) {
+    return '${weekStart.month}/${weekStart.day}';
+  }
+
+  /// 找到某一天所在周的第一天（星期日）
+  DateTime _findFirstDayOfWeek(DateTime date) {
+    // DateTime.weekday: 1=Monday, 7=Sunday
+    // 计算需要回退多少天到本周星期日
+    // 如果 date.weekday = 7 (星期日)，daysToSubtract = 0
+    // 如果 date.weekday = 1 (星期一)，daysToSubtract = 1
+    // 如果 date.weekday = 6 (星期六)，daysToSubtract = 6
+    int daysToSubtract = date.weekday % 7;
+    return DateTime(date.year, date.month, date.day).subtract(Duration(days: daysToSubtract));
   }
 
   /// 生成月度步数数据（Month视图）
@@ -353,9 +388,18 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
     final chartData = <ChartBarData>[];
     final rawData = <double>[];
 
-    for (int weekIndex = 0; weekIndex < 4; weekIndex++) {
-      final weekStart = monthStart.add(Duration(days: weekIndex * 7));
+    // 找到包含本月第一天的那个周的开始日期（星期日）
+    DateTime currentWeekStart = _findFirstDayOfWeek(monthStart);
+
+    int weekIndex = 0;
+
+    // 遍历直到进入下个月且超过第一周
+    while (weekIndex < 6) {
+      final weekStart = currentWeekStart;
       final weekEnd = weekStart.add(const Duration(days: 7));
+
+      // 如果周开始日期已经超出当前月份且不是第一周，则停止
+      if (weekStart.month != monthStart.month && weekIndex > 0) break;
 
       final logs = await _healthLogRepo.findLogsInTimeRange(
         userId: userId,
@@ -371,12 +415,21 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
         }
       }
 
+      // 生成周标签 - 只显示周开始日期
+      final weekLabel = _getMonthChartLabel(weekStart);
+
       chartData.add(ChartBarData(
-        label: 'Week ${weekIndex + 1}',
+        label: weekLabel,
         value: weekSteps,
+        startDate: weekStart,
+        endDate: weekEnd,
       ));
 
       rawData.add(weekSteps);
+
+      // 移动到下一周
+      currentWeekStart = currentWeekStart.add(const Duration(days: 7));
+      weekIndex++;
     }
 
     stepsChartData.value = chartData;
@@ -385,7 +438,7 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
 
     if (hasStepsData.value) {
       final total = rawData.reduce((a, b) => a + b);
-      averageSteps.value = (total / 4).round(); // 4周平均
+      averageSteps.value = (total / chartData.length).round(); // 动态周数平均
     } else {
       averageSteps.value = 0;
     }

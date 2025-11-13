@@ -1,11 +1,143 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:icons_plus/icons_plus.dart';
 
 import '../../../utils/constants/colors.dart';
+import '../../../utils/constants/sizes.dart';
 import '../../../utils/helpers/helper_functions.dart';
 
 class TDialog {
   TDialog._();
+
+  /// Generic confirm dialog - can be used for any confirmation action
+  static Future<bool?> confirmDialog({
+    required String title,
+    required String message,
+    String confirmText = 'Confirm',
+    String cancelText = 'Cancel',
+    IconData? icon,
+    Color? iconColor,
+    Color? confirmButtonColor,
+    VoidCallback? onConfirm,
+  }) async {
+    final context = Get.context!;
+    final isDark = THelperFunctions.isDarkMode(context);
+
+    return await Get.dialog<bool>(
+      Dialog(
+        backgroundColor: isDark ? TColors.dark : TColors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Container(
+          constraints: BoxConstraints(maxWidth: 400),
+          padding: EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Icon
+              if (icon != null) ...[
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: (iconColor ?? TColors.warning).withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    icon,
+                    color: iconColor ?? TColors.warning,
+                    size: 28,
+                  ),
+                ),
+                SizedBox(height: 16),
+              ],
+
+              // Title
+              Text(
+                title,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 18,
+                  color: isDark ? TColors.white : TColors.black,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 10),
+
+              // Message
+              Text(
+                message,
+                style: TextStyle(
+                  color: isDark ? TColors.darkGrey : TColors.textSecondary,
+                  fontSize: 14,
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 24),
+
+              // Buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Get.back(result: false),
+                      style: OutlinedButton.styleFrom(
+                        padding: EdgeInsets.symmetric(vertical: 14),
+                        foregroundColor: isDark ? TColors.white : TColors.black,
+                        side: BorderSide(
+                          color: isDark
+                              ? TColors.darkGrey.withOpacity(0.5)
+                              : TColors.grey.withOpacity(0.5),
+                          width: 1.5,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        cancelText,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Get.back(result: true);
+                        onConfirm?.call();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        padding: EdgeInsets.symmetric(vertical: 14),
+                        backgroundColor: confirmButtonColor ?? TColors.warning,
+                        foregroundColor: TColors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: Text(
+                        confirmText,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   static void deleteDialog({
     required String title,

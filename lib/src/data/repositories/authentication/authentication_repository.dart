@@ -12,6 +12,7 @@ import '../../../features/admin/views/admin_dashboard/admin_dashboard_screen.dar
 import '../../../features/authentication/views/login/login_screen.dart';
 import '../../../features/authentication/views/onboarding/onboarding.dart';
 import '../../../features/authentication/views/signup/verify_email.dart';
+import '../../../features/personalization/views/profile/complete_profile_screen.dart';
 import '../../../utils/constants/text_strings.dart';
 import '../../../utils/exceptions/firebase_auth_exceptions.dart';
 import '../../../utils/exceptions/firebase_exceptions.dart';
@@ -58,9 +59,21 @@ class AuthenticationRepository extends GetxController {
 
       // If the user is logged in
       if (user.emailVerified) {
-        // If the user's email is verified, navigate to the Homepage
+        // 只有普通用户需要检查健康档案
+        if (role == 'user') {
+          // Check if user has completed basic profile information
+          final hasCompletedProfile = await checkProfileCompletion();
+
+          if (!hasCompletedProfile) {
+            // Redirect to complete profile screen
+            Get.offAll(() => const CompleteProfileScreen());
+            return;
+          }
+        }
+
+        // If the user's email is verified and (如果是用户则档案已完成)，navigate based on role
         if (role == 'admin' || role.contains('manager')) {
-          Get.offAll(() => AdminDashboardScreen()); // 你需要创建这个页面
+          Get.offAll(() => AdminDashboardScreen());
         } else {
           Get.offAll(() => NavigationMenu());
         }
@@ -74,8 +87,39 @@ class AuthenticationRepository extends GetxController {
 
       // Check if it's the first time launching the app
       deviceStorage.read('IsFirstTime') != true
-        ? Get.off(() => const LoginScreen())  // Redirect to Login Screen if not the first time
-        : Get.off(() => const OnBoardingScreen());  //Redirect to the OnBoarding Screen if it's the first time
+          ? Get.off(() => const LoginScreen())
+          : Get.off(() => const OnBoardingScreen());
+    }
+  }
+
+  // Add this new method to check if user has completed basic profile
+  Future<bool> checkProfileCompletion() async {
+    try {
+      final user = authUser;
+      if (user == null) return false;
+
+      // Fetch user data from Firestore
+      final userDoc = await UserRepository.instance.fetchUserDetails();
+
+      // Check if gender, dateOfBirth, and height are set
+      final profile = userDoc.profile;
+
+      // Check if gender is set (not empty)
+      final hasGender = profile.gender.isNotEmpty;
+
+      // Check if date of birth is set (not the default 0 timestamp)
+      final hasDateOfBirth = profile.dateOfBirth.millisecondsSinceEpoch != 0;
+
+      // Check if height is set (greater than 0)
+      final hasHeight = profile.height > 0;
+
+      print("Has Gender: $hasGender, Has DOB: $hasDateOfBirth, Has Height: $hasHeight");
+
+      // Return true only if all three are set
+      return hasGender && hasDateOfBirth && hasHeight;
+    } catch (e) {
+      print('Error checking profile completion: $e');
+      return false;
     }
   }
 

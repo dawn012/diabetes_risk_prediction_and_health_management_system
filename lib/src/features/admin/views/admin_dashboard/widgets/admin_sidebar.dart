@@ -6,6 +6,7 @@ import '../../../../../common/widgets/dialogs/common_confirmation_dialog.dart';
 import '../../../../../data/repositories/authentication/authentication_repository.dart';
 import '../../../../../utils/constants/admin_colors.dart';
 import '../../../../../utils/helpers/helper_functions.dart';
+import '../../../../personalization/controllers/user_controller.dart';
 import '../../../controllers/admin_dashboard_controller.dart';
 
 class AdminSidebar extends StatelessWidget {
@@ -129,11 +130,12 @@ class AdminSidebar extends StatelessWidget {
           Expanded(
             child: Obx(() {
               print('Obx rebuilding: ${controller.selectedIndex.value}');
+              print('User role: ${controller.userRole.value}');
 
               return ListView(
                 padding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
                 children: [
-                  // Dashboard
+                  // Dashboard - 所有角色都有
                   _buildMenuItem(
                     context: context,
                     icon: Iconsax.element_3_bold,
@@ -145,98 +147,111 @@ class AdminSidebar extends StatelessWidget {
                     onTap: () => controller.selectMenuItem(0),
                   ),
 
-                  // User Management
-                  _buildMenuItem(
-                    context: context,
-                    icon: Iconsax.people_bold,
-                    title: 'User Management',
-                    index: 1,
-                    isSelected: controller.selectedIndex.value == 1,
-                    isDark: darkMode,
-                    isExpanded: controller.sidebarExpanded.value,
-                    onTap: () => controller.selectMenuItem(1),
-                  ),
+                  // User Management - 只有 admin 和 user manager 能看到
+                  if (controller.canAccessUserManagement())
+                    _buildMenuItem(
+                      context: context,
+                      icon: Iconsax.people_bold,
+                      title: 'User Management',
+                      index: 1,
+                      isSelected: controller.selectedIndex.value == 1,
+                      isDark: darkMode,
+                      isExpanded: controller.sidebarExpanded.value,
+                      onTap: () => controller.selectMenuItem(1),
+                    ),
 
-                  // Manager Management
-                  _buildMenuItem(
-                    context: context,
-                    icon: Iconsax.people_bold,
-                    title: 'Manager Management',
-                    index: 2,
-                    isSelected: controller.selectedIndex.value == 2,
-                    isDark: darkMode,
-                    isExpanded: controller.sidebarExpanded.value,
-                    onTap: () => controller.selectMenuItem(2),
-                  ),
+                  // Manager Management - 只有 admin 能看到
+                  if (controller.isAdmin)
+                    _buildMenuItem(
+                      context: context,
+                      icon: Iconsax.people_bold,
+                      title: 'Manager Management',
+                      index: 2,
+                      isSelected: controller.selectedIndex.value == 2,
+                      isDark: darkMode,
+                      isExpanded: controller.sidebarExpanded.value,
+                      onTap: () => controller.selectMenuItem(2),
+                    ),
 
-                  // Community
-                  _buildMenuItem(
-                    context: context,
-                    icon: Iconsax.messages_3_bold,
-                    title: 'Community',
-                    index: 3,
-                    isSelected: controller.selectedIndex.value == 3,
-                    isDark: darkMode,
-                    isExpanded: controller.sidebarExpanded.value,
-                    onTap: () => controller.selectMenuItem(3),
-                  ),
+                  // Community - 只有 admin 和 community manager 能看到
+                  if (controller.canAccessCommunityManagement())
+                    _buildMenuItem(
+                      context: context,
+                      icon: Iconsax.messages_3_bold,
+                      title: 'Community',
+                      index: 3,
+                      isSelected: controller.selectedIndex.value == 3,
+                      isDark: darkMode,
+                      isExpanded: controller.sidebarExpanded.value,
+                      onTap: () => controller.selectMenuItem(3),
+                    ),
 
-                  // Achievement
-                  _buildMenuItem(
-                    context: context,
-                    icon: Iconsax.award_bold,
-                    title: 'Achievement',
-                    index: 4,
-                    isSelected: controller.selectedIndex.value == 4,
-                    isDark: darkMode,
-                    isExpanded: controller.sidebarExpanded.value,
-                    onTap: () => controller.selectMenuItem(4),
-                  ),
+                  // Achievement - 只有 admin 和 achievement manager 能看到
+                  if (controller.canAccessAchievementManagement())
+                    _buildMenuItem(
+                      context: context,
+                      icon: Iconsax.award_bold,
+                      title: 'Achievement',
+                      index: 4,
+                      isSelected: controller.selectedIndex.value == 4,
+                      isDark: darkMode,
+                      isExpanded: controller.sidebarExpanded.value,
+                      onTap: () => controller.selectMenuItem(4),
+                    ),
 
-                  // Analytics (Expandable)
-                  _buildExpandableMenuItem(
-                    context: context,
-                    icon: Iconsax.chart_bold,
-                    title: 'Analytics',
-                    isDark: darkMode,
-                    isExpanded: controller.sidebarExpanded.value,
-                    isMenuExpanded: controller.analyticsExpanded.value,
-                    onToggle: () => controller.toggleAnalyticsMenu(),
-                    children: [
-                      _buildSubMenuItem(
-                        context: context,
-                        icon: Iconsax.receipt_text_bold,
-                        title: 'Transaction Reports',
-                        index: 51, // 5x for Analytics + 1 for Transaction Reports
-                        isSelected: controller.selectedIndex.value == 51,
-                        isDark: darkMode,
-                        isExpanded: controller.sidebarExpanded.value,
-                        onTap: () => controller.selectMenuItem(51),
-                      ),
-                      _buildSubMenuItem(
-                        context: context,
-                        icon: Iconsax.people_bold,
-                        title: 'User Analytics',
-                        index: 52,
-                        isSelected: controller.selectedIndex.value == 52,
-                        isDark: darkMode,
-                        isExpanded: controller.sidebarExpanded.value,
-                        onTap: () => controller.selectMenuItem(52),
-                      ),
-                      _buildSubMenuItem(
-                        context: context,
-                        icon: Iconsax.trend_up_bold,
-                        title: 'Performance Reports',
-                        index: 53,
-                        isSelected: controller.selectedIndex.value == 53,
-                        isDark: darkMode,
-                        isExpanded: controller.sidebarExpanded.value,
-                        onTap: () => controller.selectMenuItem(53),
-                      ),
-                    ],
-                  ),
+                  // Analytics (Expandable) - 所有角色都有，但内容不同
+                  if (controller.canAccessUserAnalytics() || controller.isAdmin)
+                    _buildExpandableMenuItem(
+                      context: context,
+                      icon: Iconsax.chart_bold,
+                      title: 'Analytics',
+                      isDark: darkMode,
+                      isExpanded: controller.sidebarExpanded.value,
+                      isMenuExpanded: controller.analyticsExpanded.value,
+                      onToggle: () => controller.toggleAnalyticsMenu(),
+                      children: [
+                        // Transaction Reports - 只有 admin 能看到
+                        if (controller.canAccessTransactionReports())
+                          _buildSubMenuItem(
+                            context: context,
+                            icon: Iconsax.receipt_text_bold,
+                            title: 'Transaction Reports',
+                            index: 51,
+                            isSelected: controller.selectedIndex.value == 51,
+                            isDark: darkMode,
+                            isExpanded: controller.sidebarExpanded.value,
+                            onTap: () => controller.selectMenuItem(51),
+                          ),
 
-                  // Profile
+                        // User Analytics - admin 和 user manager 能看到
+                        if (controller.canAccessUserAnalytics())
+                          _buildSubMenuItem(
+                            context: context,
+                            icon: Iconsax.people_bold,
+                            title: 'User Analytics',
+                            index: 52,
+                            isSelected: controller.selectedIndex.value == 52,
+                            isDark: darkMode,
+                            isExpanded: controller.sidebarExpanded.value,
+                            onTap: () => controller.selectMenuItem(52),
+                          ),
+
+                        // // Performance Reports - 只有 admin 能看到
+                        // if (controller.canAccessPerformanceReports())
+                        //   _buildSubMenuItem(
+                        //     context: context,
+                        //     icon: Iconsax.trend_up_bold,
+                        //     title: 'Performance Reports',
+                        //     index: 53,
+                        //     isSelected: controller.selectedIndex.value == 53,
+                        //     isDark: darkMode,
+                        //     isExpanded: controller.sidebarExpanded.value,
+                        //     onTap: () => controller.selectMenuItem(53),
+                        //   ),
+                      ],
+                    ),
+
+                  // Profile - 所有角色都有
                   _buildMenuItem(
                     context: context,
                     icon: Iconsax.user_bold,
@@ -312,9 +327,7 @@ class AdminSidebar extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                AuthenticationRepository
-                                    .instance.authUser?.displayName ??
-                                    'Admin',
+                                UserController.instance.user.value.username,
                                 style: TextStyle(
                                   fontWeight: FontWeight.w500,
                                   color: TAdminColors.getOnSurfaceColor(
@@ -346,8 +359,8 @@ class AdminSidebar extends StatelessWidget {
                     child: OutlinedButton.icon(
                       onPressed: () {
                         ConfirmationDialog.showLogout(
-                            onConfirm: () {
-                              AuthenticationRepository.instance.logout();
+                            onConfirm: () async {
+                              await AuthenticationRepository.instance.logout();
                             }
                         );
                       },

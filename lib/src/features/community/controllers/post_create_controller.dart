@@ -35,6 +35,7 @@ class PostCreateController extends GetxController {
   // Editing state
   final isEditingMode = false.obs;
   String? editingPostId;
+  bool wasDisabledBeforeEdit = false; // Track if post was disabled
 
   // Add this for real-time validation
   final canSubmit = false.obs;
@@ -70,12 +71,9 @@ class PostCreateController extends GetxController {
 
   void _onContentChanged() {
     _hasUnsavedChanges = contentController.text.trim().isNotEmpty || mediaItems.isNotEmpty;
-
-    // Update canSubmit in real-time
     _updateCanSubmit();
   }
 
-  // Add this method for real-time validation
   void _updateCanSubmit() {
     final hasContent = contentController.text.trim().isNotEmpty;
     final hasProcessingMedia = mediaItems.any((item) => item.isProcessing);
@@ -93,6 +91,7 @@ class PostCreateController extends GetxController {
   void initializeForEditing(PostModel post) async {
     isEditingMode.value = true;
     editingPostId = post.postId;
+    wasDisabledBeforeEdit = post.isDisable; // Track original status
 
     // Set content
     contentController.text = post.postContent;
@@ -470,17 +469,13 @@ class PostCreateController extends GetxController {
       if (mediaType == 'image') {
         processedFile = await ImageHelper.compressImageToWebP(file);
       } else if (mediaType == 'video') {
-        // 对于视频，先压缩再生成缩略图
         processedFile = await VideoHelper.compressVideoToMP4(file);
         if (processedFile != null) {
-          // 使用新的缩略图生成方法
           thumbnail = await VideoHelper.getVideoThumbnailFile(processedFile);
           duration = await VideoHelper.getVideoDuration(processedFile);
 
-          // 如果缩略图生成失败，使用备用方案
           if (thumbnail == null) {
             print('Primary thumbnail generation failed, trying alternative method');
-            // 可以在这里添加备用缩略图生成逻辑
           }
         }
       }
@@ -755,16 +750,30 @@ class PostCreateController extends GetxController {
         existingMediaUrls: existingMediaUrls,
       );
 
+      // If post was disabled before editing, enable it after successful update
+      if (wasDisabledBeforeEdit) {
+        try {
+          await _postRepo.enablePostAfterEdit(editingPostId!);
+          print('✅ Post automatically enabled after edit');
+        } catch (e) {
+          print('⚠️ Failed to auto-enable post: $e');
+          // Don't fail the entire operation if auto-enable fails
+        }
+      }
+
       contentController.clear();
       mediaItems.clear();
       selectedPostType.value = 'General Discussion';
       _hasUnsavedChanges = false;
       isEditingMode.value = false;
       editingPostId = null;
+      wasDisabledBeforeEdit = false;
 
       TLoaders.successSnackBar(
         title: 'Success',
-        message: 'Post updated successfully!',
+        message: wasDisabledBeforeEdit
+            ? 'Post updated and enabled successfully!'
+            : 'Post updated successfully!',
       );
 
       if (Get.isRegistered<PostController>()) {

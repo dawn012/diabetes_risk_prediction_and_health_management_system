@@ -6,6 +6,7 @@ import '../../../common/loaders/loaders.dart';
 import '../../../data/repositories/health_log/health_log_repository.dart';
 import '../../../data/repositories/user/user_repository.dart';
 import '../../../services/diabetes_hive_storage_manager.dart';
+import '../../../utils/constants/health_data_range.dart';
 import '../views/diabetes_input/diabetes_prediction_overview_screen.dart';
 import '../views/diabetes_input/physical_activity_input_screen.dart';
 import '../views/diabetes_input/widgets/diabetes_prediction_input_screen.dart';
@@ -63,12 +64,24 @@ class DiabetesBloodGlucoseController extends GetxController {
       // Check cache first (priority)
       final cachedData = _storageManager.getStepData(2);
       if (cachedData != null) {
+        // 只有在确实有缓存数据时才覆盖
         if (cachedData['glucose'] != null && cachedData['glucose'] > 0) {
-          currentValue.value = cachedData['glucose'];
+          // 缓存中存储的是 mmol/L，需要根据当前显示单位转换
+          final cachedGlucoseMmol = cachedData['glucose'];
+          if (measurementType.value == 'mg/dL') {
+            currentValue.value = mmolToMgdl(cachedGlucoseMmol);
+          } else {
+            currentValue.value = cachedGlucoseMmol;
+          }
           hasUserInput = true;
         }
+
+        // 只有在缓存中有单位信息时才设置
         if (cachedData['unit'] != null) {
-          measurementType.value = cachedData['unit'];
+          final cachedUnit = cachedData['unit'];
+          if (cachedUnit != measurementType.value) {
+            setMeasurementType(cachedUnit);
+          }
         }
       }
 
@@ -181,6 +194,38 @@ class DiabetesBloodGlucoseController extends GetxController {
   /// Convert mmol/L to mg/dL
   double mmolToMgdl(double mmol) {
     return double.parse((mmol * 18.0).toStringAsFixed(0));
+  }
+
+  /// 获取当前单位下的最小值（基于 mmol/L 范围转换）
+  double getMinRangeForCurrentUnit() {
+    return measurementType.value == 'mg/dL'
+        ? mmolToMgdl(HealthDataRanges.minGlucoseMmolL) // 1.5 mmol/L → 27 mg/dL
+        : HealthDataRanges.minGlucoseMmolL; // 1.5 mmol/L
+  }
+
+  /// 获取当前单位下的最大值（基于 mmol/L 范围转换）
+  double getMaxRangeForCurrentUnit() {
+    return measurementType.value == 'mg/dL'
+        ? mmolToMgdl(HealthDataRanges.maxGlucoseMmolL) // 35.0 mmol/L → 630 mg/dL
+        : HealthDataRanges.maxGlucoseMmolL; // 35.0 mmol/L
+  }
+
+  /// 获取合适的 divisions 数量
+  int getDivisionsForCurrentUnit() {
+    final min = getMinRangeForCurrentUnit();
+    final max = getMaxRangeForCurrentUnit();
+    final range = max - min;
+
+    return measurementType.value == 'mg/dL'
+        ? range.toInt() // 630 - 27 = 603 divisions for mg/dL
+        : (range * 10).toInt(); // 35.0 - 1.5 = 33.5 → 335 divisions for mmol/L
+  }
+
+  /// 获取当前单位的合理初始值
+  double getInitialValueForCurrentUnit() {
+    return measurementType.value == 'mg/dL'
+        ? 100.0 // mg/dL 的合理初始值
+        : 5.5;  // mmol/L 的合理初始值
   }
 
   /// Get glucose color based on level

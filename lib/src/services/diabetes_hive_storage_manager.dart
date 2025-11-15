@@ -134,7 +134,7 @@ class DiabetesHiveStorageManager extends GetxService {
 
       case 4: // Stress Level
         cache = cache.copyWith(
-          stressLevel: data['level'],
+          stressLevel: data['stressLevel'],
           currentStep: step,
         );
         cache.markStepCompleted(4, true);
@@ -142,7 +142,7 @@ class DiabetesHiveStorageManager extends GetxService {
 
       case 5: // Sleep Duration
         cache = cache.copyWith(
-          sleepDuration: data['duration'],
+          sleepDuration: data['sleepDuration'],
           currentStep: step,
         );
         cache.markStepCompleted(5, true);
@@ -150,7 +150,7 @@ class DiabetesHiveStorageManager extends GetxService {
 
       case 6: // Water Intake
         cache = cache.copyWith(
-          waterIntake: data['intake'],
+          waterIntake: data['waterIntake'],
           currentStep: step,
         );
         cache.markStepCompleted(6, true);
@@ -159,7 +159,7 @@ class DiabetesHiveStorageManager extends GetxService {
       case 7: // Medication
         cache = cache.copyWith(
           takesMedication: data['takesMedication'],
-          medicationAdherence: data['adherence'],
+          medicationAdherence: data['adherencePercentage'],
           currentStep: step,
         );
         cache.markStepCompleted(7, true);

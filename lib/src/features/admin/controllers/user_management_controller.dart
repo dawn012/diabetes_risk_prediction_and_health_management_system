@@ -1,20 +1,29 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../data/repositories/user/user_repository.dart';
 import '../../../common/loaders/loaders.dart';
+import '../../../utils/constants/text_strings.dart';
+import '../../../utils/helpers/web_image_helper.dart';
 import '../../authentication/models/user_model.dart';
+import '../../../data/repositories/authentication/authentication_repository.dart';
+import '../../personalization/controllers/user_controller.dart';
+import '../views/user_management/edit_user_dialog.dart';
 
 class UserManagementController extends GetxController {
   static UserManagementController get instance => Get.find();
 
   // Repositories
-  final userRepository = Get.put(UserRepository());
+  final userRepository = UserRepository.instance;
+  final authRepository = AuthenticationRepository.instance;
+  final userController = UserController.instance;
 
   // Controllers
   final searchController = TextEditingController();
+  final editUsernameController = TextEditingController();
 
   // Observable variables
   final isLoading = false.obs;
@@ -25,12 +34,22 @@ class UserManagementController extends GetxController {
   final filteredUsers = <UserModel>[].obs;
   final selectedUsers = <UserModel>[].obs;
   final showingActiveUsers = true.obs;
+  final currentUserRole = ''.obs;
 
   // Sorting
   final sortColumnIndex = 0.obs;
   final sortAscending = true.obs;
 
+  // Edit user
+  final isEditingUser = false.obs;
+  final editingUser = Rx<UserModel?>(null);
+  final selectedImageBytes = Rx<Uint8List?>(null);
+
+  // Error messages for form validation
+  final usernameError = Rx<String?>(null);
+
   Timer? _searchTimer;
+  StreamSubscription? _usersStreamSubscription;
 
   // Constants
   final List<int> itemsPerPageOptions = [5, 10, 25, 50];
@@ -38,103 +57,109 @@ class UserManagementController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    loadUsers();
-
-    // Listen to search changes with debounce
+    _loadCurrentUserRole();
+    _subscribeToUsers();
     searchController.addListener(_onSearchChanged);
   }
 
   @override
   void onClose() {
     searchController.dispose();
+    editUsernameController.dispose();
+    _usersStreamSubscription?.cancel();
+    _searchTimer?.cancel();
     super.onClose();
   }
 
-  // Debounced search to improve performance
-  void _onSearchChanged() {
-    // Clear any existing timer
-    if (_searchTimer?.isActive ?? false) _searchTimer!.cancel();
-
-    // Start new timer
-    _searchTimer = Timer(Duration(milliseconds: 300), () {
-        filterUsers();
-    });
-  }
-
-  /// Load all users from repository
-  Future<void> loadUsers() async {
+  Future<void> _loadCurrentUserRole() async {
     try {
-      isLoading.value = true;
-      final users = await userRepository.getAllUsers();
-      allUsers.assignAll(users);
-      filterUsers();
+      final role = await authRepository.getUserRole();
+      currentUserRole.value = role;
     } catch (e) {
-      TLoaders.errorSnackBar(title: 'Error', message: 'Failed to load users: $e');
-    } finally {
-      isLoading.value = false;
+      print("Error loading user role: $e");
+      currentUserRole.value = "user"; // fallback
     }
   }
 
-  /// Filter users based on search query and active/banned status
+  bool hasPermission(List<String> allowedRoles) {
+    return allowedRoles.contains(currentUserRole.value.toLowerCase());
+  }
+
+  void _subscribeToUsers() {
+    _usersStreamSubscription = userRepository.streamAllUsers().listen(
+          (users) {
+        allUsers.assignAll(users);
+        filterUsers();
+      },
+      onError: (error) {
+        TLoaders.errorSnackBar(
+          title: 'Error',
+          message: 'Failed to load users: $error',
+        );
+      },
+    );
+  }
+
+  void _onSearchChanged() {
+    if (_searchTimer?.isActive ?? false) _searchTimer!.cancel();
+    _searchTimer = Timer(Duration(milliseconds: 300), () {
+      filterUsers();
+    });
+  }
+
   void filterUsers() {
     List<UserModel> filtered = allUsers.where((user) {
-      // Filter by active/banned status
       bool statusMatch = showingActiveUsers.value
           ? user.accountAvailable
           : !user.accountAvailable;
 
       if (!statusMatch) return false;
 
-      // Filter by search query
       final query = searchController.text.toLowerCase().trim();
       if (query.isEmpty) return true;
 
       return user.username.toLowerCase().contains(query) ||
           user.email.toLowerCase().contains(query) ||
-          user.userId.toLowerCase().contains(query) ||
-          user.phoneNumber.toLowerCase().contains(query);
+          user.phoneNumber.toLowerCase().contains(query) ||
+          user.userId.toLowerCase().contains(query);
     }).toList();
 
-    // Apply sorting
     _applySorting(filtered);
-
     filteredUsers.assignAll(filtered);
-
-    // Clear selections when data changes
     selectedUsers.clear();
+    _updatePagination();
   }
 
-  /// Apply sorting to the filtered users list
   void _applySorting(List<UserModel> users) {
     users.sort((a, b) {
       dynamic aValue, bValue;
 
       switch (sortColumnIndex.value) {
-        case 0: // User ID
+        case 0:
           aValue = a.userId;
           bValue = b.userId;
           break;
-        case 2: // Username
+        case 2:
           aValue = a.username;
           bValue = b.username;
           break;
-        case 3: // Email
+        case 3:
           aValue = a.email;
           bValue = b.email;
           break;
-        case 4: // Phone
+        case 4:
           aValue = a.phoneNumber;
           bValue = b.phoneNumber;
           break;
-        case 5: // Join Date
+        case 5:
           aValue = a.joinDate;
           bValue = b.joinDate;
           break;
-        case 6: // Status (isVerify)
+        case 6:
           aValue = a.isVerify ? 1 : 0;
           bValue = b.isVerify ? 1 : 0;
           break;
-        case 7: // Total Score
+        case 7:
           aValue = a.totalScore;
           bValue = b.totalScore;
           break;
@@ -162,7 +187,6 @@ class UserManagementController extends GetxController {
     }
   }
 
-  /// Sort users by column
   void sortUsers(int columnIndex, bool ascending) {
     sortColumnIndex.value = columnIndex;
     sortAscending.value = ascending;
@@ -181,34 +205,23 @@ class UserManagementController extends GetxController {
     currentPage.value = page;
   }
 
-  /// Show active users
   void showActiveUsers() {
     if (!showingActiveUsers.value) {
       showingActiveUsers.value = true;
       currentPage.value = 1;
-      filterUsers(); // This will automatically update the content
+      filterUsers();
     }
   }
 
-  /// Show banned users
   void showBannedUsers() {
     if (showingActiveUsers.value) {
       showingActiveUsers.value = false;
       currentPage.value = 1;
-      filterUsers(); // This will automatically update the content
+      filterUsers();
     }
   }
 
-  /// Check if user is selected
-  // bool isUserSelected(UserModel user) {
-  //   return selectedUsers.contains(user);
-  // }
-
-  /// Toggle user selection with proper state management
   void toggleUserSelection(UserModel user, bool selected) {
-    print('toggleUserSelection: ${user.username} -> $selected');
-    print('selectedUsers before: ${selectedUsers.length}');
-
     if (selected) {
       if (!selectedUsers.contains(user)) {
         selectedUsers.add(user);
@@ -216,30 +229,22 @@ class UserManagementController extends GetxController {
     } else {
       selectedUsers.removeWhere((u) => u.userId == user.userId);
     }
-
-    print('selectedUsers after: ${selectedUsers.length}');
     selectedUsers.refresh();
   }
 
-  /// Toggle select all users
   void toggleSelectAll(bool selected) {
     if (selected) {
-      // 全选当前筛选的用户
       selectedUsers.assignAll(filteredUsers.toList());
     } else {
-      // 清空选择
       selectedUsers.clear();
     }
-
     selectedUsers.refresh();
   }
 
-  /// Get select all checkbox state
   bool? getSelectAllState() {
     if (filteredUsers.isEmpty) return false;
     if (selectedUsers.isEmpty) return false;
 
-    // 检查当前筛选的用户中有多少被选中
     int selectedCount = 0;
     for (UserModel user in filteredUsers) {
       if (selectedUsers.any((selected) => selected.userId == user.userId)) {
@@ -249,70 +254,213 @@ class UserManagementController extends GetxController {
 
     if (selectedCount == 0) return false;
     if (selectedCount == filteredUsers.length) return true;
-    return null; // Mixed state (部分选中)
+    return null;
   }
 
-  /// Ban a user
+  /// Open edit user dialog
+  void openEditUserDialog(UserModel user) {
+    if (!hasPermission(['admin', 'user manager'])) {
+      TLoaders.errorSnackBar(
+        title: 'Permission Denied',
+        message: 'You do not have permission to edit users',
+      );
+      return;
+    }
+
+    editingUser.value = user;
+    editUsernameController.text = user.username;
+    selectedImageBytes.value = null;
+    usernameError.value = null;
+    isEditingUser.value = true;
+
+    // Show dialog
+    Get.dialog(
+      EditUserDialog(),
+      barrierDismissible: false,
+    );
+  }
+
+  Future<void> pickImage() async {
+    try {
+      // 使用 WebImageHelper 选择图片
+      final imageBytes = await WebImageHelper.pickImage();
+      if (imageBytes != null) {
+        // Show loading while processing image
+        TLoaders.customToast(message: 'Processing image...');
+
+        // 立即验证和压缩图片
+        final processedImage = await userController.validateAndCompressImage(imageBytes);
+
+        if (processedImage != null) {
+          // 处理成功，设置新图片
+          selectedImageBytes.value = processedImage;
+        }
+      }
+    } catch (e) {
+      print(e);
+      TLoaders.errorSnackBar(
+        title: 'Image Selection Failed',
+        message: 'Failed to select image: $e',
+      );
+    }
+  }
+
+  /// Save edited user
+  Future<void> saveEditedUser() async {
+    if (editingUser.value == null) return;
+
+    if (!hasPermission(['admin', 'user manager'])) {
+      TLoaders.errorSnackBar(
+        title: 'Permission Denied',
+        message: 'You do not have permission to edit users',
+      );
+      return;
+    }
+
+    try {
+      isLoading.value = true;
+
+      final newUsername = editUsernameController.text.trim();
+      final currentUser = editingUser.value!;
+      bool hasChanges = false;
+
+      if (newUsername != currentUser.username) {
+        final isDuplicate = await userRepository.checkUsernameDuplicate(
+          newUsername,
+          currentUser.userId,
+        );
+
+        if (isDuplicate) {
+          usernameError.value = TTexts.usernameAlreadyBeenUsed;
+          isLoading.value = false;
+          return;
+        }
+        hasChanges = true;
+      }
+
+      // 处理图片上传
+      String? newImageUrl = currentUser.profileImg;
+      bool imageUploadFailed = false;
+
+      if (selectedImageBytes.value != null) {
+        final uploadResult = await userController.uploadCompressedImage(
+          compressedImage: selectedImageBytes.value!,
+          targetUserId: currentUser.userId,
+        );
+        if (uploadResult != null) {
+          newImageUrl = uploadResult;
+          hasChanges = true;
+        } else {
+          // 图片上传失败
+          imageUploadFailed = true;
+        }
+      }
+
+      // 如果有图片上传失败，停止更新
+      if (imageUploadFailed) {
+        isLoading.value = false;
+        return;
+      }
+
+      if (!hasChanges) {
+        TLoaders.warningSnackBar(
+          title: 'No Changes',
+          message: 'No changes were made',
+        );
+        return;
+      }
+
+      final updatedUser = currentUser.copyWith(
+        username: newUsername,
+        profileImg: newImageUrl ?? currentUser.profileImg,
+      );
+
+      await userRepository.updateUserDetails(updatedUser);
+
+      TLoaders.successSnackBar(
+        title: 'Success',
+        message: 'User updated successfully',
+      );
+
+      closeEditDialog();
+    } catch (e) {
+      TLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to update user: $e',
+      );
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  void closeEditDialog() {
+    editingUser.value = null;
+    editUsernameController.clear();
+    selectedImageBytes.value = null;
+    usernameError.value = null;
+    isEditingUser.value = false;
+
+    if (Get.context != null) {
+      Navigator.of(Get.context!, rootNavigator: true).pop(true);
+    }
+  }
+
   Future<void> banUser(UserModel user) async {
+    if (!hasPermission(['admin', 'user manager'])) {
+      TLoaders.errorSnackBar(
+        title: 'Permission Denied',
+        message: 'You do not have permission to ban users',
+      );
+      return;
+    }
+
     try {
       await userRepository.banUser(user.userId);
-
-      // Update local data
-      final index = allUsers.indexWhere((u) => u.userId == user.userId);
-      if (index != -1) {
-        allUsers[index] = UserModel(
-          userId: user.userId,
-          username: user.username,
-          userType: user.userType,
-          email: user.email,
-          phoneNumber: user.phoneNumber,
-          profileImg: user.profileImg,
-          joinDate: user.joinDate,
-          totalScore: user.totalScore,
-          isVerify: user.isVerify,
-          accountAvailable: false,
-        );
-      }
-
-      filterUsers();
-      TLoaders.successSnackBar(title: 'Success', message: 'User banned successfully');
+      TLoaders.successSnackBar(
+        title: 'Success',
+        message: 'User banned successfully',
+      );
     } catch (e) {
-      TLoaders.errorSnackBar(title: 'Error', message: 'Failed to ban user: $e');
+      TLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to ban user: $e',
+      );
     }
   }
 
-  /// Restore a user
   Future<void> restoreUser(UserModel user) async {
+    if (!hasPermission(['admin', 'user manager'])) {
+      TLoaders.errorSnackBar(
+        title: 'Permission Denied',
+        message: 'You do not have permission to restore users',
+      );
+      return;
+    }
+
     try {
       await userRepository.restoreUser(user.userId);
-
-      // Update local data
-      final index = allUsers.indexWhere((u) => u.userId == user.userId);
-      if (index != -1) {
-        allUsers[index] = UserModel(
-          userId: user.userId,
-          username: user.username,
-          userType: user.userType,
-          email: user.email,
-          phoneNumber: user.phoneNumber,
-          profileImg: user.profileImg,
-          joinDate: user.joinDate,
-          totalScore: user.totalScore,
-          isVerify: user.isVerify,
-          accountAvailable: true,
-        );
-      }
-
-      filterUsers();
-      TLoaders.successSnackBar(title: 'Success', message: 'User restored successfully');
+      TLoaders.successSnackBar(
+        title: 'Success',
+        message: 'User restored successfully',
+      );
     } catch (e) {
-      TLoaders.errorSnackBar(title: 'Error', message: 'Failed to restore user: $e');
+      TLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to restore user: $e',
+      );
     }
   }
 
-  /// Batch ban users
   Future<void> batchBanUsers() async {
     if (selectedUsers.isEmpty) return;
+
+    if (!hasPermission(['admin', 'user manager'])) {
+      TLoaders.errorSnackBar(
+        title: 'Permission Denied',
+        message: 'You do not have permission to ban users',
+      );
+      return;
+    }
 
     try {
       isLoading.value = true;
@@ -320,40 +468,32 @@ class UserManagementController extends GetxController {
 
       for (final user in usersToProcess) {
         await userRepository.banUser(user.userId);
-
-        // Update local data
-        final index = allUsers.indexWhere((u) => u.userId == user.userId);
-        if (index != -1) {
-          allUsers[index] = UserModel(
-            userId: user.userId,
-            username: user.username,
-            userType: user.userType,
-            email: user.email,
-            phoneNumber: user.phoneNumber,
-            profileImg: user.profileImg,
-            joinDate: user.joinDate,
-            totalScore: user.totalScore,
-            isVerify: user.isVerify,
-            accountAvailable: false,
-          );
-        }
       }
 
-      filterUsers();
       TLoaders.successSnackBar(
-          title: 'Success',
-          message: '${usersToProcess.length} users banned successfully'
+        title: 'Success',
+        message: '${usersToProcess.length} users banned successfully',
       );
     } catch (e) {
-      TLoaders.errorSnackBar(title: 'Error', message: 'Failed to ban users: $e');
+      TLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to ban users: $e',
+      );
     } finally {
       isLoading.value = false;
     }
   }
 
-  /// Batch restore users
   Future<void> batchRestoreUsers() async {
     if (selectedUsers.isEmpty) return;
+
+    if (!hasPermission(['admin', 'user manager'])) {
+      TLoaders.errorSnackBar(
+        title: 'Permission Denied',
+        message: 'You do not have permission to restore users',
+      );
+      return;
+    }
 
     try {
       isLoading.value = true;
@@ -361,56 +501,25 @@ class UserManagementController extends GetxController {
 
       for (final user in usersToProcess) {
         await userRepository.restoreUser(user.userId);
-
-        // Update local data
-        final index = allUsers.indexWhere((u) => u.userId == user.userId);
-        if (index != -1) {
-          allUsers[index] = UserModel(
-            userId: user.userId,
-            username: user.username,
-            userType: user.userType,
-            email: user.email,
-            phoneNumber: user.phoneNumber,
-            profileImg: user.profileImg,
-            joinDate: user.joinDate,
-            totalScore: user.totalScore,
-            isVerify: user.isVerify,
-            accountAvailable: true,
-          );
-        }
       }
 
-      filterUsers();
       TLoaders.successSnackBar(
-          title: 'Success',
-          message: '${usersToProcess.length} users restored successfully'
+        title: 'Success',
+        message: '${usersToProcess.length} users restored successfully',
       );
     } catch (e) {
-      TLoaders.errorSnackBar(title: 'Error', message: 'Failed to restore users: $e');
+      TLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to restore users: $e',
+      );
     } finally {
       isLoading.value = false;
     }
   }
 
-  /// Edit user (placeholder for now)
-  void editUser(UserModel user) {
-    // TODO: Implement edit user functionality
-    TLoaders.warningSnackBar(title: 'Info', message: 'Edit user functionality coming soon');
-  }
-
-  /// Add new user (placeholder for now)
-  void addUser() {
-    // TODO: Implement add user functionality
-    TLoaders.warningSnackBar(title: 'Info', message: 'Add user functionality coming soon');
-  }
-
-  /// Get highlighted text for search with proper TextSpan generation
   List<TextSpan> getHighlightedText(String text, String query, {Color? textColor}) {
     if (query.isEmpty) {
-      return [TextSpan(
-        text: text,
-        style: TextStyle(color: textColor),
-      )];
+      return [TextSpan(text: text, style: TextStyle(color: textColor))];
     }
 
     final List<TextSpan> spans = [];
@@ -423,7 +532,6 @@ class UserManagementController extends GetxController {
     do {
       indexOfHighlight = lowerText.indexOf(lowerQuery, start);
       if (indexOfHighlight < 0) {
-        // Add remaining text
         if (start < text.length) {
           spans.add(TextSpan(
             text: text.substring(start),
@@ -433,7 +541,6 @@ class UserManagementController extends GetxController {
         break;
       }
 
-      // Add text before highlight
       if (indexOfHighlight > start) {
         spans.add(TextSpan(
           text: text.substring(start, indexOfHighlight),
@@ -441,13 +548,12 @@ class UserManagementController extends GetxController {
         ));
       }
 
-      // Add highlighted text with adaptive color
       spans.add(TextSpan(
         text: text.substring(indexOfHighlight, indexOfHighlight + query.length),
         style: TextStyle(
           backgroundColor: Colors.yellow.withOpacity(0.8),
           fontWeight: FontWeight.bold,
-          color: Colors.black87, // 在黄色背景上黑色文字更清晰
+          color: Colors.black87,
         ),
       ));
 
@@ -457,21 +563,17 @@ class UserManagementController extends GetxController {
     return spans;
   }
 
-  /// Refresh users list
   Future<void> refreshUsers() async {
     currentPage.value = 1;
-    await loadUsers();
+    filterUsers();
   }
 
-  /// Clear search
   void clearSearch() {
     searchController.clear();
     filterUsers();
   }
 
-  @override
-  void dispose() {
-    _searchTimer?.cancel();
-    super.dispose();
+  void clearUsernameError() {
+    usernameError.value = null;
   }
 }

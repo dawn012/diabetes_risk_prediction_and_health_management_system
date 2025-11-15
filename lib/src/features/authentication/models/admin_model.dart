@@ -16,6 +16,7 @@ class AdminModel extends BaseAccountModel {
     required super.joinDate,
     required super.isVerify,
     super.accountAvailable,
+    super.isDeleted,
     this.loginAttempt = 5,
     this.lastAttemptTime = 0,
   });
@@ -31,6 +32,7 @@ class AdminModel extends BaseAccountModel {
       joinDate: DateTime.now(),
       isVerify: false,
       accountAvailable: true,
+      isDeleted: false,
       loginAttempt: 5,
       lastAttemptTime: 0,
     );
@@ -46,6 +48,7 @@ class AdminModel extends BaseAccountModel {
     DateTime? joinDate,
     bool? isVerify,
     bool? accountAvailable,
+    bool? isDeleted,
     int? loginAttempt,
     int? lastAttemptTime,
   }) {
@@ -59,6 +62,7 @@ class AdminModel extends BaseAccountModel {
       joinDate: joinDate ?? this.joinDate,
       isVerify: isVerify ?? this.isVerify,
       accountAvailable: accountAvailable ?? this.accountAvailable,
+      isDeleted: isDeleted ?? this.isDeleted,
       loginAttempt: loginAttempt ?? this.loginAttempt,
       lastAttemptTime: lastAttemptTime ?? this.lastAttemptTime,
     );
@@ -80,6 +84,7 @@ class AdminModel extends BaseAccountModel {
           : DateTime.now(),
       isVerify: data[FirebaseFieldNames.isVerify] ?? false,
       accountAvailable: data[FirebaseFieldNames.accountAvailable] ?? true,
+      isDeleted: data[FirebaseFieldNames.isDeleted] ?? false,
       loginAttempt: data[FirebaseFieldNames.loginAttempt] ?? 5,
       lastAttemptTime: data[FirebaseFieldNames.lastAttemptTime] ?? 0,
     );

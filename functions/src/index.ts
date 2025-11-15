@@ -1,5 +1,7 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
+// import { onBeforeUserSignedIn } from "firebase-functions/v2/identity";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as dotenv from "dotenv";
 
 dotenv.config();
@@ -63,6 +65,183 @@ export * from "./achievement";
 export { subscriptionApi, checkExpiringPayPalSubscriptionsSchedule } from "./subscription";
 
 // 其他独立函数
+// 手动设置用户角色的HTTP函数
+export const setCustomRole = onCall(async (request) => {
+  try {
+    // 验证调用者是否是管理员
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "User must be authenticated");
+    }
+
+    // 从 request.data 获取参数
+    const { uid, role } = request.data;
+
+    // 验证必需参数
+    if (!uid || !role) {
+      throw new HttpsError("invalid-argument", "Missing required fields: uid and role");
+    }
+
+    // 验证角色值
+    const validRoles = [
+      "user",
+      "admin",
+      "user manager",
+      "community manager",
+      "achievement manager",
+    ];
+
+    if (!validRoles.includes(role)) {
+      throw new HttpsError(
+        "invalid-argument",
+        `Invalid role. Must be one of: ${validRoles.join(", ")}`
+      );
+    }
+
+    console.log(`Setting role "${role}" for user: ${uid}`);
+
+    // 只设置自定义声明
+    await admin.auth().setCustomUserClaims(uid, { role });
+    console.log(`Custom claim 'role: ${role}' set for user ${uid}`);
+
+    return {
+      success: true,
+      message: `Role "${role}" set for user ${uid}`,
+      uid: uid,
+      role: role,
+    };
+
+  } catch (error) {
+    console.error("Error setting custom claims:", error);
+    throw new HttpsError("internal", `Error setting role: ${error instanceof Error ? error.message : "Unknown error"}`);
+  }
+});
+
+// 用户自行验证邮箱的 Callable Function
+export const selfVerifyEmail = onCall(async (request) => {
+  try {
+    // 验证调用者是否已登录
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "User must be authenticated");
+    }
+
+    // 用户只能验证自己的邮箱
+    const callerUid = request.auth.uid;
+
+    console.log(`User ${callerUid} requesting self email verification`);
+
+    // 1. 检查用户角色是否是 manager
+    const userRecord = await admin.auth().getUser(callerUid);
+    const userClaims = userRecord.customClaims as { role?: string } || {};
+    const userRole = userClaims.role;
+
+    // 只有 manager 角色可以自助验证
+    if (!userRole || !userRole.includes("manager")) {
+      throw new HttpsError(
+        "permission-denied",
+        "Only managers can self-verify email. Please contact administrator."
+      );
+    }
+
+    // 2. 如果已经是验证状态，直接返回
+    if (userRecord.emailVerified) {
+      return {
+        success: true,
+        message: "Email is already verified",
+        uid: callerUid,
+        emailVerified: true,
+      };
+    }
+
+    console.log(`Self-verifying email for manager: ${callerUid}`);
+
+    // 3. 在 Authentication 中验证邮箱
+    await admin.auth().updateUser(callerUid, {
+      emailVerified: true,
+    });
+    console.log(`Email self-verified in Authentication for manager: ${callerUid}`);
+
+    // 4. 在 Firestore 中更新验证状态
+    await admin
+      .firestore()
+      .collection("users")
+      .doc(callerUid)
+      .update({
+        isVerify: true,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    console.log(`Email self-verification updated in Firestore for manager: ${callerUid}`);
+
+    return {
+      success: true,
+      message: "Email verified successfully",
+      uid: callerUid,
+      email: userRecord.email,
+      emailVerified: true,
+      verifiedAt: new Date().toISOString(),
+    };
+
+  } catch (error) {
+    console.error("Error in self email verification:", error);
+
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+
+    throw new HttpsError(
+      "internal",
+      `Error verifying email: ${error instanceof Error ? error.message : "Unknown error"}`
+    );
+  }
+});
+
+// 自动验证 Manager 邮箱的 Cloud Function
+// export const autoVerifyManagerOnPasswordSet = beforeUserSignedIn(async (event) => {
+//   try {
+//     const user = event.data;
+//
+//     if (!user) {
+//       console.error("beforeUserSignedIn triggered with no user data.");
+//       return;
+//     }
+//
+//     const uid = user.uid;
+//
+//     const userRecord = await admin.auth().getUser(uid);
+//     const customClaims = (userRecord.customClaims as { role?: string }) || {};
+//     const userRole = customClaims.role;
+//
+//     console.log(
+//       `Checking user ${uid}, role: ${userRole}, emailVerified: ${user.emailVerified}`
+//     );
+//
+//     if (userRole?.includes("manager") && !user.emailVerified) {
+//       console.log(`Auto-verifying email for manager: ${uid}`);
+//
+//       // 验证 Authentication 中的邮箱
+//       await admin.auth().updateUser(uid, {
+//         emailVerified: true,
+//       });
+//
+//       // Firestore 更新
+//       await admin
+//         .firestore()
+//         .collection("users")
+//         .doc(uid)
+//         .update({
+//           isVerify: true,
+//           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+//         });
+//
+//       console.log(`Auto-verified manager: ${uid}`);
+//     }
+//
+//     return;
+//   } catch (err) {
+//     console.error("Error in autoVerifyManagerOnPasswordSet:", err);
+//     return;
+//   }
+// });
+
 export const setAdminClaim = functions.https.onRequest(async (req, res) => {
   try {
     // 你可以通过 query 或 body 获取 uid

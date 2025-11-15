@@ -58,7 +58,7 @@ class NotificationModel {
       FirebaseFieldNames.notificationTitle: notificationTitle,
       FirebaseFieldNames.message: message,
       FirebaseFieldNames.isRead: isRead,
-      FirebaseFieldNames.createdAt: Timestamp.fromDate(createdAt),
+      FirebaseFieldNames.createdAt: createdAt.millisecondsSinceEpoch,
     };
   }
 
@@ -73,7 +73,8 @@ class NotificationModel {
         notificationTitle: data[FirebaseFieldNames.notificationTitle] ?? '',
         message: data[FirebaseFieldNames.message] ?? '',
         isRead: data[FirebaseFieldNames.isRead] ?? false,
-        createdAt: (data[FirebaseFieldNames.createdAt] as Timestamp).toDate(),
+        createdAt: DateTime.fromMillisecondsSinceEpoch(
+            data[FirebaseFieldNames.createdAt] ?? 0),
       );
     } else {
       return NotificationModel.empty();

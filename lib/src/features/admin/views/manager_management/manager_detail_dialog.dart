@@ -5,14 +5,14 @@ import 'package:icons_plus/icons_plus.dart';
 
 import '../../../../utils/constants/admin_colors.dart';
 import '../../../../utils/helpers/helper_functions.dart';
-import '../../../authentication/models/user_model.dart';
+import '../../../authentication/models/admin_model.dart';
 
-class UserDetailDialog extends StatelessWidget {
-  final UserModel user;
+class ManagerDetailDialog extends StatelessWidget {
+  final AdminModel manager;
 
-  const UserDetailDialog({
+  const ManagerDetailDialog({
     super.key,
-    required this.user,
+    required this.manager,
   });
 
   @override
@@ -53,8 +53,8 @@ class UserDetailDialog extends StatelessWidget {
 
                     SizedBox(height: 24),
 
-                    // Statistics section
-                    _buildStatisticsSection(darkMode),
+                    // Role information
+                    _buildRoleSection(darkMode),
                   ],
                 ),
               ),
@@ -81,13 +81,13 @@ class UserDetailDialog extends StatelessWidget {
       child: Row(
         children: [
           Icon(
-            Iconsax.user_bold,
+            Iconsax.shield_tick_bold,
             size: 24,
             color: TAdminColors.primary,
           ),
           SizedBox(width: 16),
           Text(
-            'User Details',
+            'Manager Details',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -125,12 +125,24 @@ class UserDetailDialog extends StatelessWidget {
               width: 3,
             ),
           ),
-          child: _buildProfileAvatar(darkMode),
+          child: CircleAvatar(
+            radius: 38,
+            backgroundImage: manager.profileImg.isNotEmpty
+                ? NetworkImage(manager.profileImg)
+                : null,
+            child: manager.profileImg.isEmpty
+                ? Icon(
+              Iconsax.user_bold,
+              size: 32,
+              color: TAdminColors.getOnSurfaceVariantColor(darkMode),
+            )
+                : null,
+          ),
         ),
 
         SizedBox(width: 20),
 
-        // User info
+        // Manager info
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -138,7 +150,7 @@ class UserDetailDialog extends StatelessWidget {
               Row(
                 children: [
                   Text(
-                    user.username,
+                    manager.username,
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -151,7 +163,7 @@ class UserDetailDialog extends StatelessWidget {
               ),
               SizedBox(height: 4),
               Text(
-                user.email,
+                manager.email,
                 style: TextStyle(
                   fontSize: 16,
                   color: TAdminColors.getOnSurfaceVariantColor(darkMode),
@@ -159,7 +171,7 @@ class UserDetailDialog extends StatelessWidget {
               ),
               SizedBox(height: 8),
               Text(
-                'Member since ${_formatDate(user.joinDate)}',
+                'Manager since ${_formatDate(manager.joinDate)}',
                 style: TextStyle(
                   fontSize: 14,
                   color: TAdminColors.getOnSurfaceVariantColor(darkMode),
@@ -172,44 +184,22 @@ class UserDetailDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildProfileAvatar(bool darkMode) {
-    // 如果有头像URL且不为空，显示网络图片
-    if (user.profileImg.isNotEmpty) {
-      return CircleAvatar(
-        radius: 38,
-        backgroundImage: NetworkImage(user.profileImg),
-        backgroundColor: TAdminColors.primary.withOpacity(0.1),
-      );
-    }
-
-    // 否则显示默认头像图标
-    return CircleAvatar(
-      radius: 38,
-      backgroundColor: TAdminColors.primary.withOpacity(0.2),
-      child: Icon(
-        Iconsax.user_bold,
-        size: 32,
-        color: TAdminColors.primary,
-      ),
-    );
-  }
-
   Widget _buildStatusBadge(bool darkMode) {
     Color statusColor;
     String statusText;
     IconData statusIcon;
 
-    if (!user.accountAvailable) {
+    if (!manager.accountAvailable) {
       statusColor = TAdminColors.banned;
       statusText = 'Banned';
       statusIcon = Iconsax.user_remove_bold;
-    } else if (user.isVerify) {
+    } else if (manager.isVerify) {
       statusColor = TAdminColors.success;
       statusText = 'Verified';
       statusIcon = Iconsax.shield_tick_bold;
     } else {
-      statusColor = TAdminColors.error; // 红色显示 Not verified
-      statusText = 'Not verified';
+      statusColor = TAdminColors.error;
+      statusText = 'Not Verified';
       statusIcon = Iconsax.shield_cross_bold;
     }
 
@@ -269,15 +259,16 @@ class UserDetailDialog extends StatelessWidget {
           child: Column(
             children: [
               _buildInfoRow(
-                'User ID',
-                user.userId,
+                'Manager ID',
+                manager.userId,
                 Iconsax.card_bold,
                 isDark,
                 copyable: true,
               ),
+              _buildDivider(isDark),
               _buildInfoRow(
                 'Email',
-                user.email,
+                manager.email,
                 Icons.email,
                 isDark,
                 copyable: true,
@@ -285,30 +276,30 @@ class UserDetailDialog extends StatelessWidget {
               _buildDivider(isDark),
               _buildInfoRow(
                 'Role',
-                user.userType.isEmpty ? 'Regular User' : user.userType,
+                manager.userType.isEmpty ? 'Regular Manager' : manager.userType,
                 Iconsax.user_tag_bold,
                 isDark,
               ),
               _buildDivider(isDark),
               _buildInfoRow(
                 'Phone Number',
-                user.formattedPhoneNo.isNotEmpty ? user.formattedPhoneNo : 'Not provided',
+                manager.formattedPhoneNo.isNotEmpty ? manager.formattedPhoneNo : 'Not provided',
                 Iconsax.call_bold,
                 isDark,
-                copyable: user.formattedPhoneNo.isNotEmpty,
+                copyable: manager.formattedPhoneNo.isNotEmpty,
               ),
               _buildDivider(isDark),
               _buildInfoRow(
                 'Join Date',
-                _formatFullDate(user.joinDate),
+                _formatFullDate(manager.joinDate),
                 Iconsax.calendar_bold,
                 isDark,
               ),
               _buildDivider(isDark),
               _buildInfoRow(
                 'Email Verified',
-                user.isVerify ? 'Yes' : 'No',
-                user.isVerify ? Iconsax.tick_circle_bold : Iconsax.close_circle_bold,
+                manager.isVerify ? 'Yes' : 'No',
+                manager.isVerify ? Iconsax.tick_circle_bold : Iconsax.close_circle_bold,
                 isDark,
               ),
             ],
@@ -318,12 +309,17 @@ class UserDetailDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildStatisticsSection(bool isDark) {
+  Widget _buildRoleSection(bool isDark) {
+    final roleColor = TAdminColors.getRoleColor(manager.userType);
+    final displayRole = manager.userType.split(' ').map((word) =>
+    word[0].toUpperCase() + word.substring(1)
+    ).join(' ');
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Account Statistics',
+          'Role Information',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w600,
@@ -332,23 +328,64 @@ class UserDetailDialog extends StatelessWidget {
         ),
         SizedBox(height: 16),
 
-        Row(
-          children: [
-            // Total Score card
-            Expanded(
-              child: _buildStatCard(
-                'Total Score',
-                '${user.totalScore}',
-                Iconsax.star_bold,
-                TAdminColors.primary,
-                isDark,
-              ),
+        Container(
+          padding: EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: roleColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: roleColor.withOpacity(0.3),
             ),
-            SizedBox(width: 16),
-          ],
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Iconsax.shield_tick_bold,
+                size: 32,
+                color: roleColor,
+              ),
+              SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      displayRole,
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: roleColor,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      _getRoleDescription(manager.userType),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: TAdminColors.getOnSurfaceVariantColor(isDark),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
+  }
+
+  String _getRoleDescription(String role) {
+    switch (role.toLowerCase()) {
+      case 'user manager':
+        return 'Can manage user accounts, ban/restore users, and edit user information';
+      case 'community manager':
+        return 'Can manage community content, moderate discussions, and handle reports';
+      case 'achievement manager':
+        return 'Can create and manage achievements, assign rewards, and track progress';
+      default:
+        return 'Administrative role with specific management permissions';
+    }
   }
 
   Widget _buildInfoRow(String label,
@@ -426,55 +463,6 @@ class UserDetailDialog extends StatelessWidget {
     return Divider(
       height: 1,
       color: TAdminColors.getBorderColor(isDark).withOpacity(0.5),
-    );
-  }
-
-  Widget _buildStatCard(String title,
-      String value,
-      IconData icon,
-      Color color,
-      bool isDark,) {
-    return Container(
-      padding: EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: color.withOpacity(0.3),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                icon,
-                size: 24,
-                color: color,
-              ),
-              Spacer(),
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 8),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: TAdminColors.getOnSurfaceColor(isDark),
-            ),
-          ),
-        ],
-      ),
     );
   }
 

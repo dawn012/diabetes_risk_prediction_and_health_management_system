@@ -12,6 +12,7 @@ abstract class BaseAccountModel {
   final DateTime joinDate;
   final bool isVerify;
   bool accountAvailable;
+  bool isDeleted;
 
   BaseAccountModel({
     required this.userId,
@@ -23,6 +24,7 @@ abstract class BaseAccountModel {
     required this.joinDate,
     required this.isVerify,
     this.accountAvailable = true,
+    this.isDeleted = false,
   });
 
   Map<String, dynamic> toJson() => {
@@ -35,8 +37,14 @@ abstract class BaseAccountModel {
     FirebaseFieldNames.joinDate: joinDate.millisecondsSinceEpoch,
     FirebaseFieldNames.isVerify: isVerify,
     FirebaseFieldNames.accountAvailable: accountAvailable,
+    FirebaseFieldNames.isDeleted: isDeleted,
   };
 
   /// Helper function to format phone number
-  String get formattedPhoneNo => TFormatter.formatPhoneNumber(phoneNumber);
+  String get formattedPhoneNo {
+    if (phoneNumber.isEmpty) {
+      return '';
+    }
+    return TFormatter.formatPhoneNumber(phoneNumber);
+  }
 }

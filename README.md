@@ -29,3 +29,6 @@ BMI for Boy: https://cdn.who.int/media/docs/default-source/child-growth/growth-r
 Blood Pressure: https://my.clevelandclinic.org/health/diagnostics/17649-blood-pressure
 Pulse Rate: https://my.clevelandclinic.org/health/diagnostics/heart-rate
 Body Fat: https://www.medicalnewstoday.com/articles/body-fat-percentage-chart#how-to-calculate
+
+The Real Food Dietitians Recipes: https://therealfooddietitians.com/
+Joy Bauer Recipes: https://joybauer.com/

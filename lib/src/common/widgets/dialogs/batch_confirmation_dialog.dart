@@ -17,6 +17,9 @@ class BatchConfirmationDialog extends StatelessWidget {
   final VoidCallback? onCancel;
   final String Function(dynamic item) getItemDisplayName;
   final String Function(dynamic item) getItemSubtitle;
+  final String? customTitle;
+  final String? customMessage;
+  final String? customConfirmButtonText;
 
   const BatchConfirmationDialog({
     super.key,
@@ -26,6 +29,9 @@ class BatchConfirmationDialog extends StatelessWidget {
     this.onCancel,
     required this.getItemDisplayName,
     required this.getItemSubtitle,
+    this.customTitle,
+    this.customMessage,
+    this.customConfirmButtonText,
   });
 
   @override
@@ -68,7 +74,7 @@ class BatchConfirmationDialog extends StatelessWidget {
 
               // Title
               Text(
-                _getTitle(),
+                customTitle ?? _getTitle(),
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -80,7 +86,7 @@ class BatchConfirmationDialog extends StatelessWidget {
 
               // Message
               Text(
-                _getMessage(),
+                customMessage ?? _getMessage(),
                 style: TextStyle(
                   color: TAdminColors.getOnSurfaceVariantColor(darkMode),
                 ),
@@ -157,7 +163,7 @@ class BatchConfirmationDialog extends StatelessWidget {
                         padding: EdgeInsets.symmetric(vertical: 18),
                         side: BorderSide(color: _getActionColor()),
                       ),
-                      child: Text(_getConfirmButtonText()),
+                      child: Text(customConfirmButtonText ?? _getConfirmButtonText()),
                     ),
                   ),
                 ],
@@ -239,6 +245,9 @@ class BatchDialog {
     VoidCallback? onCancel,
     required String Function(dynamic item) getItemDisplayName,
     required String Function(dynamic item) getItemSubtitle,
+    String? customTitle,
+    String? customMessage,
+    String? customConfirmButtonText,
   }) {
     Get.dialog(
       BatchConfirmationDialog(
@@ -248,6 +257,9 @@ class BatchDialog {
         onCancel: onCancel,
         getItemDisplayName: getItemDisplayName,
         getItemSubtitle: getItemSubtitle,
+        customTitle: customTitle,
+        customMessage: customMessage,
+        customConfirmButtonText: customConfirmButtonText,
       ),
     );
   }

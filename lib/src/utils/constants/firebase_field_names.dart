@@ -16,6 +16,7 @@ class FirebaseFieldNames {
   static const String loginAttempt = 'loginAttempt';
   static const String lastAttemptTime = 'lastAttemptTime';
   static const String accountAvailable = 'accountAvailable';
+  static const String isDeleted = 'isDeleted';
   static const String profile = 'profile';
 
   ///-- Users Profile

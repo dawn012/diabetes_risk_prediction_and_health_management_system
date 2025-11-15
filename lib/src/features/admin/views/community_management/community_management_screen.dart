@@ -29,11 +29,12 @@ class CommunityManagementScreen extends StatelessWidget {
           builder: (context, constraints) {
             // Calculate available space for table to make it fill the screen
             final headerHeight = 200.0; // Approximate header height
+            final bannerHeight = 60.0; // New posts banner height
             final batchActionsHeight = 60.0; // Approximate batch actions height
             final paginationHeight = 80.0; // Approximate pagination height
             final padding = 48.0; // Total padding
             final availableTableHeight = constraints.maxHeight -
-                headerHeight - batchActionsHeight - paginationHeight - padding;
+                headerHeight - bannerHeight - batchActionsHeight - paginationHeight - padding;
 
             return SingleChildScrollView(
               child: Container(
@@ -44,7 +45,19 @@ class CommunityManagementScreen extends StatelessWidget {
                   children: [
                     // Header with search and filters
                     CommunityManagementHeader(controller: controller),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16),
+
+                    // New Posts Banner
+                    Obx(() {
+                      return controller.newPostsCount.value > 0
+                          ? Column(
+                        children: [
+                          _buildNewPostsBanner(controller, darkMode),
+                          const SizedBox(height: 16),
+                        ],
+                      )
+                          : const SizedBox.shrink();
+                    }),
 
                     // Batch Actions Bar
                     Obx(() {
@@ -78,7 +91,7 @@ class CommunityManagementScreen extends StatelessWidget {
                           Expanded(
                             child: Obx(() {
                               return ReusableDataTable<PostModel>(
-                                data: controller.filteredPosts,
+                                data: controller.displayedPosts,
                                 columns: _getPostTableColumns(controller, darkMode),
                                 isLoading: controller.isLoading.value,
                                 onSelectAll: (selected) => controller.toggleSelectAll(selected),
@@ -97,10 +110,10 @@ class CommunityManagementScreen extends StatelessWidget {
                             currentPage: controller.currentPage.value,
                             totalPages: controller.totalPages.value,
                             onPageChanged: controller.changePage,
-                            totalItems: controller.allPosts.length,
+                            totalItems: controller.totalCount.value,
                             itemsPerPage: controller.itemsPerPage.value,
                             startIndex: ((controller.currentPage.value - 1) * controller.itemsPerPage.value) + 1,
-                            endIndex: (controller.currentPage.value * controller.itemsPerPage.value).clamp(0, controller.allPosts.length),
+                            endIndex: (controller.currentPage.value * controller.itemsPerPage.value).clamp(0, controller.totalCount.value),
                           )),
                         ],
                       ),
@@ -113,6 +126,135 @@ class CommunityManagementScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// Build new posts notification banner
+  Widget _buildNewPostsBanner(CommunityManagementController controller, bool darkMode) {
+    return Obx(() {
+      final count = controller.newPostsCount.value;
+      if (count == 0) return const SizedBox.shrink();
+
+      return AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => controller.refreshPosts(),
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    TAdminColors.info,
+                    TAdminColors.info.withOpacity(0.8),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: TAdminColors.info.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  // Icon with animation
+                  TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0.0, end: 1.0),
+                    duration: const Duration(milliseconds: 600),
+                    builder: (context, value, child) {
+                      return Transform.scale(
+                        scale: 0.8 + (value * 0.2),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Iconsax.notification_bing_bold,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 16),
+
+                  // Text content
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'New Posts Available',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '$count new post${count > 1 ? 's' : ''} ${count > 1 ? 'have' : 'has'} been published',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white.withOpacity(0.9),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Refresh button with pulse animation
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Iconsax.refresh_bold,
+                          color: TAdminColors.info,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Refresh',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: TAdminColors.info,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    });
   }
 
   List<DataTableColumn<PostModel>> _getPostTableColumns(CommunityManagementController controller, bool darkMode) {
@@ -140,7 +282,7 @@ class CommunityManagementScreen extends StatelessWidget {
       DataTableColumn<PostModel>(
         label: 'Poster',
         field: 'poster',
-        minWidth: 120,
+        minWidth: 140,
         flex: 3,
         sortable: true,
         builder: (post) {
@@ -199,8 +341,8 @@ class CommunityManagementScreen extends StatelessWidget {
       DataTableColumn<PostModel>(
         label: 'Type',
         field: 'postType',
-        minWidth: 80,
-        flex: 2,
+        minWidth: 130,
+        flex: 3,
         sortable: true,
         builder: (post) => _buildTypeChip(post.postType, darkMode),
       ),
@@ -238,9 +380,9 @@ class CommunityManagementScreen extends StatelessWidget {
         ),
       ),
       DataTableColumn<PostModel>(
-        label: 'Created',
-        field: 'createdAt',
-        minWidth: 100,
+        label: 'Created/Updated',
+        field: 'updatedAt',
+        minWidth: 140,
         flex: 2,
         sortable: true,
         builder: (post) => Column(
@@ -248,14 +390,14 @@ class CommunityManagementScreen extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              '${post.createdAt.day}/${post.createdAt.month}/${post.createdAt.year}',
+              '${post.updatedAt.day}/${post.updatedAt.month}/${post.updatedAt.year}',
               style: TextStyle(
                 fontSize: 12,
                 color: TAdminColors.getOnSurfaceColor(darkMode),
               ),
             ),
             Text(
-              _formatTime(post.createdAt),
+              _formatTime(post.updatedAt),
               style: TextStyle(
                 fontSize: 10,
                 color: TAdminColors.getOnSurfaceVariantColor(darkMode),
@@ -275,7 +417,7 @@ class CommunityManagementScreen extends StatelessWidget {
       DataTableColumn<PostModel>(
         label: 'Actions',
         field: 'actions',
-        minWidth: 100,
+        minWidth: 80,
         flex: 2,
         sortable: false,
         builder: (post) => _buildActionButtons(post, controller, darkMode),
@@ -337,15 +479,13 @@ class CommunityManagementScreen extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Show icons for different media types
                 if (imageTypes.isNotEmpty) ...[
                   Icon(
                     Iconsax.gallery_bold,
                     size: 12,
                     color: TAdminColors.primary,
                   ),
-                  if (imageTypes.length > 1 || videoTypes.isNotEmpty || textTypes.isNotEmpty)
-                    SizedBox(width: 2),
+                  if (imageTypes.length > 1 || videoTypes.isNotEmpty || textTypes.isNotEmpty) SizedBox(width: 2),
                 ],
                 if (videoTypes.isNotEmpty) ...[
                   Icon(
@@ -353,8 +493,7 @@ class CommunityManagementScreen extends StatelessWidget {
                     size: 12,
                     color: TAdminColors.primary,
                   ),
-                  if (videoTypes.length > 1 || textTypes.isNotEmpty)
-                    SizedBox(width: 2),
+                  if (videoTypes.length > 1 || textTypes.isNotEmpty) SizedBox(width: 2),
                 ],
                 if (textTypes.isNotEmpty) ...[
                   Icon(
@@ -387,13 +526,13 @@ class CommunityManagementScreen extends StatelessWidget {
       if (mediaFile.startsWith('text:')) {
         mediaItems.add(MediaItem(
           type: 'text',
-          content: mediaFile.substring(5), // Remove 'text:' prefix
+          content: mediaFile.substring(5),
         ));
       } else if (mediaFile.contains('.mp4') || mediaFile.contains('video')) {
         mediaItems.add(MediaItem(
           type: 'video',
           url: mediaFile,
-          thumbnail: mediaFile, // You can add proper thumbnail logic here
+          thumbnail: mediaFile,
         ));
       } else {
         mediaItems.add(MediaItem(
@@ -413,7 +552,6 @@ class CommunityManagementScreen extends StatelessWidget {
     Color chipColor;
     IconData chipIcon;
 
-    // 直接使用枚举值进行 switch，不需要 .name
     switch (postType) {
       case PostType.general:
         chipColor = TAdminColors.info;
@@ -439,7 +577,7 @@ class CommunityManagementScreen extends StatelessWidget {
     return Align(
       alignment: Alignment.centerLeft,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 100),
+        constraints: const BoxConstraints(maxWidth: 150),
         child: Container(
           padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
@@ -457,7 +595,7 @@ class CommunityManagementScreen extends StatelessWidget {
               ),
               SizedBox(width: 4),
               Text(
-                postType.displayName, // 使用 displayName 而不是 capitalizeFirst
+                postType.displayName,
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
@@ -514,7 +652,6 @@ class CommunityManagementScreen extends StatelessWidget {
   Widget _buildActionButtons(PostModel post, CommunityManagementController controller, bool darkMode) {
     return Row(
       mainAxisSize: MainAxisSize.min,
-      // mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: [
         // View Details Button
         IconButton(

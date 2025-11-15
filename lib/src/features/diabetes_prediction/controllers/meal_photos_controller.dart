@@ -28,7 +28,7 @@ class MealPhotosController extends GetxController {
   final Rx<NavigationMode> navigationMode = NavigationMode.flow.obs;
 
   // Configuration
-  static const int minPhotos = 7;
+  static const int minPhotos = 1;
   static const int maxPhotos = 9;
   static const int maxDaysOld = 3;
 
@@ -135,7 +135,7 @@ class MealPhotosController extends GetxController {
 
       File? image;
       if (source == ImageSource.camera) {
-        image = await ImageHelper.openCustomCamera();
+        image = await ImageHelper.takePhoto();
       } else {
         image = await ImageHelper.pickImage();
       }

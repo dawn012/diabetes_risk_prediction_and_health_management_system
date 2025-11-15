@@ -6,25 +6,24 @@ import '../../../../common/widgets/pagination/pagination_widget.dart';
 import '../../../../common/widgets/table/reusable_data_table.dart';
 import '../../../../utils/constants/admin_colors.dart';
 import '../../../../utils/helpers/helper_functions.dart';
-import '../../../authentication/models/user_model.dart';
-import '../../controllers/user_management_controller.dart';
-import 'user_detail_dialog.dart';
-import 'widgets/batch_action_bar.dart';
-import 'widgets/user_management_header.dart';
+import '../../../authentication/models/admin_model.dart';
+import '../../controllers/manager_management_controller.dart';
+import '../user_management/widgets/batch_action_bar.dart';
+import 'manager_detail_dialog.dart';
+import 'widgets/manager_management_header.dart';
 
-class UserManagementScreen extends StatelessWidget {
-  const UserManagementScreen({super.key});
+class ManagerManagementScreen extends StatelessWidget {
+  const ManagerManagementScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.put(UserManagementController());
+    final controller = Get.put(ManagerManagementController());
     final darkMode = THelperFunctions.isDarkMode(context);
 
     return Scaffold(
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            // Calculate available space for table
             final headerHeight = 200.0;
             final batchActionsHeight = 60.0;
             final paginationHeight = 80.0;
@@ -39,28 +38,25 @@ class UserManagementScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Header with search and add button
-                    UserManagementHeader(controller: controller),
+                    ManagerManagementHeader(controller: controller),
                     const SizedBox(height: 24),
 
-                    // Batch Actions Bar
                     Obx(() {
-                      return controller.selectedUsers.isNotEmpty
+                      return controller.selectedManagers.isNotEmpty
                           ? BatchActionsBar(
-                        selectedItems: controller.selectedUsers,
-                        showingActive: controller.showingActiveUsers,
+                        selectedItems: controller.selectedManagers,
+                        showingActive: controller.showingActiveManagers,
                         onClearSelection: () => controller.toggleSelectAll(false),
-                        onBatchBan: () => controller.batchBanUsers(),
-                        onBatchRestore: () => controller.batchRestoreUsers(),
-                        itemLabel: 'user',
-                        getUserName: (user) => user.username,
-                        getUserEmail: (user) => user.email,
+                        onBatchBan: () => controller.batchBanManagers(),
+                        onBatchRestore: () => controller.batchRestoreManagers(),
+                        itemLabel: 'manager',
+                        getUserName: (manager) => manager.username,
+                        getUserEmail: (manager) => manager.email,
                       )
-                          : const SizedBox.shrink();
+                      : const SizedBox.shrink();
                     }),
                     const SizedBox(height: 16),
 
-                    // Data Table Container
                     Container(
                       height: availableTableHeight.clamp(400.0, double.infinity),
                       decoration: BoxDecoration(
@@ -78,32 +74,33 @@ class UserManagementScreen extends StatelessWidget {
                           children: [
                             Expanded(
                               child: Obx(() {
-                                return ReusableDataTable<UserModel>(
-                                  data: controller.filteredUsers,
-                                  columns: _getUserTableColumns(controller, darkMode),
+                                return ReusableDataTable<AdminModel>(
+                                  data: controller.filteredManagers,
+                                  columns: _getManagerTableColumns(controller, darkMode),
                                   isLoading: controller.isLoading.value,
                                   onSelectAll: (selected) => controller.toggleSelectAll(selected),
-                                  selectedItems: controller.selectedUsers,
-                                  onItemSelect: (user, selected) => controller.toggleUserSelection(user, selected),
+                                  selectedItems: controller.selectedManagers,
+                                  onItemSelect: (manager, selected) =>
+                                      controller.toggleManagerSelection(manager, selected),
                                   searchQuery: controller.searchController.text,
                                   sortColumnIndex: controller.sortColumnIndex.value,
                                   sortAscending: controller.sortAscending.value,
-                                  onSort: (columnIndex, ascending) => controller.sortUsers(columnIndex, ascending),
+                                  onSort: (columnIndex, ascending) =>
+                                      controller.sortManagers(columnIndex, ascending),
                                 );
                               }),
                             ),
 
-                            // Pagination
                             Obx(() => PaginationWidget(
                               currentPage: controller.currentPage.value,
                               totalPages: controller.totalPages.value,
                               onPageChanged: controller.changePage,
-                              totalItems: controller.allUsers.length,
+                              totalItems: controller.allManagers.length,
                               itemsPerPage: controller.itemsPerPage.value,
                               startIndex: ((controller.currentPage.value - 1) *
                                   controller.itemsPerPage.value) + 1,
                               endIndex: (controller.currentPage.value *
-                                  controller.itemsPerPage.value).clamp(0, controller.allUsers.length),
+                                  controller.itemsPerPage.value).clamp(0, controller.allManagers.length),
                             )),
                           ]
                       ),
@@ -118,19 +115,20 @@ class UserManagementScreen extends StatelessWidget {
     );
   }
 
-  List<DataTableColumn<UserModel>> _getUserTableColumns(UserManagementController controller, bool darkMode) {
+  List<DataTableColumn<AdminModel>> _getManagerTableColumns(
+      ManagerManagementController controller, bool darkMode) {
     return [
-      DataTableColumn<UserModel>(
+      DataTableColumn<AdminModel>(
         label: 'User ID',
         field: 'userId',
         minWidth: 100,
         flex: 2,
         sortable: true,
-        builder: (user) {
+        builder: (manager) {
           final query = controller.searchController.text;
           return RichText(
             text: TextSpan(
-              children: controller.getHighlightedText(user.userId, query),
+              children: controller.getHighlightedText(manager.userId, query),
               style: TextStyle(
                 fontFamily: 'monospace',
                 fontSize: 12,
@@ -140,26 +138,41 @@ class UserManagementScreen extends StatelessWidget {
           );
         },
       ),
-      DataTableColumn<UserModel>(
+      DataTableColumn<AdminModel>(
         label: 'Profile',
         field: 'profile',
         minWidth: 60,
         flex: 1,
         sortable: false,
-        builder: (user) => _buildProfileAvatar(user, darkMode),
+        builder: (manager) => CircleAvatar(
+          radius: 20,
+          backgroundImage: manager.profileImg.isNotEmpty
+              ? NetworkImage(manager.profileImg)
+              : null,
+          backgroundColor: manager.profileImg.isEmpty
+              ? TAdminColors.getRoleColor(manager.userType).withOpacity(0.2)
+              : null,
+          child: manager.profileImg.isEmpty
+              ? Icon(
+            Iconsax.user_bold,
+            size: 16,
+            color: TAdminColors.getRoleColor(manager.userType),
+          )
+              : null,
+        ),
       ),
-      DataTableColumn<UserModel>(
+      DataTableColumn<AdminModel>(
         label: 'Username',
         field: 'username',
         minWidth: 100,
         flex: 2,
         sortable: true,
-        builder: (user) {
+        builder: (manager) {
           final query = controller.searchController.text;
           final textColor = TAdminColors.getOnSurfaceColor(darkMode);
           return RichText(
             text: TextSpan(
-              children: controller.getHighlightedText(user.username, query, textColor: textColor),
+              children: controller.getHighlightedText(manager.username, query, textColor: textColor),
               style: TextStyle(
                 fontWeight: FontWeight.w500,
                 color: textColor,
@@ -168,19 +181,19 @@ class UserManagementScreen extends StatelessWidget {
           );
         },
       ),
-      DataTableColumn<UserModel>(
+      DataTableColumn<AdminModel>(
         label: 'Email',
         field: 'email',
         minWidth: 150,
         flex: 3,
         sortable: true,
-        builder: (user) {
+        builder: (manager) {
           final query = controller.searchController.text;
           final textColor = TAdminColors.getOnSurfaceColor(darkMode);
 
           return RichText(
             text: TextSpan(
-              children: controller.getHighlightedText(user.email, query, textColor: textColor),
+              children: controller.getHighlightedText(manager.email, query, textColor: textColor),
               style: TextStyle(
                 color: textColor,
               ),
@@ -188,16 +201,16 @@ class UserManagementScreen extends StatelessWidget {
           );
         },
       ),
-      DataTableColumn<UserModel>(
+      DataTableColumn<AdminModel>(
         label: 'Phone',
         field: 'phoneNumber',
         minWidth: 100,
         flex: 2,
         sortable: true,
-        builder: (user) {
+        builder: (manager) {
           final query = controller.searchController.text;
           final textColor = TAdminColors.getOnSurfaceColor(darkMode);
-          final phoneText = user.formattedPhoneNo.isNotEmpty ? user.formattedPhoneNo : 'Not provided';
+          final phoneText = manager.formattedPhoneNo.isNotEmpty ? manager.formattedPhoneNo : 'Not provided';
 
           return RichText(
             text: TextSpan(
@@ -209,97 +222,113 @@ class UserManagementScreen extends StatelessWidget {
           );
         },
       ),
-      DataTableColumn<UserModel>(
+      DataTableColumn<AdminModel>(
+        label: 'Role',
+        field: 'userType',
+        minWidth: 120,
+        flex: 2,
+        sortable: true,
+        builder: (manager) => _buildRoleChip(manager, darkMode),
+      ),
+      DataTableColumn<AdminModel>(
         label: 'Join Date',
         field: 'joinDate',
         minWidth: 90,
         flex: 2,
         sortable: true,
-        builder: (user) => Text(
-          '${user.joinDate.day}/${user.joinDate.month}/${user.joinDate.year}',
+        builder: (manager) => Text(
+          '${manager.joinDate.day}/${manager.joinDate.month}/${manager.joinDate.year}',
           style: TextStyle(
             color: TAdminColors.getOnSurfaceColor(darkMode),
           ),
         ),
       ),
-      DataTableColumn<UserModel>(
+      DataTableColumn<AdminModel>(
         label: 'Status',
         field: 'status',
         minWidth: 100,
         flex: 3,
         sortable: true,
-        builder: (user) => _buildStatusChip(user, darkMode),
+        builder: (manager) => _buildStatusChip(manager, darkMode),
       ),
-      DataTableColumn<UserModel>(
-        label: 'Score',
-        field: 'totalScore',
-        minWidth: 80,
-        flex: 1,
-        sortable: true,
-        builder: (user) => Text(
-          '${user.totalScore}',
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-            color: TAdminColors.primary,
-          ),
-        ),
-      ),
-      DataTableColumn<UserModel>(
+      DataTableColumn<AdminModel>(
         label: 'Actions',
         field: 'actions',
         minWidth: 120,
         flex: 2,
         sortable: false,
-        builder: (user) => _buildActionButtons(user, controller, darkMode),
+        builder: (manager) => _buildActionButtons(manager, controller, darkMode),
       ),
     ];
   }
 
-  Widget _buildProfileAvatar(UserModel user, bool isDark) {
-    // 如果有头像URL且不为空，显示网络图片
-    if (user.profileImg.isNotEmpty) {
-      return CircleAvatar(
-        radius: 20,
-        backgroundImage: NetworkImage(user.profileImg),
-        backgroundColor: TAdminColors.primary.withOpacity(0.1),
-      );
-    }
+  Widget _buildRoleChip(AdminModel manager, bool isDark) {
+    final roleColor = TAdminColors.getRoleColor(manager.userType);
+    final displayRole = manager.userType.split(' ').map((word) =>
+    word[0].toUpperCase() + word.substring(1)
+    ).join(' ');
 
-    // 否则显示默认头像图标
-    return CircleAvatar(
-      radius: 20,
-      backgroundColor: TAdminColors.primary.withOpacity(0.2),
-      child: Icon(
-        Iconsax.user_bold,
-        size: 16,
-        color: TAdminColors.primary,
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 120),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: roleColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: roleColor.withOpacity(0.3)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Iconsax.shield_tick_bold,
+                size: 12,
+                color: roleColor,
+              ),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  displayRole,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: roleColor,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildStatusChip(UserModel user, bool isDark) {
+  Widget _buildStatusChip(AdminModel manager, bool isDark) {
     Color statusColor;
     String statusText;
     IconData statusIcon;
 
-    if (!user.accountAvailable) {
+    if (!manager.accountAvailable) {
       statusColor = TAdminColors.banned;
       statusText = 'Banned';
       statusIcon = Iconsax.user_remove_bold;
-    } else if (user.isVerify) {
+    } else if (manager.isVerify) {
       statusColor = TAdminColors.success;
       statusText = 'Verified';
       statusIcon = Iconsax.shield_tick_bold;
     } else {
-      statusColor = TAdminColors.error; // 红色显示 Not verified
-      statusText = 'Not verified';
+      statusColor = TAdminColors.error;
+      statusText = 'Not Verified';
       statusIcon = Iconsax.shield_cross_bold;
     }
 
     return Align(
       alignment: Alignment.centerLeft,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 100),
+        constraints: const BoxConstraints(maxWidth: 120),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
@@ -316,12 +345,15 @@ class UserManagementScreen extends StatelessWidget {
                 color: statusColor,
               ),
               const SizedBox(width: 4),
-              Text(
-                statusText,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  color: statusColor,
+              Flexible(
+                child: Text(
+                  statusText,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: statusColor,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -331,14 +363,14 @@ class UserManagementScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildActionButtons(UserModel user, UserManagementController controller, bool isDark) {
+  Widget _buildActionButtons(AdminModel manager, ManagerManagementController controller, bool isDark) {
     return Row(
       mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: (user.accountAvailable == true) ? MainAxisAlignment.spaceAround : MainAxisAlignment.start,
+      mainAxisAlignment: manager.accountAvailable ? MainAxisAlignment.spaceAround : MainAxisAlignment.start,
       children: [
         // Detail Button
         IconButton(
-          onPressed: () => _showUserDetailDialog(user, isDark),
+          onPressed: () => _showManagerDetailDialog(manager, isDark),
           icon: const Icon(Iconsax.eye_bold, size: 16),
           tooltip: 'View Details',
           style: IconButton.styleFrom(
@@ -348,12 +380,13 @@ class UserManagementScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 4),
-        if (user.accountAvailable) ...[
-          // Edit Button (only for active users)
+
+        if (manager.accountAvailable) ...[
+          // Edit Button (only for active managers)
           IconButton(
-            onPressed: () => controller.openEditUserDialog(user),
+            onPressed: () => controller.openEditManagerDialog(manager),
             icon: const Icon(Iconsax.edit_bold, size: 16),
-            tooltip: 'Edit User',
+            tooltip: 'Edit Manager',
             style: IconButton.styleFrom(
               backgroundColor: TAdminColors.warning.withOpacity(0.1),
               foregroundColor: TAdminColors.warning,
@@ -364,13 +397,18 @@ class UserManagementScreen extends StatelessWidget {
           // Ban Button
           IconButton(
             onPressed: () {
-              ConfirmationDialog.showBanUser(
-                user.username,
-                    () => controller.banUser(user),
+              ConfirmationDialog.show(
+                title: 'Ban Manager',
+                message: 'Are you sure you want to ban ${manager.username}? This action will disable their account.',
+                confirmButtonText: 'Ban Manager',
+                customIcon: Iconsax.user_remove_bold,
+                iconColor: TAdminColors.error,
+                confirmButtonColor: TAdminColors.error,
+                onConfirm: () => controller.banManager(manager),
               );
             },
             icon: const Icon(Iconsax.user_remove_bold, size: 16),
-            tooltip: 'Ban User',
+            tooltip: 'Ban Manager',
             style: IconButton.styleFrom(
               backgroundColor: TAdminColors.error.withOpacity(0.1),
               foregroundColor: TAdminColors.error,
@@ -378,16 +416,21 @@ class UserManagementScreen extends StatelessWidget {
             ),
           ),
         ] else ...[
-          // Restore Button (only for banned users)
+          // Restore Button (only for banned managers)
           IconButton(
             onPressed: () {
-              ConfirmationDialog.showRestoreUser(
-                user.username,
-                    () => controller.restoreUser(user),
+              ConfirmationDialog.show(
+                title: 'Restore Manager',
+                message: 'Are you sure you want to restore ${manager.username}? This will reactivate their account.',
+                confirmButtonText: 'Restore Manager',
+                customIcon: Iconsax.refresh_bold,
+                iconColor: TAdminColors.success,
+                confirmButtonColor: TAdminColors.success,
+                onConfirm: () => controller.restoreManager(manager),
               );
             },
             icon: const Icon(Iconsax.refresh_bold, size: 16),
-            tooltip: 'Restore User',
+            tooltip: 'Restore Manager',
             style: IconButton.styleFrom(
               backgroundColor: TAdminColors.success.withOpacity(0.1),
               foregroundColor: TAdminColors.success,
@@ -399,7 +442,7 @@ class UserManagementScreen extends StatelessWidget {
     );
   }
 
-  void _showUserDetailDialog(UserModel user, bool isDark) {
-    Get.dialog(UserDetailDialog(user: user));
+  void _showManagerDetailDialog(AdminModel manager, bool isDark) {
+    Get.dialog(ManagerDetailDialog(manager: manager));
   }
 }

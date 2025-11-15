@@ -3,7 +3,7 @@ import 'package:get/get.dart';
 import 'package:icons_plus/icons_plus.dart';
 
 import '../../../../../utils/constants/admin_colors.dart';
-import '../../../../../utils/constants/enums.dart'; // 导入枚举
+import '../../../../../utils/constants/enums.dart';
 import '../../../../../utils/helpers/helper_functions.dart';
 import '../../../controllers/community_management_controller.dart';
 
@@ -41,16 +41,14 @@ class CommunityManagementHeader extends StatelessWidget {
                       ),
                       SizedBox(width: 16),
                       Obx(() => Container(
-                        padding: EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
+                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
                           color: TAdminColors.primary.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                              color: TAdminColors.primary.withOpacity(0.3)),
+                          border: Border.all(color: TAdminColors.primary.withOpacity(0.3)),
                         ),
                         child: Text(
-                          '${controller.filteredPosts.length} ${controller.showingActivePosts.value ? 'Active' : 'Disabled'}',
+                          '${controller.totalCount.value} ${controller.showingActivePosts.value ? 'Active' : 'Disabled'}',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -99,14 +97,12 @@ class CommunityManagementHeader extends StatelessWidget {
                               ? IconButton(
                             icon: Icon(
                               Iconsax.close_circle_bold,
-                              color:
-                              TAdminColors.getOnSurfaceVariantColor(
-                                  darkMode),
+                              color: TAdminColors.getOnSurfaceVariantColor(darkMode),
                               size: 20,
                             ),
                             onPressed: () {
                               controller.searchController.clear();
-                              controller.filterPosts();
+                              // Search will auto-trigger via listener
                             },
                           )
                               : const SizedBox.shrink();
@@ -120,11 +116,9 @@ class CommunityManagementHeader extends StatelessWidget {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide:
-                        BorderSide(color: TAdminColors.primary, width: 2),
+                        borderSide: BorderSide(color: TAdminColors.primary, width: 2),
                       ),
-                      contentPadding:
-                      EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                     ),
                     style: TextStyle(
                       color: TAdminColors.getOnSurfaceColor(darkMode),
@@ -150,8 +144,7 @@ class CommunityManagementHeader extends StatelessWidget {
                       duration: Duration(milliseconds: 1000),
                       child: Icon(
                         Iconsax.refresh_bold,
-                        color:
-                        TAdminColors.getOnSurfaceVariantColor(darkMode),
+                        color: TAdminColors.getOnSurfaceVariantColor(darkMode),
                         size: 20,
                       ),
                     )),
@@ -202,7 +195,7 @@ class CommunityManagementHeader extends StatelessWidget {
 
             // Type filter dropdown
             Container(
-              height: 48, // Same height as status buttons
+              height: 48,
               child: Obx(() => _buildTypeFilter(darkMode)),
             ),
 
@@ -220,7 +213,7 @@ class CommunityManagementHeader extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  height: 48, // Same height as other controls
+                  height: 48,
                   child: Obx(() => DropdownButtonHideUnderline(
                     child: DropdownButton<int>(
                       value: controller.itemsPerPage.value,
@@ -229,13 +222,11 @@ class CommunityManagementHeader extends StatelessWidget {
                           .map((items) => DropdownMenuItem(
                         value: items,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           child: Text(
                             '$items',
                             style: TextStyle(
-                              color: TAdminColors.getOnSurfaceColor(
-                                  darkMode),
+                              color: TAdminColors.getOnSurfaceColor(darkMode),
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -249,8 +240,7 @@ class CommunityManagementHeader extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                       icon: Icon(
                         Iconsax.arrow_down_1_bold,
-                        color:
-                        TAdminColors.getOnSurfaceVariantColor(darkMode),
+                        color: TAdminColors.getOnSurfaceVariantColor(darkMode),
                       ),
                     ),
                   )),
@@ -271,22 +261,18 @@ class CommunityManagementHeader extends StatelessWidget {
     );
   }
 
-  Widget _buildTabButton(
-      String text, bool isSelected, VoidCallback onTap, bool isDark) {
+  Widget _buildTabButton(String text, bool isSelected, VoidCallback onTap, bool isDark) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected
-              ? TAdminColors.getSurfaceColor(isDark)
-              : Colors.transparent,
+          color: isSelected ? TAdminColors.getSurfaceColor(isDark) : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           boxShadow: isSelected
               ? [
             BoxShadow(
-              color:
-              isDark ? Colors.black26 : Colors.grey.withOpacity(0.1),
+              color: isDark ? Colors.black26 : Colors.grey.withOpacity(0.1),
               blurRadius: 4,
               offset: Offset(0, 2),
             ),
@@ -297,9 +283,7 @@ class CommunityManagementHeader extends StatelessWidget {
           text,
           style: TextStyle(
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-            color: isSelected
-                ? TAdminColors.getOnSurfaceColor(isDark)
-                : TAdminColors.getOnSurfaceVariantColor(isDark),
+            color: isSelected ? TAdminColors.getOnSurfaceColor(isDark) : TAdminColors.getOnSurfaceVariantColor(isDark),
           ),
         ),
       ),
@@ -340,7 +324,8 @@ class CommunityManagementHeader extends StatelessWidget {
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  Container(
+                  // Show total count badge
+                  Obx(() => Container(
                     margin: EdgeInsets.only(left: 8),
                     padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
@@ -348,14 +333,14 @@ class CommunityManagementHeader extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
-                      '${controller.allPosts.length}',
+                      '${controller.totalCount.value}',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                         color: TAdminColors.primary,
                       ),
                     ),
-                  ),
+                  )),
                 ],
               ),
             ),
@@ -383,10 +368,6 @@ class CommunityManagementHeader extends StatelessWidget {
                   break;
               }
 
-              final count = controller.allPosts
-                  .where((post) => post.postType == type)
-                  .length;
-
               return DropdownMenuItem<PostType?>(
                 value: type,
                 child: Row(
@@ -405,22 +386,8 @@ class CommunityManagementHeader extends StatelessWidget {
                         fontWeight: FontWeight.w500,
                       ),
                     ),
-                    Container(
-                      margin: EdgeInsets.only(left: 8),
-                      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: iconColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        '$count',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: iconColor,
-                        ),
-                      ),
-                    ),
+                    // Note: We can't show accurate type counts anymore without loading all data
+                    // since we're using pagination. The badge is removed for type filters.
                   ],
                 ),
               );

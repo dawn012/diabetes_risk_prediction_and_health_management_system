@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:icons_plus/icons_plus.dart';
 import 'package:get/get.dart';
 
+import '../../../features/authentication/models/admin_model.dart';
+import '../../../features/authentication/models/user_model.dart';
 import '../../../utils/constants/admin_colors.dart';
 import '../../../utils/helpers/helper_functions.dart';
 
@@ -64,21 +66,23 @@ class ReusableDataTable<T> extends StatelessWidget {
 
         // Data rows or empty state
         Expanded(
-          child: data.isEmpty
-              ? _buildEmptyState(darkMode)
-              : ListView.builder(
-            itemCount: data.length,
-            itemBuilder: (context, index) {
-              final item = data[index];
-              final isEven = index % 2 == 0;
+          child: Obx(() { // 包装整个内容
+            if (data.isEmpty) {
+              return _buildEmptyState(darkMode);
+            }
 
-              return Obx(() {
+            return ListView.builder(
+              itemCount: data.length,
+              itemBuilder: (context, index) {
+                final item = data[index];
+                final isEven = index % 2 == 0;
                 final isSelected = selectedItems.contains(item);
+
                 return _buildDataRow(
                     context, item, isSelected, isEven, darkMode, index);
-              });
-            },
-          ),
+              },
+            );
+          }),
         ),
       ],
     );
@@ -243,6 +247,7 @@ class ReusableDataTable<T> extends StatelessWidget {
 
   Widget _buildDataRow(BuildContext context, T item, bool isSelected, bool isEven, bool isDark, int index) {
     return Material(
+      key: ValueKey('${_getItemId(item)}_$index'), // 添加唯一的 key
       color: Colors.transparent,
       child: Container(
         height: 64,
@@ -298,21 +303,24 @@ class ReusableDataTable<T> extends StatelessWidget {
                             ),
                           ),
                         ),
-                        child: Checkbox(
-                          value: isSelected,
-                          onChanged: (value) {
-                            if (value != null) {
-                              onItemSelect!(item, value);
-                            }
-                          },
-                        ),
+                        child: Obx(() { // 保持 checkbox 的 Obx
+                          final currentIsSelected = selectedItems.contains(item);
+                          return Checkbox(
+                            value: currentIsSelected,
+                            onChanged: (value) {
+                              if (value != null) {
+                                onItemSelect!(item, value);
+                              }
+                            },
+                          );
+                        }),
                       ),
                     ),
                   ),
                 ),
               ),
 
-            // Data cells - Fixed to respect minWidth
+            // Data cells
             Expanded(
               child: InkWell(
                 onTap: () {
@@ -325,6 +333,21 @@ class ReusableDataTable<T> extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _getItemId(T item) {
+    // 检查 UserModel
+    if (item is UserModel) {
+      return item.userId;
+    }
+    // 检查 AdminModel
+    else if (item is AdminModel) {
+      return item.userId;
+    }
+    // 最后回退到 hashCode
+    else {
+      return item.hashCode.toString();
+    }
   }
 
   Widget _buildDataCellsRow(T item, bool isDark) {

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:icons_plus/icons_plus.dart';
 
+import '../../../../../common/loaders/loaders.dart';
 import '../../../../../common/widgets/camera/media_picker.dart';
 import '../../../../../common/widgets/images/t_circular_image.dart';
 import '../../../../../utils/constants/colors.dart';
@@ -149,7 +150,7 @@ class ProfileImageSection extends StatelessWidget {
           imageFile = await ImageHelper.pickImage();
           break;
         case MediaOptionType.camera:
-          imageFile = await ImageHelper.openCustomCamera();
+          imageFile = await ImageHelper.takePhoto();
           break;
         default:
           break;
@@ -161,12 +162,9 @@ class ProfileImageSection extends StatelessWidget {
       }
     } catch (e) {
       print('Error changing profile picture: $e');
-      Get.snackbar(
-        'Error',
-        'Failed to select image. Please try again.',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: TColors.error,
-        colorText: TColors.white,
+      TLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to select image. Please try again.',
       );
     }
   }

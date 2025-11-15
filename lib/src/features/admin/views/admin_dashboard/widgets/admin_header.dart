@@ -85,8 +85,8 @@ class AdminHeader extends StatelessWidget {
                       break;
                     case 'logout':
                       ConfirmationDialog.showLogout(
-                          onConfirm: () {
-                            AuthenticationRepository.instance.logout();
+                          onConfirm: () async {
+                            await AuthenticationRepository.instance.logout();
                           }
                       );
                       break;

@@ -266,23 +266,9 @@ class BloodGlucoseInputScreen extends StatelessWidget {
           // Fine Adjustment Slider
           Obx(() => CustomSlider(
             value: controller.currentValue.value,
-            min: controller.measurementType.value == 'mg/dL'
-                ? controller.mmolToMgdl(HealthDataRanges.minGlucoseMmolL)
-                : HealthDataRanges.minGlucoseMmolL,
-            max: controller.measurementType.value == 'mg/dL'
-                ? controller.mmolToMgdl(HealthDataRanges.maxGlucoseMmolL)
-                : HealthDataRanges.maxGlucoseMmolL,
-            divisions: (
-                (
-                    (controller.measurementType.value == 'mg/dL'
-                        ? controller.mmolToMgdl(HealthDataRanges.maxGlucoseMmolL)
-                        : HealthDataRanges.maxGlucoseMmolL)
-                        -
-                        (controller.measurementType.value == 'mg/dL'
-                            ? controller.mmolToMgdl(HealthDataRanges.minGlucoseMmolL)
-                            : HealthDataRanges.minGlucoseMmolL)
-                ) * 10
-            ).toInt(),
+            min: controller.getMinRangeForCurrentUnit(),
+            max: controller.getMaxRangeForCurrentUnit(),
+            divisions: controller.getDivisionsForCurrentUnit(),
             onChanged: (value) => controller.updateGlucoseValue(value),
             activeColor: TColors.primary,
             darkMode: darkMode,

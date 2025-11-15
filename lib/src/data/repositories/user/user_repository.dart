@@ -1,16 +1,18 @@
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:diabetes_risk_prediction_and_health_management_system/src/utils/constants/firebase_field_names.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../features/authentication/models/admin_model.dart';
 import '../../../features/authentication/models/user_model.dart';
 import '../../../features/personalization/models/user_profile_model.dart';
 import '../../../utils/constants/firebase_collection_names.dart';
+import '../../../utils/constants/firebase_field_names.dart';
 import '../../../utils/constants/text_strings.dart';
 import '../../../utils/exceptions/firebase_exceptions.dart';
 import '../../../utils/exceptions/format_exceptions.dart';
@@ -29,6 +31,90 @@ class UserRepository extends GetxController {
   void onInit() {
     super.onInit();
     _usersCollection = _db.collection(FirebaseCollectionNames.users);
+  }
+
+  /// Stream all users (type: 'user')
+  Stream<List<UserModel>> streamAllUsers() {
+    try {
+      return _db
+          .collection(FirebaseCollectionNames.users)
+          .where(FirebaseFieldNames.userType, isEqualTo: 'user')
+          .snapshots()
+          .map((snapshot) {
+        return snapshot.docs
+            .map((doc) => UserModel.fromSnapshot(doc))
+            .toList();
+      });
+    } on FirebaseException catch (e) {
+      throw TFirebaseException(e.code).message;
+    } catch (e) {
+      throw TTexts.commonErrorMessage;
+    }
+  }
+
+  /// Stream all managers (type: 'admin', 'user manager', 'community manager', 'achievement manager')
+  Stream<List<AdminModel>> streamAllManagers() {
+    try {
+      return _db
+          .collection(FirebaseCollectionNames.users)
+          .where(FirebaseFieldNames.userType, whereIn: [
+        'user manager',
+        'community manager',
+        'achievement manager',
+      ])
+          .snapshots()
+          .map((snapshot) {
+        return snapshot.docs
+            .map((doc) => AdminModel.fromSnapshot(doc))
+            .toList();
+      });
+    } on FirebaseException catch (e) {
+      throw TFirebaseException(e.code).message;
+    } catch (e) {
+      throw TTexts.commonErrorMessage;
+    }
+  }
+
+  /// Get all managers (non-stream version)
+  Future<List<AdminModel>> getAllManagers() async {
+    try {
+      final documentSnapshot = await _db
+          .collection(FirebaseCollectionNames.users)
+          .where(FirebaseFieldNames.userType, whereIn: [
+        'user manager',
+        'community manager',
+        'achievement manager',
+      ])
+          .get();
+
+      final list = documentSnapshot.docs
+          .map((document) => AdminModel.fromSnapshot(document))
+          .toList();
+      return list;
+    } on FirebaseException catch (e) {
+      throw TFirebaseException(e.code).message;
+    } on FormatException catch (_) {
+      throw const TFormatException();
+    } on PlatformException catch (e) {
+      throw TPlatformException(e.code).message;
+    } catch (e) {
+      throw TTexts.commonErrorMessage;
+    }
+  }
+
+  /// Save admin/manager record
+  Future<void> saveAdminRecord(AdminModel admin) async {
+    try {
+      await _usersCollection.doc(admin.userId).set(admin.toJson());
+    } on FirebaseException catch (e) {
+      throw TFirebaseException(e.code).message;
+    } on FormatException catch (_) {
+      throw const TFormatException();
+    } on PlatformException catch (e) {
+      throw TPlatformException(e.code).message;
+    } catch (e) {
+      throw TTexts.commonErrorMessage;
+    }
   }
 
   /// Function to save user data to Firestore with profile as contained object
@@ -72,12 +158,69 @@ class UserRepository extends GetxController {
     }
   }
 
+  /// Check if phone number is already taken (excluding current user)
+  Future<bool> checkPhoneNumberDuplicate(String phoneNumber, String currentUserId) async {
+    try {
+      // 如果电话号码为空，不需要检查重复
+      if (phoneNumber.isEmpty) return false;
+
+      final querySnapshot = await _db
+          .collection(FirebaseCollectionNames.users)
+          .where(FirebaseFieldNames.phoneNumber, isEqualTo: phoneNumber)
+          .get();
+
+      // Check if any document exists with this phone number that's not the current user
+      for (var doc in querySnapshot.docs) {
+        if (doc.id != currentUserId) {
+          return true; // Phone number is taken
+        }
+      }
+      return false; // Phone number is available
+    } on FirebaseException catch (e) {
+      throw TFirebaseException(e.code).message;
+    } on FormatException catch (_) {
+      throw const TFormatException();
+    } on PlatformException catch (e) {
+      throw TPlatformException(e.code).message;
+    } catch (e) {
+      throw TTexts.commonErrorMessage;
+    }
+  }
+
   /// Get user by email (returns raw data for login validation)
   Future<Map<String, dynamic>?> getUserByEmail(String email) async {
     try {
       final querySnapshot = await _db
           .collection(FirebaseCollectionNames.users)
           .where(FirebaseFieldNames.email, isEqualTo: email)
+          .limit(1)
+          .get();
+
+      if (querySnapshot.docs.isEmpty) {
+        return null;
+      }
+
+      final doc = querySnapshot.docs.first;
+      final data = doc.data();
+      data['userId'] = doc.id; // Add document ID as userId
+      return data;
+    } on FirebaseException catch (e) {
+      throw TFirebaseException(e.code).message;
+    } on FormatException catch (_) {
+      throw const TFormatException();
+    } on PlatformException catch (e) {
+      throw TPlatformException(e.code).message;
+    } catch (e) {
+      throw TTexts.commonErrorMessage;
+    }
+  }
+
+  /// Get user by phone number (returns raw data)
+  Future<Map<String, dynamic>?> getUserByPhoneNumber(String phoneNumber) async {
+    try {
+      final querySnapshot = await _db
+          .collection(FirebaseCollectionNames.users)
+          .where(FirebaseFieldNames.phoneNumber, isEqualTo: phoneNumber)
           .limit(1)
           .get();
 
@@ -322,11 +465,35 @@ class UserRepository extends GetxController {
   }
 
   /// Upload user profile image to Firebase Storage
-  Future<String> uploadImage(String path, XFile image) async {
+  Future<String> uploadImage(String path, XFile image, {String? oldImageUrl}) async {
     try {
-      final ref = FirebaseStorage.instance.ref(path).child(image.name);
-      await ref.putFile(File(image.path));
+      final uuid = Uuid();
+
+      // 获取文件扩展名
+      final fileExtension = image.name.split('.').last.toLowerCase();
+
+      // 生成唯一的文件名：uuid + 原始文件扩展名
+      final uniqueFileName = '${uuid.v4()}.$fileExtension';
+
+      // 使用唯一的文件名
+      final ref = FirebaseStorage.instance.ref(path).child(uniqueFileName);
+
+      if (kIsWeb) {
+        // Web 平台：使用字节数据上传
+        final bytes = await image.readAsBytes();
+        await ref.putData(bytes);
+      } else {
+        // 移动端：使用文件路径上传
+        await ref.putFile(File(image.path));
+      }
+
       final url = await ref.getDownloadURL();
+
+      // 上传成功后删除旧图片
+      if (oldImageUrl != null && oldImageUrl.isNotEmpty) {
+        await deleteImage(oldImageUrl);
+      }
+
       return url;
     } on FirebaseException catch (e) {
       throw TFirebaseException(e.code).message;
@@ -335,7 +502,27 @@ class UserRepository extends GetxController {
     } on PlatformException catch (e) {
       throw TPlatformException(e.code).message;
     } catch (e) {
+      print('Upload image error: $e');
       throw 'Something went wrong. Please try again.';
+    }
+  }
+
+  /// Delete image from Firebase Storage
+  Future<void> deleteImage(String imageUrl) async {
+    try {
+      if (imageUrl.isEmpty) return;
+
+      // 从完整的 URL 中提取 storage reference
+      final ref = FirebaseStorage.instance.refFromURL(imageUrl);
+      await ref.delete();
+    } on FirebaseException catch (e) {
+      // 如果图片不存在，忽略这个错误
+      if (e.code != 'object-not-found') {
+        throw TFirebaseException(e.code).message;
+      }
+    } catch (e) {
+      print('Error deleting image: $e');
+      // 不抛出异常，因为删除旧图片不是关键操作
     }
   }
 
@@ -358,14 +545,23 @@ class UserRepository extends GetxController {
   }
 
   /// Update any field in specific Users Collection
-  Future<void> updateSingleField(Map<String, dynamic> json) async {
+  Future<void> updateSingleField(Map<String, dynamic> json, {String? userId}) async {
     try {
-      final currentUserId = AuthenticationRepository.instance.authUser?.uid;
-      if (currentUserId == null) throw 'User not authenticated';
+      final String targetUserId;
+
+      if (userId != null) {
+        // 使用传入的用户ID
+        targetUserId = userId;
+      } else {
+        // 使用当前登录用户的ID
+        final currentUserId = AuthenticationRepository.instance.authUser?.uid;
+        if (currentUserId == null) throw 'User not authenticated';
+        targetUserId = currentUserId;
+      }
 
       await _db
           .collection(FirebaseCollectionNames.users)
-          .doc(currentUserId)
+          .doc(targetUserId)
           .update(json);
     } on FirebaseException catch (e) {
       throw TFirebaseException(e.code).message;

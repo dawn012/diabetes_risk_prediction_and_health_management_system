@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import '../../../common/loaders/loaders.dart';
 import '../../../common/widgets/dialogs/dialog.dart';
 import '../../../data/repositories/user/user_repository.dart';
+import '../../../utils/constants/text_strings.dart';
 import '../../../utils/helpers/network_manager.dart';
 import '../../../utils/validators/user_profile_validator.dart';
 import 'user_controller.dart';
@@ -176,7 +177,7 @@ class UpdateSingleFieldController extends GetxController {
       );
 
       if (isDuplicate) {
-        throw 'This username is already in use. Please choose another.';
+        throw TTexts.usernameAlreadyBeenUsed;
       }
 
       // 直接更新到数据库
@@ -210,6 +211,16 @@ class UpdateSingleFieldController extends GetxController {
 
       // 转换格式
       final storageFormat = TUserProfileValidator.convertToStorageFormat(phoneNumber);
+
+      // 检查电话号码重复
+      final isDuplicate = await userRepository.checkPhoneNumberDuplicate(
+        storageFormat,
+        userController.user.value.userId,
+      );
+
+      if (isDuplicate) {
+        throw TTexts.phoneNumberAlreadyBeenUsed;
+      }
 
       // 直接更新到数据库
       await userRepository.updateSingleField({'phoneNumber': storageFormat});

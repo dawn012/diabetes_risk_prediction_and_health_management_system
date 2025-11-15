@@ -392,7 +392,7 @@ class MealPhotosUploadScreen extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: Image.file(
-                File(photo.localPath),
+                File(photo.imagePath),
                 width: double.infinity,
                 height: double.infinity,
                 fit: BoxFit.cover,

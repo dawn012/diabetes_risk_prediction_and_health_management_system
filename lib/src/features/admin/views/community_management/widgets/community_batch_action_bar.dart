@@ -139,6 +139,9 @@ class CommunityBatchActionsBar extends StatelessWidget {
   }
 
   void _showBatchDisableConfirmation() {
+    final count = controller.selectedPosts.length;
+    final plural = count == 1 ? '' : 's';
+
     BatchDialog.showBatchAction(
       actionType: BatchActionType.ban,
       // Reusing ban type for disable
@@ -147,10 +150,16 @@ class CommunityBatchActionsBar extends StatelessWidget {
       getItemDisplayName: (post) => 'Post ${post.postId}',
       getItemSubtitle: (post) =>
       controller.posterData[post.posterId]?.username ?? 'Unknown user',
+      customTitle: 'Disable Multiple Posts',
+      customMessage: 'Are you sure you want to disable $count selected post$plural? This action will hide the post$plural from the community.',
+      customConfirmButtonText: 'Disable Posts'
     );
   }
 
   void _showBatchEnableConfirmation() {
+    final count = controller.selectedPosts.length;
+    final plural = count == 1 ? '' : 's';
+
     BatchDialog.showBatchAction(
       actionType: BatchActionType.restore,
       // Reusing restore type for enable
@@ -159,6 +168,9 @@ class CommunityBatchActionsBar extends StatelessWidget {
       getItemDisplayName: (post) => 'Post ${post.postId}',
       getItemSubtitle: (post) =>
       controller.posterData[post.posterId]?.username ?? 'Unknown user',
+        customTitle: 'Enable Multiple Posts',
+        customMessage: 'Are you sure you want to enable $count selected post$plural? This will make the post$plural visible in the community again.',
+        customConfirmButtonText: 'Enable Posts'
     );
   }
 }

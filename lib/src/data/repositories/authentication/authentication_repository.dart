@@ -1,5 +1,9 @@
+import 'dart:math';
+
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:diabetes_risk_prediction_and_health_management_system/src/data/repositories/user/user_repository.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
@@ -8,7 +12,9 @@ import 'package:get_storage/get_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../../../navigation_menu.dart';
+import '../../../common/loaders/loaders.dart';
 import '../../../features/admin/views/admin_dashboard/admin_dashboard_screen.dart';
+import '../../../features/authentication/views/login/admin_login_screen.dart';
 import '../../../features/authentication/views/login/login_screen.dart';
 import '../../../features/authentication/views/onboarding/onboarding.dart';
 import '../../../features/authentication/views/signup/verify_email.dart';
@@ -43,10 +49,13 @@ class AuthenticationRepository extends GetxController {
 
   @override
   void onReady() {
-    // _firebaseUser = Rx<User?>(_auth.currentUser);
-    // _firebaseUser.bindStream(_auth.userChanges());
     FlutterNativeSplash.remove();
-    screenRedirect();
+
+    // 只在移动端执行自动重定向
+    // if (!kIsWeb) {
+      screenRedirect();
+    // }
+
     if (authUser != null) {
       getUserRole();
     }
@@ -56,6 +65,9 @@ class AuthenticationRepository extends GetxController {
     final user = _auth.currentUser;
     if (user != null) {
       final role = await getUserRole();
+
+      print("Is verified: ${user.emailVerified}");
+      print("Role: $role");
 
       // If the user is logged in
       if (user.emailVerified) {
@@ -78,17 +90,30 @@ class AuthenticationRepository extends GetxController {
           Get.offAll(() => NavigationMenu());
         }
       } else {
-        // If the user's email is not verified, navigate to the MainVerification
-        Get.offAll(() => VerifyEmailScreen());
+        // 对于所有用户，如果邮箱未验证，都显示错误或去验证页面
+        // 对于 Web (Admin/Manager)，保持在登录页显示错误
+        if (kIsWeb) {
+          // 保持在 AdminLoginScreen，错误消息已经在 controller 中显示
+          // 不需要额外跳转
+        } else {
+          // If the user's email is not verified, navigate to the MainVerification
+          Get.offAll(() => VerifyEmailScreen());
+        }
       }
     } else {
       // Local Storage
       deviceStorage.writeIfNull('IsFirstTime', true);
 
       // Check if it's the first time launching the app
-      deviceStorage.read('IsFirstTime') != true
-          ? Get.off(() => const LoginScreen())
-          : Get.off(() => const OnBoardingScreen());
+      if (kIsWeb) {
+        // 🌐 Web 平台：直接去登录页（Admin Login Screen）
+        Get.offAll(() => const AdminLoginScreen());
+      } else {
+        // 📱 移动端：检查是否是第一次启动
+        deviceStorage.read('IsFirstTime') != true
+            ? Get.offAll(() => const LoginScreen())
+            : Get.offAll(() => const OnBoardingScreen());
+      }
     }
   }
 
@@ -364,12 +389,118 @@ class AuthenticationRepository extends GetxController {
     }
   }
 
+  /// Create manager account with email (sends verification email)
+  /// Returns the created user ID
+  Future<String> createManagerWithEmail(String email, String role) async {
+    try {
+      // Store current user
+      final currentUser = _auth.currentUser;
+
+      // Create new user with a temporary password
+      // The manager will set their actual password when they verify their email
+      final tempPassword = _generateTempPassword();
+
+      final userCredential = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: tempPassword,
+      );
+
+      // Get the new user ID
+      final newUserId = userCredential.user!.uid;
+
+      // Set the user role in authentication
+      await setUserRole(newUserId, role);
+
+      // Send password reset email so they can set their own password
+      await _auth.sendPasswordResetEmail(email: email);
+
+      return newUserId;
+    } on FirebaseAuthException catch (e) {
+      throw TFirebaseAuthException(e.code).message;
+    } on FirebaseException catch (e) {
+      throw TFirebaseException(e.code).message;
+    } on FormatException catch (_) {
+      throw const TFormatException();
+    } on PlatformException catch (e) {
+      throw TPlatformException(e.code).message;
+    } catch (e) {
+      throw TTexts.commonErrorMessage;
+    }
+  }
+
+  /// Generate a temporary random password
+  String _generateTempPassword() {
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#\$%^&*';
+    final random = Random.secure();
+    return List.generate(16, (index) => chars[random.nextInt(chars.length)]).join();
+  }
+
+  /// 调用 Cloud Function 设置用户角色
+  Future<void> setUserRole(String uid, String role) async {
+    try {
+      final callable = FirebaseFunctions.instance.httpsCallable('setCustomRole');
+      final result = await callable.call({
+        'uid': uid,
+        'role': role,
+      });
+
+      print('Role set successfully: ${result.data}');
+    } on FirebaseFunctionsException catch (e) {
+      print('Firebase Functions error: ${e.code} - ${e.message}');
+      throw 'Failed to set user role: ${e.message}';
+    } catch (e) {
+      print('Error setting user role: $e');
+      throw 'Failed to set user role: $e';
+    }
+  }
+
+  /// Resend verification email to manager
+  Future<void> resendManagerVerificationEmail(String email) async {
+    try {
+      // Send password reset email (which also allows them to set their password)
+      await _auth.sendPasswordResetEmail(email: email);
+    } on FirebaseAuthException catch (e) {
+      throw TFirebaseAuthException(e.code).message;
+    } on FirebaseException catch (e) {
+      throw TFirebaseException(e.code).message;
+    } catch (e) {
+      throw TTexts.commonErrorMessage;
+    }
+  }
+
   Future<void> logout() async {
     try {
-      await GoogleSignIn().signOut();
-      await FacebookAuth.instance.logOut();
+      // 主要的 Firebase 登出
       await FirebaseAuth.instance.signOut();
-      Get.offAll(() => const LoginScreen());
+      print('Firebase signOut successful');
+
+      // 只在移动端执行第三方登出
+      if (!kIsWeb) {
+        try {
+          await GoogleSignIn().signOut();
+          print('Google signOut successful');
+        } catch (e) {
+          print('Google signOut error: $e');
+        }
+
+        try {
+          await FacebookAuth.instance.logOut();
+          print('Facebook logOut successful');
+        } catch (e) {
+          print('Facebook logOut error: $e');
+        }
+      }
+
+      TLoaders.successSnackBar(
+        title: 'See you soon!',
+        message: 'You have been successfully logged out.',
+      );
+
+      if (kIsWeb) {
+        Get.offAll(() => const AdminLoginScreen());
+      } else {
+        Get.offAll(() => const LoginScreen());
+      }
     } on FirebaseAuthException catch (e) {
       throw TFirebaseAuthException(e.code).message;
     } on FirebaseException catch (e) {

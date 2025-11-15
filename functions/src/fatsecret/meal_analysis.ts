@@ -121,7 +121,7 @@ async function getFatSecretAccessToken(): Promise<string> {
   try {
     const response = await axios.post(
       FATSECRET_CONFIG.tokenUrl,
-      "grant_type=client_credentials&scope=premier",
+      "grant_type=client_credentials&scope=image-recognition",
       {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         auth: {
@@ -262,7 +262,6 @@ function extractFoodData(apiResponse: any): Partial<DetectedFood>[] {
   try {
     console.log("🔍 Raw API response structure:", JSON.stringify(apiResponse, null, 2).substring(0, 1000));
 
-    // 检查不同的可能响应结构
     if (apiResponse.food_response && Array.isArray(apiResponse.food_response)) {
       console.log("✅ Found food_response array");
       for (const foodItem of apiResponse.food_response) {
@@ -272,8 +271,12 @@ function extractFoodData(apiResponse: any): Partial<DetectedFood>[] {
           const content = foodItem.eaten.total_nutritional_content;
           console.log("🎯 Nutritional content found");
 
+          // 修复：优先使用 food_entry_name，并添加调试
+          const foodName = foodItem.food_entry_name || "Unknown Food";
+          console.log(`📝 Extracted food name: "${foodName}"`);
+
           foods.push({
-            name: foodItem.food_name || "Unknown Food",
+            name: foodName,
             calories: parseFloat(content.calories || 0),
             carbs: parseFloat(content.carbohydrate || 0),
             protein: parseFloat(content.protein || 0),
@@ -289,19 +292,17 @@ function extractFoodData(apiResponse: any): Partial<DetectedFood>[] {
       }
     } else {
       console.log("❌ No food_response array found");
-      // 检查其他可能的结构
-      if (apiResponse.foods) {
-        console.log("📝 Found 'foods' field instead");
-      }
-      if (apiResponse.detected_foods) {
-        console.log("📝 Found 'detected_foods' field instead");
-      }
     }
   } catch (error) {
     console.error("❌ Error extracting food data:", error);
   }
 
-  console.log(`🍎 Extracted ${foods.length} foods`);
+  // 增强调试：显示具体提取的食物名称
+  console.log(`🍎 Extracted ${foods.length} foods:`);
+  foods.forEach((food, index) => {
+    console.log(`   ${index + 1}. "${food.name}" - Carbs: ${food.carbs}g, Fiber: ${food.fiber}g`);
+  });
+
   return foods;
 }
 
@@ -433,7 +434,7 @@ function assessDietQuality(mealGLs: number[]): {
 }
 
 /**
- * Main Cloud Function - 优化版本
+ * Main Cloud Function
  */
 export const analyzeMealPhotos = functions.https.onCall(
   async (data: AnalysisRequest, context: functions.https.CallableContext): Promise<AnalysisResponse> => {
@@ -447,7 +448,7 @@ export const analyzeMealPhotos = functions.https.onCall(
       }
 
       // Validate input
-      if (!data.images || !Array.isArray(data.images) || data.images.length < 7) {
+      if (!data.images || !Array.isArray(data.images) || data.images.length < 1) {
         throw new functions.https.HttpsError(
           "invalid-argument",
           "At least 7 meal images required"
@@ -487,6 +488,7 @@ export const analyzeMealPhotos = functions.https.onCall(
 
       // 3. 批量获取所有食物的 GI 值
       console.log(`🔍 Collecting GI values for ${allFoodNames.length} food items...`);
+
       let giMap: Map<string, number>;
       try {
         giMap = await getGIBatch(allFoodNames);

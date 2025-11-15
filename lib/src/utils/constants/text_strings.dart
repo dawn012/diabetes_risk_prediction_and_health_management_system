@@ -112,9 +112,14 @@ class TTexts {
   static const String accountDisabledMessage = "This account has been disabled. Please contact the administrator.";
   static const String accountBlocked = "Account Blocked";
   static const String tooManyFailedAttempts = "Too many failed attempts. Please try again after";
-  static const String minutes = "minutes.";
+  static const String minutes = "minutes";
+  static const String seconds = "seconds.";
   static const String emailNotVerified = "Email Not Verified";
   static const String emailNotVerifiedMessage = "Your email is not verified. Please check your inbox for the verification email.";
+
+  static const String usernameAlreadyBeenUsed = "This username is already in use. Please choose another.";
+  static const String emailAlreadyBeenUsed = "This email is already registered.";
+  static const String phoneNumberAlreadyBeenUsed = "This phone number is already registered.";
 
   // -- Home
   static const String homeAppbarTitle = "Good day for managing diabetes";

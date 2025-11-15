@@ -1,3 +1,4 @@
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
@@ -5,8 +6,8 @@ import 'package:get/get.dart';
 import '../../../common/loaders/loaders.dart';
 import '../../../data/repositories/authentication/authentication_repository.dart';
 import '../../../data/repositories/user/user_repository.dart';
+import '../../../utils/constants/firebase_field_names.dart';
 import '../../../utils/constants/text_strings.dart';
-import '../../../utils/helpers/network_manager.dart';
 
 class AdminLoginController extends GetxController {
   static AdminLoginController get instance => Get.find();
@@ -16,6 +17,7 @@ class AdminLoginController extends GetxController {
   final password = TextEditingController();
   final hidePassword = true.obs;
   final isLoading = false.obs;
+  final errorMessage = RxString(''); // 添加错误消息状态
   GlobalKey<FormState> loginFormKey = GlobalKey<FormState>();
 
   final _userRepository = UserRepository.instance;
@@ -26,18 +28,19 @@ class AdminLoginController extends GetxController {
     hidePassword.value = !hidePassword.value;
   }
 
+  // Clear error message
+  void clearError() {
+    errorMessage.value = '';
+  }
+
   // Admin Login Method
   Future<void> adminLogin() async {
     try {
+      // Clear previous errors
+      clearError();
+
       // Start Loading
       isLoading.value = true;
-
-      // Check Internet Connectivity
-      final isConnected = await NetworkManager.instance.isConnected();
-      if (!isConnected) {
-        isLoading.value = false;
-        return;
-      }
 
       // Form Validation
       if (!loginFormKey.currentState!.validate()) {
@@ -53,10 +56,7 @@ class AdminLoginController extends GetxController {
 
       if (userData == null) {
         isLoading.value = false;
-        TLoaders.errorSnackBar(
-          title: TTexts.error,
-          message: TTexts.incorrectEmailOrPassword,
-        );
+        errorMessage.value = TTexts.incorrectEmailOrPassword;
         return;
       }
 
@@ -66,39 +66,15 @@ class AdminLoginController extends GetxController {
       // Check if account is a user account (cannot login from admin website)
       if (userType == 'user') {
         isLoading.value = false;
-        TLoaders.errorSnackBar(
-          title: TTexts.error,
-          message: TTexts.userCannotLoginFromAdmin,
-        );
+        errorMessage.value = TTexts.userCannotLoginFromAdmin;
         return;
       }
 
-      // Get login attempts data
-      final loginAttempt = userData['loginAttempt'] ?? 5;
-      final lastAttemptTime = userData['lastAttemptTime'] ?? 0;
-      final currentTime = DateTime.now().millisecondsSinceEpoch;
-      final timeDifference = currentTime - lastAttemptTime;
-      final tenMinutesInMs = 10 * 60 * 1000;
-
-      // Check if 10 minutes have passed since last attempt and reset if needed
-      if (timeDifference >= tenMinutesInMs && loginAttempt < 5) {
-        await _userRepository.resetLoginAttempts(userId);
-      }
-
-      // Get updated login attempt count
-      final updatedUserData = await _userRepository.getUserByEmail(emailAddress);
-      final updatedLoginAttempt = updatedUserData?['loginAttempt'] ?? 5;
-
-      // Check if account is blocked
-      if (updatedLoginAttempt <= 0) {
-        final remainingTime = tenMinutesInMs - timeDifference;
-        final remainingMinutes = (remainingTime / 60000).ceil();
-
+      // 检查block状态
+      final blockResult = await _checkBlockStatus(userData, emailAddress);
+      if (blockResult.$1) {
         isLoading.value = false;
-        TLoaders.errorSnackBar(
-          title: TTexts.accountBlocked,
-          message: '${TTexts.tooManyFailedAttempts} $remainingMinutes ${TTexts.minutes}',
-        );
+        errorMessage.value = blockResult.$2;
         return;
       }
 
@@ -109,25 +85,17 @@ class AdminLoginController extends GetxController {
           emailAddress,
           userPassword,
         );
-      } on FirebaseAuthException catch (e) {
-        // Wrong password - deduct login attempt
-        if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
-          await _userRepository.decrementLoginAttempt(userId);
+      } catch (e) {
+        print('Authentication error: $e');
 
-          isLoading.value = false;
-          TLoaders.errorSnackBar(
-            title: TTexts.error,
-            message: TTexts.incorrectEmailOrPassword,
-          );
-          return;
-        }
+        // 扣减尝试次数
+        await _userRepository.decrementLoginAttempt(userId);
 
-        // Other authentication errors
+        // 检查扣减后是否被block
+        final afterBlockResult = await _checkBlockStatus(null, emailAddress);
+
         isLoading.value = false;
-        TLoaders.errorSnackBar(
-          title: TTexts.error,
-          message: e.message ?? TTexts.commonErrorMessage,
-        );
+        errorMessage.value = afterBlockResult.$1 ? afterBlockResult.$2 : e.toString();
         return;
       }
 
@@ -139,23 +107,29 @@ class AdminLoginController extends GetxController {
         final accountAvailable = userData['accountAvailable'] ?? true;
         if (!accountAvailable) {
           isLoading.value = false;
-          TLoaders.errorSnackBar(
-            title: TTexts.accountDisabled,
-            message: TTexts.accountDisabledMessage,
-          );
+          errorMessage.value = TTexts.accountDisabledMessage;
           return;
         }
       }
 
-      // Check email verification
-      if (!userCredential.user!.emailVerified) {
-        isLoading.value = false;
-        TLoaders.errorSnackBar(
-          title: TTexts.emailNotVerified,
-          message: TTexts.emailNotVerifiedMessage,
-        );
-        return;
+      // 登录成功后就更新 Firestore 的 isVerify 为 true
+      // 因为 reset password 后 Authentication 的 emailVerified 已经是 true
+      try {
+        await _userRepository.updateSingleField({
+          FirebaseFieldNames.isVerify: true,
+        });
+        print('Successfully updated isVerify to true in Firestore for user: $userId');
+      } catch (e) {
+        print('Warning: Failed to update isVerify in Firestore: $e');
+        // 不阻止登录，只记录警告
       }
+
+      // Check email verification
+      // if (!userCredential.user!.emailVerified) {
+      //   isLoading.value = false;
+      //   errorMessage.value = TTexts.emailNotVerifiedMessage;
+      //   return;
+      // }
 
       // All checks passed - redirect
       isLoading.value = false;
@@ -164,11 +138,70 @@ class AdminLoginController extends GetxController {
     } catch (e) {
       print('Admin Login Error: $e');
       isLoading.value = false;
-      TLoaders.errorSnackBar(
-        title: TTexts.error,
-        message: TTexts.commonErrorMessage,
-      );
+      errorMessage.value = TTexts.commonErrorMessage;
     }
+  }
+
+  // 调用 selfVerifyEmail Cloud Function
+  Future<void> _callSelfVerifyEmail() async {
+    try {
+      final callable = FirebaseFunctions.instance.httpsCallable('selfVerifyEmail');
+      await callable.call();
+    } on FirebaseFunctionsException catch (e) {
+      print('Firebase Functions error in selfVerifyEmail: ${e.code} - ${e.message}');
+      // 不抛出异常，允许继续登录
+    } catch (e) {
+      print('Error calling selfVerifyEmail: $e');
+      // 不抛出异常，允许继续登录
+    }
+  }
+
+  // 辅助方法：检查block状态，返回 (isBlocked, errorMessage)
+  Future<(bool, String)> _checkBlockStatus(
+      Map<String, dynamic>? userData,
+      String emailAddress
+      ) async {
+    const tenMinutesInMs = 10 * 60 * 1000;
+
+    // 如果没有传入userData，重新获取
+    final data = userData ?? await _userRepository.getUserByEmail(emailAddress);
+    if (data == null) {
+      return (false, '');
+    }
+
+    final loginAttempt = data['loginAttempt'] ?? 5;
+    final lastAttemptTime = data['lastAttemptTime'] ?? 0;
+    final currentTime = DateTime.now().millisecondsSinceEpoch;
+    final timeDifference = currentTime - (lastAttemptTime as int);
+
+    // 检查是否需要重置尝试次数
+    if (timeDifference >= tenMinutesInMs && loginAttempt < 5) {
+      await _userRepository.resetLoginAttempts(data['userId']);
+      return (false, '');
+    }
+
+    // 检查是否被block
+    if (loginAttempt <= 0) {
+      final remainingTime = tenMinutesInMs - timeDifference;
+
+      // 修复时间计算：使用总秒数来避免分钟和秒数的不一致
+      final totalSeconds = (remainingTime / 1000).ceil();
+      final remainingMinutes = (totalSeconds / 60).floor();
+      final remainingSeconds = totalSeconds % 60;
+
+      String errorMsg;
+      if (remainingMinutes > 0) {
+        // 显示格式：XX minutes YY seconds
+        errorMsg = '${TTexts.tooManyFailedAttempts} $remainingMinutes ${TTexts.minutes} ${remainingSeconds.toString().padLeft(2, '0')} ${TTexts.seconds}';
+      } else {
+        // 显示格式：YY seconds
+        errorMsg = '${TTexts.tooManyFailedAttempts} ${remainingSeconds.toString().padLeft(2, '0')} ${TTexts.seconds}';
+      }
+
+      return (true, errorMsg);
+    }
+
+    return (false, '');
   }
 
   @override

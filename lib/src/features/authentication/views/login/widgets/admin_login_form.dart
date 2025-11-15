@@ -53,6 +53,8 @@ class _AdminLoginFormState extends State<AdminLoginForm> {
             controller: controller.email,
             validator: (value) => TUserProfileValidator.validateEmail(value),
             focusNode: emailFocusNode,
+            onChanged: (_) => controller.clearError(),
+            // 输入时清除错误
             style: TextStyle(
               color: TAdminColors.getOnSurfaceColor(darkMode),
             ),
@@ -96,12 +98,14 @@ class _AdminLoginFormState extends State<AdminLoginForm> {
 
           /// Password Field
           Obx(
-                () => TextFormField(
+            () => TextFormField(
               controller: controller.password,
               validator: (value) =>
-                  TUserProfileValidator.validateEmptyText('password', value),
+                  TUserProfileValidator.validateEmptyText('Password', value),
               obscureText: controller.hidePassword.value,
               focusNode: passwordFocusNode,
+              onChanged: (_) => controller.clearError(),
+              // 输入时清除错误
               style: TextStyle(
                 color: TAdminColors.getOnSurfaceColor(darkMode),
               ),
@@ -151,11 +155,51 @@ class _AdminLoginFormState extends State<AdminLoginForm> {
             ),
           ),
 
+          /// Error Message Display
+          Obx(() {
+            if (controller.errorMessage.value.isEmpty) {
+              return SizedBox.shrink();
+            }
+            return Padding(
+                padding: const EdgeInsets.only(top: TSizes.md),
+                child: Container(
+                  padding: EdgeInsets.all(TSizes.md),
+                  decoration: BoxDecoration(
+                    color: TAdminColors.error.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: TAdminColors.error.withOpacity(0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.error_outline,
+                        color: TAdminColors.error,
+                        size: 20,
+                      ),
+                      SizedBox(width: TSizes.sm),
+                      Expanded(
+                        child: Text(
+                          controller.errorMessage.value,
+                          style: TextStyle(
+                            color: TAdminColors.error,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ));
+          }),
+
           SizedBox(height: isWeb ? TSizes.xl : TSizes.lg),
 
           /// Sign In Button
           Obx(
-                () => SizedBox(
+            () => SizedBox(
               height: isWeb ? 56 : 48,
               child: ElevatedButton(
                 onPressed: controller.isLoading.value
@@ -164,7 +208,8 @@ class _AdminLoginFormState extends State<AdminLoginForm> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: TAdminColors.primary,
                   foregroundColor: Colors.white,
-                  disabledBackgroundColor: TAdminColors.primary.withOpacity(0.6),
+                  disabledBackgroundColor:
+                      TAdminColors.primary.withOpacity(0.6),
                   disabledForegroundColor: Colors.white.withOpacity(0.6),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -173,22 +218,22 @@ class _AdminLoginFormState extends State<AdminLoginForm> {
                 ),
                 child: controller.isLoading.value
                     ? SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      Colors.white,
-                    ),
-                  ),
-                )
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
+                        ),
+                      )
                     : Text(
-                  TTexts.signIn,
-                  style: TextStyle(
-                    fontSize: isWeb ? 16 : 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                        TTexts.signIn,
+                        style: TextStyle(
+                          fontSize: isWeb ? 16 : 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
               ),
             ),
           ),

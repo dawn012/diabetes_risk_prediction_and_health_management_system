@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../../common/loaders/loaders.dart';
 import '../../../data/repositories/user/user_repository.dart';
@@ -113,10 +112,36 @@ class UpdateProfileController extends GetxController {
     _updateHasPendingChanges();
   }
 
-  /// Update pending profile image
-  void updatePendingProfileImage(File? image) {
-    pendingProfileImage.value = image;
-    _updateHasPendingChanges();
+  /// Update pending profile image with validation and compression
+  Future<void> updatePendingProfileImage(File? image) async {
+    if (image == null) return;
+
+    try {
+      // Show loading while processing image
+      TLoaders.customToast(message: 'Processing image...');
+
+      // Use UserController to validate and compress image
+      final compressedImage = await userController.validateAndCompressImage(image);
+
+      if (compressedImage != null) {
+        // Store the compressed image for preview
+        pendingProfileImage.value = compressedImage;
+        _updateHasPendingChanges();
+        // 成功时不显示消息
+      } else {
+        // Validation/compression failed, clear the pending image
+        pendingProfileImage.value = null;
+        _updateHasPendingChanges();
+        // 失败时显示错误消息（validateAndCompressImage 内部已经显示）
+      }
+    } catch (e) {
+      TLoaders.errorSnackBar(
+        title: 'Image Processing Failed',
+        message: 'Failed to process image: $e',
+      );
+      pendingProfileImage.value = null;
+      _updateHasPendingChanges();
+    }
   }
 
   /// Check if there are any pending changes
@@ -182,21 +207,39 @@ class UpdateProfileController extends GetxController {
     return originalValue;
   }
 
-  /// Upload profile image
+  /// Upload profile image (only when user confirms)
   Future<void> _uploadProfileImage() async {
     if (pendingProfileImage.value == null) return;
 
-    final imageUrl = await userRepository.uploadImage(
-      'profile/images',
-      XFile(pendingProfileImage.value!.path),
-    );
+    try {
+      // 使用 UserController 上传压缩后的图片，自动处理旧图片删除
+      final imageUrl = await userController.uploadCompressedImage(compressedImage: pendingProfileImage.value!);
 
-    if (imageUrl.isEmpty) {
-      throw 'Failed to upload image';
+      if (imageUrl == null) {
+        throw 'Failed to upload image';
+      }
+
+      // 这里不需要再更新数据库和本地状态，因为 uploadCompressedImage 已经处理了
+    } catch (e) {
+      throw 'Failed to upload profile image: $e';
     }
-
-    await userRepository.updateSingleField({'profileImg': imageUrl});
   }
+
+  /// Upload profile image
+  // Future<void> _uploadProfileImage() async {
+  //   if (pendingProfileImage.value == null) return;
+  //
+  //   final imageUrl = await userRepository.uploadImage(
+  //     'profile/images',
+  //     XFile(pendingProfileImage.value!.path),
+  //   );
+  //
+  //   if (imageUrl.isEmpty) {
+  //     throw 'Failed to upload image';
+  //   }
+  //
+  //   await userRepository.updateSingleField({'profileImg': imageUrl});
+  // }
 
   /// Check if there are profile-level changes (排除 username 和 phoneNumber)
   bool _hasProfileChanges() {

@@ -1,3 +1,5 @@
+import '../constants/text_strings.dart';
+
 /// TAuthFirebaseException 主要用于处理 Firebase 提供的标准化错误代码，这些代码是一个 固定集合，它的逻辑更封闭，用户不需要自定义消息。
 /// 固定在类内部的 switch-case 中
 /// 只能通过 code 传入并生成对应消息
@@ -25,7 +27,8 @@ class TFirebaseAuthException implements Exception {
       case 'user-not-found':
         return 'Invalid login details. Please create an account before login.';
       case 'wrong-password':
-        return 'Incorrect password. Please check your password and try again.';
+        // return 'Incorrect password. Please check your password and try again.';
+        return TTexts.incorrectEmailOrPassword;
       case 'invalid-verification-code':
         return 'Invalid verification code. Please enter a valid code.';
       case 'invalid-verification-id':
@@ -97,7 +100,8 @@ class TFirebaseAuthException implements Exception {
       case 'popup-closed-by-user':
         return 'The popup was closed before completing the operation. Please try again.';
       case 'invalid-credential':
-        return 'The supplied credential is malformed or has expired. Please try again.';
+        // return 'The supplied credential is malformed or has expired. Please try again.';
+        return TTexts.incorrectEmailOrPassword;
       case 'missing-iframe':
         return 'An iframe is required for this operation but is missing. Please check your setup.';
       case 'missing-api-key':

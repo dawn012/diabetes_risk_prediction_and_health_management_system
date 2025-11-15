@@ -291,29 +291,35 @@ class PostDetailDialog extends StatelessWidget {
                     ),
                     SizedBox(height: 4),
                     Text(
-                      poster!.email,
+                      poster!.userId,
                       style: TextStyle(
                         color: TAdminColors.getOnSurfaceVariantColor(darkMode),
                       ),
                     ),
                     SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(
-                          Iconsax.star_1_bold,
-                          size: 14,
-                          color: TAdminColors.warning,
-                        ),
-                        SizedBox(width: 4),
-                        Text(
-                          '${poster!.totalScore} points',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: TAdminColors.getOnSurfaceVariantColor(darkMode),
-                          ),
-                        ),
-                      ],
+                    Text(
+                      poster!.email,
+                      style: TextStyle(
+                        color: TAdminColors.getOnSurfaceVariantColor(darkMode),
+                      ),
                     ),
+                    // Row(
+                    //   children: [
+                    //     Icon(
+                    //       Iconsax.star_1_bold,
+                    //       size: 14,
+                    //       color: TAdminColors.warning,
+                    //     ),
+                    //     SizedBox(width: 4),
+                    //     Text(
+                    //       '${poster!.totalScore} points',
+                    //       style: TextStyle(
+                    //         fontSize: 12,
+                    //         color: TAdminColors.getOnSurfaceVariantColor(darkMode),
+                    //       ),
+                    //     ),
+                    //   ],
+                    // ),
                   ],
                 ),
               ),

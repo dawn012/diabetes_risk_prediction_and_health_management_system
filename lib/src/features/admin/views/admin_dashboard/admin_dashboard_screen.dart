@@ -7,6 +7,7 @@ import '../../../../utils/helpers/helper_functions.dart';
 import '../../controllers/admin_dashboard_controller.dart';
 import '../achievement_management/achievement_management_screen.dart';
 import '../community_management/community_management_screen.dart';
+import '../manager_management/manager_management_screen.dart';
 import '../profile/admin_profile_screen.dart';
 import '../report/transaction_report_screen.dart';
 import '../user_management/user_management_screen.dart';
@@ -55,7 +56,7 @@ class AdminDashboardScreen extends StatelessWidget {
       case 1: // User Management
         return UserManagementScreen();
       case 2: // User Management
-        return UserManagementScreen();
+        return ManagerManagementScreen();
       case 3: // Community Management
         return CommunityManagementScreen();
       case 4: // Achievement Management

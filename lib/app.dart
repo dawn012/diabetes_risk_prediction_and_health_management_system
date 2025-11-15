@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import 'src/bindings/general_bindings.dart';
+import 'src/features/authentication/views/login/admin_login_screen.dart';
 import 'src/features/authentication/views/onboarding/onboarding.dart';
 import 'src/services/step_tracking_service.dart';
 import 'src/utils/theme/theme.dart';
@@ -18,6 +20,12 @@ class _AppState extends State<App> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
+    // 添加调试信息
+    if (kDebugMode) {
+      print('🚀 App starting on: ${kIsWeb ? 'Web' : 'Mobile'}');
+      print('🏠 Home page should be: ${kIsWeb ? 'AdminLoginScreen' : 'OnBoardingScreen'}');
+    }
   }
 
   @override
@@ -41,8 +49,14 @@ class _AppState extends State<App> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final homeWidget = kIsWeb ? const AdminLoginScreen() : const OnBoardingScreen();
+
+    if (kDebugMode) {
+      print('🎯 Actually building: ${homeWidget.runtimeType}');
+    }
+
     return GetMaterialApp(
-      title: 'Flutter Demo',
+      title: 'Diatrack',
       theme: TAppTheme.lightTheme,
       darkTheme: TAppTheme.darkTheme,
       themeMode: ThemeMode.system,
@@ -50,7 +64,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
       debugShowCheckedModeBanner: false,
       defaultTransition: Transition.rightToLeftWithFade,
       transitionDuration: const Duration(milliseconds: 500),
-      home: const OnBoardingScreen(),
+      home: homeWidget,
     );
   }
 }

@@ -258,7 +258,6 @@ class MedicationAdherenceController extends GetxController {
       await _storageManager.updateStepData(7, {
         'takesMedication': takesMedication.value,
         'adherencePercentage': adherencePercentage.value,
-        'missedReasons': missedReasons.toList(),
       });
     }
 
@@ -282,7 +281,6 @@ class MedicationAdherenceController extends GetxController {
       await _storageManager.updateStepData(7, {
         'takesMedication': takesMedication.value,
         'adherencePercentage': adherencePercentage.value,
-        'missedReasons': missedReasons.toList(),
       });
 
       // Navigate based on mode

@@ -112,6 +112,8 @@ class TTexts {
   static const String accountDisabledMessage = "This account has been disabled. Please contact the administrator.";
   static const String accountBlocked = "Account Blocked";
   static const String tooManyFailedAttempts = "Too many failed attempts. Please try again after";
+  static const String accountDeleted = "Account Deleted";
+  static const String accountDeletedMessage = "This account was deleted by the user and is no longer accessible.";
   static const String minutes = "minutes";
   static const String seconds = "seconds.";
   static const String emailNotVerified = "Email Not Verified";

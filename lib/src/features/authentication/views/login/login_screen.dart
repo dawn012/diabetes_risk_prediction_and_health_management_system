@@ -6,7 +6,6 @@ import '../../../../common/widgets/login_signup/form_divider.dart';
 import '../../../../common/widgets/login_signup/social_buttons.dart';
 import '../../../../utils/constants/sizes.dart';
 import '../../../../utils/constants/text_strings.dart';
-import '../../../../utils/helpers/helper_functions.dart';
 import '../../controllers/login_controller.dart';
 import 'widgets/login_form.dart';
 import 'widgets/login_header.dart';
@@ -16,14 +15,12 @@ class LoginScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final darkMode = THelperFunctions.isDarkMode(context);
-    final controller = Get.put(LoginController());
+    final LoginController controller = Get.put(LoginController());
 
     return Scaffold(
       body: Stack(
         children: [
           SingleChildScrollView(
-            // 允许滚动
             child: Padding(
               padding: TSpacingStyle.paddingWithAppBarHeight,
               child: Column(
@@ -36,7 +33,7 @@ class LoginScreen extends StatelessWidget {
 
                   /// Divider
                   TFormDivider(dividerText: TTexts.orSignInWith.capitalize!),
-                  const SizedBox(height: TSizes.spaceBtwSections,),
+                  const SizedBox(height: TSizes.spaceBtwSections),
 
                   /// Footer
                   const TSocialButtons(),

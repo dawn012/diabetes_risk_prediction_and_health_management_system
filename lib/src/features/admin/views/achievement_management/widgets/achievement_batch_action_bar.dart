@@ -136,22 +136,34 @@ class AchievementBatchActionsBar extends StatelessWidget {
   }
 
   void _showBatchDisableConfirmation() {
+    final count = controller.selectedAchievements.length;
+    final plural = count == 1 ? '' : 's';
+
     BatchDialog.showBatchAction(
       actionType: BatchActionType.ban, // Reusing ban type for disable
       selectedItems: controller.selectedAchievements,
       onConfirm: () => controller.batchDisableAchievements(),
       getItemDisplayName: (achievement) => achievement.achievementTitle,
-      getItemSubtitle: (achievement) => achievement.achievementType.capitalizeFirst!,
+      getItemSubtitle: (achievement) => achievement.achievementType.displayName,
+      customTitle: 'Disable Multiple Achievements',
+      customMessage: 'Are you sure you want to disable $count selected achievement$plural? This action will make the achievement$plural no longer be available to users.',
+      customConfirmButtonText: 'Disable Achievement'
     );
   }
 
   void _showBatchEnableConfirmation() {
+    final count = controller.selectedAchievements.length;
+    final plural = count == 1 ? '' : 's';
+
     BatchDialog.showBatchAction(
       actionType: BatchActionType.restore, // Reusing restore type for enable
       selectedItems: controller.selectedAchievements,
       onConfirm: () => controller.batchEnableAchievements(),
       getItemDisplayName: (achievement) => achievement.achievementTitle,
-      getItemSubtitle: (achievement) => achievement.achievementType.capitalizeFirst!,
+      getItemSubtitle: (achievement) => achievement.achievementType.displayName,
+      customTitle: 'Enable Multiple Achievements',
+      customMessage: 'Are you sure you want to enable $count selected achievement$plural? This action will make the achievement$plural available to users.',
+      customConfirmButtonText: 'Enable Achievement'
     );
   }
 }

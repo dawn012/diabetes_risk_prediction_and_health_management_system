@@ -37,9 +37,104 @@ class AchievementRepository extends GetxController {
   CollectionReference<Map<String, dynamic>> get usersRef =>
       _db.collection(FirebaseCollectionNames.users);
 
-  // ==================== Achievement Operations ====================
+  // ==================== Admin-Only Methods ====================
 
-  /// Get all active achievements as a stream
+  /// Get all achievements stream for admin (including inactive)
+  Stream<List<AchievementModel>> getAllAchievementsForAdminStream() {
+    try {
+      return achievementsRef
+          .orderBy(FirebaseFieldNames.updatedAt, descending: true)
+          .snapshots()
+          .map((snapshot) => snapshot.docs
+          .map((doc) => AchievementModel.fromSnapshot(doc))
+          .toList());
+    } on FirebaseException catch (e) {
+      throw TFirebaseException(e.code).message;
+    } on TPlatformException catch (e) {
+      throw TPlatformException(e.code).message;
+    } catch (e) {
+      throw 'Something went wrong. Please try again';
+    }
+  }
+
+  /// Get all user achievements for statistics (Admin only)
+  Stream<List<UserAchievementModel>> getAllUserAchievementsStream() {
+    try {
+      return userAchievementsRef
+          .snapshots()
+          .map((snapshot) => snapshot.docs
+          .map((doc) => UserAchievementModel.fromSnapshot(doc))
+          .toList());
+    } on FirebaseException catch (e) {
+      throw TFirebaseException(e.code).message;
+    } on TPlatformException catch (e) {
+      throw TPlatformException(e.code).message;
+    } catch (e) {
+      throw 'Something went wrong. Please try again';
+    }
+  }
+
+  /// Update achievement (Admin only)
+  Future<void> updateAchievementForAdmin(AchievementModel achievement) async {
+    try {
+      final updatedAchievement = achievement.copyWith(
+        updatedAt: DateTime.now(),
+      );
+
+      await achievementsRef
+          .doc(achievement.achievementId)
+          .update(updatedAchievement.toJson());
+    } on FirebaseException catch (e) {
+      throw TFirebaseException(e.code).message;
+    } on TPlatformException catch (e) {
+      throw TPlatformException(e.code).message;
+    } catch (e) {
+      throw 'Something went wrong. Please try again';
+    }
+  }
+
+  /// Enable/Disable achievement (Admin only)
+  Future<void> toggleAchievementStatus(String achievementId, bool isActive) async {
+    try {
+      await achievementsRef.doc(achievementId).update({
+        FirebaseFieldNames.isActive: isActive,
+        FirebaseFieldNames.updatedAt: DateTime.now().millisecondsSinceEpoch,
+      });
+    } on FirebaseException catch (e) {
+      throw TFirebaseException(e.code).message;
+    } on TPlatformException catch (e) {
+      throw TPlatformException(e.code).message;
+    } catch (e) {
+      throw 'Something went wrong. Please try again';
+    }
+  }
+
+  /// Batch enable/disable achievements (Admin only)
+  Future<void> batchToggleAchievementStatus(List<String> achievementIds, bool isActive) async {
+    try {
+      final batch = _db.batch();
+      final now = DateTime.now().millisecondsSinceEpoch;
+
+      for (final id in achievementIds) {
+        batch.update(achievementsRef.doc(id), {
+          FirebaseFieldNames.isActive: isActive,
+          FirebaseFieldNames.updatedAt: now,
+        });
+      }
+
+      await batch.commit();
+    } on FirebaseException catch (e) {
+      throw TFirebaseException(e.code).message;
+    } on TPlatformException catch (e) {
+      throw TPlatformException(e.code).message;
+    } catch (e) {
+      throw 'Something went wrong. Please try again';
+    }
+  }
+
+  // ==================== User-Side Methods (Keep existing functionality) ====================
+
+  /// Get all active achievements as a stream (User-side)
   Stream<List<AchievementModel>> getAllAchievementsStream() {
     try {
       return achievementsRef
@@ -58,7 +153,7 @@ class AchievementRepository extends GetxController {
     }
   }
 
-  /// Get achievements by type as a stream
+  /// Get achievements by type as a stream (User-side)
   Stream<List<AchievementModel>> getAchievementsByTypeStream(
       AchievementType type) {
     try {
@@ -99,10 +194,14 @@ class AchievementRepository extends GetxController {
   /// Create a new achievement (Admin only)
   Future<void> createAchievement(AchievementModel achievement) async {
     try {
-      // 生成 UUID
       final achievementId = _uuid.v1();
+      final now = DateTime.now();
 
-      final achievementWithId = achievement.copyWith(achievementId: achievementId);
+      final achievementWithId = achievement.copyWith(
+        achievementId: achievementId,
+        createdAt: now,
+        updatedAt: now,
+      );
 
       await achievementsRef
           .doc(achievementId)
@@ -116,19 +215,9 @@ class AchievementRepository extends GetxController {
     }
   }
 
-  /// Update an achievement (Admin only)
+  /// Update an achievement (Admin only) - Legacy method, kept for compatibility
   Future<void> updateAchievement(AchievementModel achievement) async {
-    try {
-      await achievementsRef
-          .doc(achievement.achievementId)
-          .update(achievement.toJson());
-    } on FirebaseException catch (e) {
-      throw TFirebaseException(e.code).message;
-    } on TPlatformException catch (e) {
-      throw TPlatformException(e.code).message;
-    } catch (e) {
-      throw 'Something went wrong. Please try again';
-    }
+    await updateAchievementForAdmin(achievement);
   }
 
   /// Delete an achievement (Admin only)
@@ -175,7 +264,6 @@ class AchievementRepository extends GetxController {
             .map((doc) => UserAchievementModel.fromSnapshot(doc))
             .toList();
 
-        // 直接从文档数据中获取 achievementId，而不是从 model
         final achievementIds = snapshot.docs
             .map((doc) {
           final data = doc.data();
@@ -186,15 +274,12 @@ class AchievementRepository extends GetxController {
             .toList()
             .cast<String>();
 
-        // Fetch achievement details
         final achievements = await _getAchievementsByIds(achievementIds);
 
-        // Combine data
         return userAchievements.asMap().entries.map((entry) {
           final index = entry.key;
           final userAchievement = entry.value;
 
-          // 从原始文档数据中获取 achievementId
           final doc = snapshot.docs[index];
           final achievementId = doc.data()[FirebaseFieldNames.achievementId] as String?;
 
@@ -207,7 +292,7 @@ class AchievementRepository extends GetxController {
     } on TPlatformException catch (e) {
       throw TPlatformException(e.code).message;
     } catch (e) {
-      print('Error in getUserAchievementsWithDetailsStream: $e'); // Debug
+      print('Error in getUserAchievementsWithDetailsStream: $e');
       throw 'Something went wrong. Please try again';
     }
   }
@@ -285,40 +370,34 @@ class AchievementRepository extends GetxController {
     int incrementBy = 1,
   }) async {
     try {
-      // Get existing user achievement or create new one
       var userAchievement = await getUserAchievement(userId, achievementId);
 
       if (userAchievement == null) {
-        // Create new user achievement with proper initialization
         final newUserAchievement = UserAchievementModel(
-          userAchievementId: '', // Will be set by Firestore
+          userAchievementId: '',
           userId: userId,
           achievement: achievement,
           currentLevel: UserAchievementLevel.none,
-          currentCount: incrementBy, // Start with the increment value
+          currentCount: incrementBy,
           status: AchievementStatus.inProgress,
           startedAt: DateTime.now(),
           completedAt: null,
         );
         await createUserAchievement(userId, newUserAchievement);
       } else {
-        // Update existing achievement
         int newCount = userAchievement.currentCount + incrementBy;
         UserAchievementLevel newLevel = userAchievement.currentLevel;
         AchievementStatus newStatus = userAchievement.status;
         DateTime? completedAt = userAchievement.completedAt;
 
-        // Check if user should level up
         for (var level in achievement.levels) {
           if (newCount >= level.criteria) {
             newLevel = UserAchievementLevel.fromString(level.level.value);
 
-            // Check if this is the highest level (Gold)
             if (level.level == AchievementLevel.gold) {
               newStatus = AchievementStatus.completed;
               completedAt = DateTime.now();
 
-              // Award points (only for non-permanent achievements)
               if (achievement.achievementType == AchievementType.periodic) {
                 await _updateUserTotalScore(userId, level.points);
               }
@@ -356,13 +435,11 @@ class AchievementRepository extends GetxController {
       for (var doc in snapshot.docs) {
         final userAchievement = UserAchievementModel.fromSnapshot(doc);
 
-        // Get the achievement to check if it's periodic
         final achievement =
         await getAchievementById(userAchievement.achievement.achievementId);
 
         if (achievement != null &&
             achievement.achievementType == AchievementType.periodic) {
-          // Reset the user achievement
           final resetAchievement = userAchievement.copyWith(
             currentLevel: UserAchievementLevel.bronze,
             currentCount: 0,
@@ -394,7 +471,6 @@ class AchievementRepository extends GetxController {
         FirebaseFieldNames.totalScore: FieldValue.increment(points),
       });
     } catch (e) {
-      // Silent fail for score update to not interrupt achievement flow
       print('Error updating user score: $e');
     }
   }

@@ -1,130 +1,116 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../common/loaders/loaders.dart';
+import '../../../data/repositories/authentication/authentication_repository.dart';
+import '../../../data/repositories/notification/notification_repository.dart';
 import '../models/notification_model.dart';
 
 class NotificationController extends GetxController {
   static NotificationController get instance => Get.find();
 
+  final notificationRepository = NotificationRepository.instance;
+  final authRepository = AuthenticationRepository.instance;
+
+  // PageController for tab swiping
+  late PageController pageController;
+
   // Observables
   final RxList<NotificationModel> allNotifications = <NotificationModel>[].obs;
-  final RxList<NotificationModel> unreadNotifications = <NotificationModel>[].obs;
-  final RxList<NotificationModel> readNotifications = <NotificationModel>[].obs;
   final RxBool isLoading = false.obs;
   final RxInt selectedTabIndex = 0.obs; // 0: All, 1: Unread, 2: Read
   final RxBool isSelectionMode = false.obs;
   final RxList<String> selectedNotificationIds = <String>[].obs;
 
   // Computed properties
+  List<NotificationModel> get unreadNotifications =>
+      allNotifications.where((n) => !n.isRead).toList();
+
+  List<NotificationModel> get readNotifications =>
+      allNotifications.where((n) => n.isRead).toList();
+
   int get unreadCount => unreadNotifications.length;
   int get totalCount => allNotifications.length;
-  bool get hasUnreadNotifications => unreadNotifications.isNotEmpty;
+  bool get hasUnreadNotifications => unreadCount > 0;
+
+  List<NotificationModel> get currentTabNotifications {
+    switch (selectedTabIndex.value) {
+      case 1:
+        return unreadNotifications;
+      case 2:
+        return readNotifications;
+      default:
+        return allNotifications;
+    }
+  }
+
+  StreamSubscription? _notificationStreamSubscription;
 
   @override
   void onInit() {
     super.onInit();
-    loadSampleData();
+    pageController = PageController(initialPage: selectedTabIndex.value);
+    _subscribeToNotifications();
   }
 
-  /// Load sample notification data
-  void loadSampleData() {
+  @override
+  void onClose() {
+    _notificationStreamSubscription?.cancel();
+    pageController.dispose();
+    super.onClose();
+  }
+
+  /// Change tab (All, Unread, Read)
+  void changeTab(int index) {
+    if (selectedTabIndex.value == index) return;
+
+    selectedTabIndex.value = index;
+
+    // Animate to page if not already there
+    if (pageController.hasClients && pageController.page?.round() != index) {
+      pageController.animateToPage(
+        index,
+        duration: Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+
+    exitSelectionMode();
+  }
+
+  /// Subscribe to notification stream
+  void _subscribeToNotifications() {
+    final userId = authRepository.authUser?.uid;
+    if (userId == null) return;
+
     isLoading.value = true;
 
-    final now = DateTime.now();
-    final sampleNotifications = [
-      NotificationModel(
-        notificationId: '1',
-        notificationType: 'reminder',
-        notificationTitle: 'Daily Health Check Reminder',
-        message: 'It\'s time to log your blood pressure and glucose levels. Stay consistent with your health tracking!',
-        isRead: false,
-        createdAt: now.subtract(Duration(minutes: 30)),
-      ),
-      NotificationModel(
-        notificationId: '2',
-        notificationType: 'reminder',
-        notificationTitle: 'Medication Reminder',
-        message: 'Don\'t forget to take your morning medication. Metformin 500mg.',
-        isRead: false,
-        createdAt: now.subtract(Duration(hours: 2)),
-      ),
-      NotificationModel(
-        notificationId: '3',
-        notificationType: 'system',
-        notificationTitle: 'System Update',
-        message: 'New features available! Check out the improved health analytics and community features.',
-        isRead: false,
-        createdAt: now.subtract(Duration(hours: 4)),
-      ),
-      NotificationModel(
-        notificationId: '4',
-        notificationType: 'system',
-        notificationTitle: 'Weekly Health Report Ready',
-        message: 'Your weekly health summary is now available. Your average glucose level has improved by 8%.',
-        isRead: true,
-        createdAt: now.subtract(Duration(days: 1)),
-      ),
-      NotificationModel(
-        notificationId: '5',
-        notificationType: 'reminder',
-        notificationTitle: 'Exercise Reminder',
-        message: 'Time for your evening walk! You\'ve walked 6,500 steps today. Just 1,500 more to reach your goal!',
-        isRead: true,
-        createdAt: now.subtract(Duration(days: 1, hours: 3)),
-      ),
-      NotificationModel(
-        notificationId: '6',
-        notificationType: 'system',
-        notificationTitle: 'Community Achievement',
-        message: 'Congratulations! You\'ve been active in the community for 7 consecutive days. Keep it up!',
-        isRead: true,
-        createdAt: now.subtract(Duration(days: 2)),
-      ),
-      NotificationModel(
-        notificationId: '7',
-        notificationType: 'reminder',
-        notificationTitle: 'Appointment Reminder',
-        message: 'Your doctor appointment is scheduled for tomorrow at 2:00 PM. Don\'t forget to bring your health records.',
-        isRead: false,
-        createdAt: now.subtract(Duration(hours: 6)),
-      ),
-      NotificationModel(
-        notificationId: '8',
-        notificationType: 'system',
-        notificationTitle: 'Data Backup Complete',
-        message: 'Your health data has been successfully backed up to the cloud. All your information is secure.',
-        isRead: true,
-        createdAt: now.subtract(Duration(days: 3)),
-      ),
-      NotificationModel(
-        notificationId: '9',
-        notificationType: 'reminder',
-        notificationTitle: 'Sleep Quality Reminder',
-        message: 'You haven\'t logged your sleep quality today. Good sleep is crucial for managing diabetes.',
-        isRead: false,
-        createdAt: now.subtract(Duration(minutes: 45)),
-      ),
-      NotificationModel(
-        notificationId: '10',
-        notificationType: 'system',
-        notificationTitle: 'Security Alert',
-        message: 'A new device has been logged into your account. If this wasn\'t you, please secure your account immediately.',
-        isRead: true,
-        createdAt: now.subtract(Duration(days: 5)),
-      ),
-    ];
-
-    allNotifications.assignAll(sampleNotifications);
-    _filterNotifications();
-    isLoading.value = false;
+    _notificationStreamSubscription = notificationRepository
+        .streamUserNotifications(userId)
+        .listen(
+          (notifications) {
+        _processNotifications(notifications);
+        isLoading.value = false;
+      },
+      onError: (error) {
+        print('Error loading notifications: $error');
+        isLoading.value = false;
+        TLoaders.errorSnackBar(
+          title: 'Error',
+          message: 'Failed to load notifications',
+        );
+      },
+    );
   }
 
-  /// Filter notifications into read and unread
-  void _filterNotifications() {
+  /// Process and filter notifications
+  void _processNotifications(List<NotificationModel> notifications) {
     final now = DateTime.now();
     final thirtyDaysAgo = now.subtract(Duration(days: 30));
 
     // Filter out read notifications older than 30 days
-    final validNotifications = allNotifications.where((notification) {
+    final validNotifications = notifications.where((notification) {
       if (notification.isRead && notification.createdAt.isBefore(thirtyDaysAgo)) {
         return false;
       }
@@ -132,64 +118,94 @@ class NotificationController extends GetxController {
     }).toList();
 
     allNotifications.assignAll(validNotifications);
-    unreadNotifications.assignAll(validNotifications.where((n) => !n.isRead).toList());
-    readNotifications.assignAll(validNotifications.where((n) => n.isRead).toList());
-  }
-
-  /// Change tab (All, Unread, Read)
-  void changeTab(int index) {
-    selectedTabIndex.value = index;
-    exitSelectionMode();
   }
 
   /// Mark notification as read
-  void markAsRead(String notificationId) {
-    final index = allNotifications.indexWhere((n) => n.notificationId == notificationId);
-    if (index != -1 && !allNotifications[index].isRead) {
-      allNotifications[index] = allNotifications[index].copyWith(isRead: true);
-      _filterNotifications();
+  Future<void> markAsRead(String notificationId) async {
+    final userId = authRepository.authUser?.uid;
+    if (userId == null) return;
+
+    try {
+      await notificationRepository.markAsRead(userId, notificationId);
+    } catch (e) {
+      print('Error marking notification as read: $e');
     }
   }
 
   /// Mark notification as unread
-  void markAsUnread(String notificationId) {
-    final index = allNotifications.indexWhere((n) => n.notificationId == notificationId);
-    if (index != -1 && allNotifications[index].isRead) {
-      allNotifications[index] = allNotifications[index].copyWith(isRead: false);
-      _filterNotifications();
+  Future<void> markAsUnread(String notificationId) async {
+    final userId = authRepository.authUser?.uid;
+    if (userId == null) return;
+
+    try {
+      await notificationRepository.markAsUnread(userId, notificationId);
+    } catch (e) {
+      print('Error marking notification as unread: $e');
     }
   }
 
   /// Delete single notification
-  void deleteNotification(String notificationId) {
-    allNotifications.removeWhere((n) => n.notificationId == notificationId);
-    _filterNotifications();
-    TLoaders.successSnackBar(title: 'Notification deleted successfully');
+  Future<void> deleteNotification(String notificationId) async {
+    final userId = authRepository.authUser?.uid;
+    if (userId == null) return;
+
+    try {
+      await notificationRepository.deleteNotification(userId, notificationId);
+      TLoaders.successSnackBar(title: 'Notification deleted successfully');
+    } catch (e) {
+      TLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to delete notification',
+      );
+    }
   }
 
   /// Mark all notifications as read
-  void markAllAsRead() {
-    for (int i = 0; i < allNotifications.length; i++) {
-      if (!allNotifications[i].isRead) {
-        allNotifications[i] = allNotifications[i].copyWith(isRead: true);
-      }
+  Future<void> markAllAsRead() async {
+    final userId = authRepository.authUser?.uid;
+    if (userId == null) return;
+
+    try {
+      await notificationRepository.markAllAsRead(userId);
+      TLoaders.successSnackBar(title: 'All notifications marked as read');
+    } catch (e) {
+      TLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to mark all as read',
+      );
     }
-    _filterNotifications();
-    TLoaders.successSnackBar(title: 'All notifications marked as read');
   }
 
   /// Clear all notifications
-  void clearAllNotifications() {
-    allNotifications.clear();
-    _filterNotifications();
-    TLoaders.successSnackBar(title: 'All notifications cleared');
+  Future<void> clearAllNotifications() async {
+    final userId = authRepository.authUser?.uid;
+    if (userId == null) return;
+
+    try {
+      await notificationRepository.clearAllNotifications(userId);
+      TLoaders.successSnackBar(title: 'All notifications cleared');
+    } catch (e) {
+      TLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to clear notifications',
+      );
+    }
   }
 
   /// Clear all read notifications
-  void clearReadNotifications() {
-    allNotifications.removeWhere((n) => n.isRead);
-    _filterNotifications();
-    TLoaders.successSnackBar(title: 'Read notifications cleared');
+  Future<void> clearReadNotifications() async {
+    final userId = authRepository.authUser?.uid;
+    if (userId == null) return;
+
+    try {
+      await notificationRepository.clearReadNotifications(userId);
+      TLoaders.successSnackBar(title: 'Read notifications cleared');
+    } catch (e) {
+      TLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to clear read notifications',
+      );
+    }
   }
 
   /// Toggle selection mode
@@ -222,20 +238,8 @@ class NotificationController extends GetxController {
 
   /// Select all notifications in current view
   void selectAllInCurrentView() {
-    List<NotificationModel> currentNotifications;
-    switch (selectedTabIndex.value) {
-      case 1:
-        currentNotifications = unreadNotifications;
-        break;
-      case 2:
-        currentNotifications = readNotifications;
-        break;
-      default:
-        currentNotifications = allNotifications;
-    }
-
     selectedNotificationIds.assignAll(
-      currentNotifications.map((n) => n.notificationId).toList(),
+      currentTabNotifications.map((n) => n.notificationId).toList(),
     );
   }
 
@@ -245,62 +249,77 @@ class NotificationController extends GetxController {
   }
 
   /// Delete selected notifications
-  void deleteSelectedNotifications() {
-    allNotifications.removeWhere((n) => selectedNotificationIds.contains(n.notificationId));
-    _filterNotifications();
-    exitSelectionMode();
-    TLoaders.successSnackBar(
-      title: 'Notifications deleted',
-      message: '${selectedNotificationIds.length} notifications deleted successfully',
-    );
+  Future<void> deleteSelectedNotifications() async {
+    final userId = authRepository.authUser?.uid;
+    if (userId == null) return;
+
+    try {
+      await notificationRepository.deleteNotifications(
+        userId,
+        selectedNotificationIds.toList(),
+      );
+      exitSelectionMode();
+      TLoaders.successSnackBar(
+        title: 'Notifications deleted',
+        message: '${selectedNotificationIds.length} notifications deleted successfully',
+      );
+    } catch (e) {
+      TLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to delete notifications',
+      );
+    }
   }
 
   /// Mark selected notifications as read
-  void markSelectedAsRead() {
-    for (int i = 0; i < allNotifications.length; i++) {
-      if (selectedNotificationIds.contains(allNotifications[i].notificationId)) {
-        allNotifications[i] = allNotifications[i].copyWith(isRead: true);
+  Future<void> markSelectedAsRead() async {
+    final userId = authRepository.authUser?.uid;
+    if (userId == null) return;
+
+    try {
+      for (final notificationId in selectedNotificationIds) {
+        await notificationRepository.markAsRead(userId, notificationId);
       }
+      exitSelectionMode();
+      TLoaders.successSnackBar(
+        title: 'Notifications updated',
+        message: '${selectedNotificationIds.length} notifications marked as read',
+      );
+    } catch (e) {
+      TLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to update notifications',
+      );
     }
-    _filterNotifications();
-    exitSelectionMode();
-    TLoaders.successSnackBar(
-      title: 'Notifications updated',
-      message: '${selectedNotificationIds.length} notifications marked as read',
-    );
   }
 
   /// Mark selected notifications as unread
-  void markSelectedAsUnread() {
-    for (int i = 0; i < allNotifications.length; i++) {
-      if (selectedNotificationIds.contains(allNotifications[i].notificationId)) {
-        allNotifications[i] = allNotifications[i].copyWith(isRead: false);
-      }
-    }
-    _filterNotifications();
-    exitSelectionMode();
-    TLoaders.successSnackBar(
-      title: 'Notifications updated',
-      message: '${selectedNotificationIds.length} notifications marked as unread',
-    );
-  }
+  Future<void> markSelectedAsUnread() async {
+    final userId = authRepository.authUser?.uid;
+    if (userId == null) return;
 
-  /// Get notifications for current tab
-  List<NotificationModel> get currentTabNotifications {
-    switch (selectedTabIndex.value) {
-      case 1:
-        return unreadNotifications;
-      case 2:
-        return readNotifications;
-      default:
-        return allNotifications;
+    try {
+      for (final notificationId in selectedNotificationIds) {
+        await notificationRepository.markAsUnread(userId, notificationId);
+      }
+      exitSelectionMode();
+      TLoaders.successSnackBar(
+        title: 'Notifications updated',
+        message: '${selectedNotificationIds.length} notifications marked as unread',
+      );
+    } catch (e) {
+      TLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to update notifications',
+      );
     }
   }
 
   /// Refresh notifications
   Future<void> refreshNotifications() async {
+    // The stream will automatically update
     isLoading.value = true;
-    await Future.delayed(Duration(seconds: 1)); // Simulate API call
-    loadSampleData();
+    await Future.delayed(Duration(milliseconds: 500));
+    isLoading.value = false;
   }
 }

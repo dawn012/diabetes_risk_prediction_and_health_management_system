@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
@@ -116,10 +115,21 @@ class LoginController extends GetxController {
         return;
       }
 
+      // Check if account is deleted
+      final isDeleted = userData['isDeleted'] ?? false;
+      if (isDeleted) {
+        TFullScreenLoader.stopLoading();
+        TLoaders.errorSnackBar(
+          title: TTexts.accountDeleted,
+          message: TTexts.accountDeletedMessage,
+        );
+        return;
+      }
+
       // All checks passed - stop loading and redirect
       TFullScreenLoader.stopLoading();
-      AuthenticationRepository.instance.screenRedirect();
 
+      AuthenticationRepository.instance.screenRedirect();
     } catch (e) {
       print('Login Error: $e');
       TFullScreenLoader.stopLoading();
@@ -150,7 +160,45 @@ class LoginController extends GetxController {
       final userCredentials = await AuthenticationRepository.instance
           .signInWithGoogle();
 
-      // Save user record
+      final user = userCredentials?.user;
+      final email = user?.email;
+
+      if (user == null || email == null) {
+        TFullScreenLoader.stopLoading();
+        TLoaders.errorSnackBar(
+            title: TTexts.error,
+            message: 'Failed to get user info from Google');
+        return;
+      }
+
+      // --- Firestore user check ---
+      final userData = await _userRepository.getUserByEmail(email);
+
+      if (userData != null) {
+        // Check account disabled
+        if (userData['accountAvailable'] == false) {
+          await AuthenticationRepository.instance.logout();
+          TFullScreenLoader.stopLoading();
+          TLoaders.errorSnackBar(
+            title: TTexts.accountDisabled,
+            message: TTexts.accountDisabledMessage,
+          );
+          return;
+        }
+
+        // Check account deleted
+        if (userData['isDeleted'] == true) {
+          await AuthenticationRepository.instance.logout();
+          TFullScreenLoader.stopLoading();
+          TLoaders.errorSnackBar(
+            title: TTexts.accountDeleted,
+            message: TTexts.accountDeletedMessage,
+          );
+          return;
+        }
+      }
+
+      // Save user record (only if new user)
       await userController.saveUserRecord(userCredentials);
 
       // Remove Loader
@@ -186,6 +234,44 @@ class LoginController extends GetxController {
       // Facebook Authentication
       final userCredentials = await AuthenticationRepository.instance
           .signInWithFacebook();
+
+      final user = userCredentials?.user;
+      final email = user?.email;
+
+      if (user == null || email == null) {
+        TFullScreenLoader.stopLoading();
+        TLoaders.errorSnackBar(
+            title: TTexts.error,
+            message: 'Failed to get user info from Facebook');
+        return;
+      }
+
+      // --- Firestore user check ---
+      final userData = await _userRepository.getUserByEmail(email);
+
+      if (userData != null) {
+        // Check account disabled
+        if (userData['accountAvailable'] == false) {
+          await AuthenticationRepository.instance.logout();
+          TFullScreenLoader.stopLoading();
+          TLoaders.errorSnackBar(
+            title: TTexts.accountDisabled,
+            message: TTexts.accountDisabledMessage,
+          );
+          return;
+        }
+
+        // Check account deleted
+        if (userData['isDeleted'] == true) {
+          await AuthenticationRepository.instance.logout();
+          TFullScreenLoader.stopLoading();
+          TLoaders.errorSnackBar(
+            title: TTexts.accountDeleted,
+            message: TTexts.accountDeletedMessage,
+          );
+          return;
+        }
+      }
 
       // Save user record
       await userController.saveUserRecord(userCredentials);

@@ -202,16 +202,6 @@ class MedicationAdherenceController extends GetxController {
     }
   }
 
-  /// Returns 0 or 1 for model submission
-  int get medicationAdherentBinary {
-    if (takesMedication.value != true) {
-      return 0; // No medication → 0
-    }
-
-    // If user takes medication, check adherence
-    return adherencePercentage.value >= 80 ? 1 : 0;
-  }
-
   /// Calculate medication adherence score (0-100)
   // int getMedicationAdherenceScore() {
   //   if (takesMedication.value != true) {

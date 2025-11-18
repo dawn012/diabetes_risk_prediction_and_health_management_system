@@ -8,6 +8,7 @@ import '../../../../common/widgets/dialogs/media_lightbox.dart';
 import '../../../../common/widgets/pagination/pagination_widget.dart';
 import '../../../../common/widgets/table/reusable_data_table.dart';
 import '../../../../utils/constants/admin_colors.dart';
+import '../../../../utils/formatters/formatter.dart';
 import '../../../../utils/helpers/helper_functions.dart';
 import '../../../community/models/post_model.dart';
 import '../../controllers/community_management_controller.dart';
@@ -397,7 +398,7 @@ class CommunityManagementScreen extends StatelessWidget {
               ),
             ),
             Text(
-              _formatTime(post.updatedAt),
+              TFormatter.formatElapsedTime(post.updatedAt),
               style: TextStyle(
                 fontSize: 10,
                 color: TAdminColors.getOnSurfaceVariantColor(darkMode),
@@ -717,20 +718,5 @@ class CommunityManagementScreen extends StatelessWidget {
   void _showPostDetailDialog(PostModel post, CommunityManagementController controller) {
     final poster = controller.posterData[post.posterId];
     Get.dialog(PostDetailDialog(post: post, poster: poster));
-  }
-
-  String _formatTime(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inDays > 0) {
-      return '${difference.inDays}d ago';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours}h ago';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes}m ago';
-    } else {
-      return 'Now';
-    }
   }
 }

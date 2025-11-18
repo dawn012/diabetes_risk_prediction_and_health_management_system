@@ -162,6 +162,7 @@ class CommunityManagementController extends GetxController {
 
       // Update display
       displayedPosts.assignAll(response.posts);
+      selectedPosts.clear();
       totalCount.value = response.totalCount;
       _calculateTotalPages();
 

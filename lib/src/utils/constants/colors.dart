@@ -143,26 +143,64 @@ class TColors {
   static const Color chartTooltipBorder = Color(0xFFE5E7EB);
 
   /* -- Notification Colors -- */
-  static const Color unreadNotification = Color(0xFFE3F2FD);         // Light blue background for unread
-  static const Color unreadNotificationDark = Color(0xFF1E3A8A);     // Dark blue background for unread (dark mode)
-  static const Color unreadIndicator = Color(0xFF2563EB);            // Blue dot for unread indicator
+  // Light Mode
+  static const Color notificationBgLight = Color(0xFFFFFFFF);
+  static const Color notificationUnreadBgLight = Color(0xFFF0F7FF);
+  static const Color notificationReadBgLight = Color(0xFFFAFAFA);
+  static const Color notificationBorder = Color(0xFFE5E7EB);
+  static const Color notificationShadow = Color(0x0A000000);
 
-  static const Color readNotification = Color(0xFFFFFFFF);           // White background for read
-  static const Color readNotificationDark = Color(0xFF374151);      // Dark gray background for read (dark mode)
+  // Dark Mode
+  static const Color notificationBgDark = Color(0xFF1A1D23);
+  static const Color notificationUnreadBgDark = Color(0xFF1E2A3A);
+  static const Color notificationReadBgDark = Color(0xFF151820);
+  static const Color notificationBorderDark = Color(0xFF2D3139);
+  static const Color notificationShadowDark = Color(0x33000000);
 
-  static const Color reminderNotification = Color(0xFFFEF3C7);       // Light yellow for reminder notifications
-  static const Color reminderNotificationDark = Color(0xFF92400E);   // Dark yellow for reminder (dark mode)
-  static const Color reminderIcon = Color(0xFFF59E0B);              // Orange icon for reminder
+  // Icon Colors
+  static const Color systemIcon = Color(0xFF2196F3);
+  static const Color systemIconBg = Color(0xFFE3F2FD);
+  static const Color systemIconBgDark = Color(0xFF1E3A5F);
 
-  static const Color systemNotification = Color(0xFFDCFDF7);         // Light green for system notifications
-  static const Color systemNotificationDark = Color(0xFF064E3B);     // Dark green for system (dark mode)
-  static const Color systemIcon = Color(0xFF059669);                // Green icon for system
+  static const Color reminderIcon = Color(0xFFFF9800);
+  static const Color reminderIconBg = Color(0xFFFFF3E0);
+  static const Color reminderIconBgDark = Color(0xFF3D2F1F);
 
-  static const Color notificationBorder = Color(0xFFE5E7EB);         // Light border
-  static const Color notificationBorderDark = Color(0xFF4B5563);     // Dark border
+  static const Color accountIcon = Color(0xFF9C27B0);
+  static const Color accountIconBg = Color(0xFFF3E5F5);
+  static const Color accountIconBgDark = Color(0xFF2D1B3D);
 
-  static const Color notificationShadow = Color(0x0A000000);         // Subtle shadow
-  static const Color notificationShadowDark = Color(0x1A000000);     // Darker shadow for dark mode
+  // Unread Indicator
+  static const Color unreadIndicator = Color(0xFF2196F3);
+  static const Color unreadDot = Color(0xFF2196F3);
+
+  // Selection Colors
+  static const Color selectionBorder = Color(0xFF2196F3);
+  static const Color selectionBg = Color(0xFFE3F2FD);
+  static const Color selectionBgDark = Color(0xFF1E3A5F);
+
+  // Helper methods for notifications
+  static Color getNotificationBg(bool isDark, bool isUnread) {
+    if (isDark) {
+      return isUnread ? notificationUnreadBgDark : notificationReadBgDark;
+    }
+    return isUnread ? notificationUnreadBgLight : notificationReadBgLight;
+  }
+
+  static Color getNotificationBorder(bool isDark) {
+    return isDark ? notificationBorderDark : notificationBorder;
+  }
+
+  static Color getIconBgColor(String type, bool isDark) {
+    switch (type) {
+      case 'reminder':
+        return isDark ? reminderIconBgDark : reminderIconBg;
+      case 'account_status':
+        return isDark ? accountIconBgDark : accountIconBg;
+      default:
+        return isDark ? systemIconBgDark : systemIconBg;
+    }
+  }
 
   static const Color deleteAction = Color(0xFFDC2626);               // Red for delete actions
   static const Color deleteBackground = Color(0xFFFEE2E2);           // Light red background for delete

@@ -188,7 +188,7 @@ class AchievementDetailDialog extends StatelessWidget {
                         ElevatedButton.icon(
                           onPressed: () {
                             Get.back();
-                            controller.editAchievement(achievement);
+                            controller.openEditAchievementDialog(achievement);
                           },
                           icon: Icon(Iconsax.edit_bold, size: 16),
                           label: Text('Edit Achievement'),
@@ -342,15 +342,34 @@ class AchievementDetailDialog extends StatelessWidget {
   }
 
   Widget _buildDefaultIcon(bool darkMode, bool isWeb) {
+    // 使用成就自己的图标
+    final iconData = IconData(achievement.iconCodePoint, fontFamily: 'MaterialIcons');
+
+    // 根据成就类型设置不同的背景色
+    Color backgroundColor;
+    Color iconColor;
+
+    switch (achievement.achievementType) {
+      case AchievementType.periodic:
+        backgroundColor = TAdminColors.warning.withOpacity(0.1);
+        iconColor = TAdminColors.warning;
+        break;
+      case AchievementType.permanent:
+        backgroundColor = TAdminColors.primary.withOpacity(0.1);
+        iconColor = TAdminColors.primary;
+        break;
+      default:
+        backgroundColor = TAdminColors.getSurfaceVariantColor(darkMode);
+        iconColor = TAdminColors.getOnSurfaceVariantColor(darkMode);
+    }
+
     return Container(
-      color: TAdminColors.primary.withOpacity(0.1),
+      color: backgroundColor,
       child: Center(
         child: Icon(
-          achievement.achievementType == AchievementType.periodic
-              ? Iconsax.calendar_bold
-              : Iconsax.award_bold,
+          iconData, // 使用成就的图标
           size: isWeb ? 32 : 24,
-          color: TAdminColors.primary,
+          color: iconColor,
         ),
       ),
     );

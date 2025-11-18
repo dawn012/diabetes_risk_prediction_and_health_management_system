@@ -15,8 +15,9 @@ if (admin.apps.length === 0) {
 import * as authentication from "./authentication";
 import * as comments from "./comments";
 import * as reminder from "./reminder/reminder";
-import * as reminder_notification from "./reminder/reminder_notification";
+import * as reminderNotification from "./reminder/reminder_notification";
 import * as user from "./user/weight_sync";
+import * as emailFunctions from "./user/send_email";
 import {analyzeMealPhotos} from "./fatsecret/meal_analysis";
 
 // 导出 authentication 函数
@@ -43,18 +44,26 @@ export const {
   cleanupOldSchedules
 } = reminder;
 
-// 导出 reminder_notification 函数
+// 导出 reminderNotification 函数
 export const {
   onScheduleTriggered,
   handleSnoozeReminder,
   handleDismissReminder
-} = reminder_notification;
+} = reminderNotification;
 
 export const {
   onHealthLogCreated,
   onHealthLogUpdated,
   onHealthLogDeleted
 } = user;
+
+// 导出邮件功能
+export const {
+  sendUserBannedEmail,
+  sendUserRestoredEmail,
+  sendBatchUserBannedEmails,
+  sendBatchUserRestoredEmails
+} = emailFunctions;
 
 export { analyzeMealPhotos };
 
@@ -193,54 +202,6 @@ export const selfVerifyEmail = onCall(async (request) => {
     );
   }
 });
-
-// 自动验证 Manager 邮箱的 Cloud Function
-// export const autoVerifyManagerOnPasswordSet = beforeUserSignedIn(async (event) => {
-//   try {
-//     const user = event.data;
-//
-//     if (!user) {
-//       console.error("beforeUserSignedIn triggered with no user data.");
-//       return;
-//     }
-//
-//     const uid = user.uid;
-//
-//     const userRecord = await admin.auth().getUser(uid);
-//     const customClaims = (userRecord.customClaims as { role?: string }) || {};
-//     const userRole = customClaims.role;
-//
-//     console.log(
-//       `Checking user ${uid}, role: ${userRole}, emailVerified: ${user.emailVerified}`
-//     );
-//
-//     if (userRole?.includes("manager") && !user.emailVerified) {
-//       console.log(`Auto-verifying email for manager: ${uid}`);
-//
-//       // 验证 Authentication 中的邮箱
-//       await admin.auth().updateUser(uid, {
-//         emailVerified: true,
-//       });
-//
-//       // Firestore 更新
-//       await admin
-//         .firestore()
-//         .collection("users")
-//         .doc(uid)
-//         .update({
-//           isVerify: true,
-//           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-//         });
-//
-//       console.log(`Auto-verified manager: ${uid}`);
-//     }
-//
-//     return;
-//   } catch (err) {
-//     console.error("Error in autoVerifyManagerOnPasswordSet:", err);
-//     return;
-//   }
-// });
 
 export const setAdminClaim = functions.https.onRequest(async (req, res) => {
   try {

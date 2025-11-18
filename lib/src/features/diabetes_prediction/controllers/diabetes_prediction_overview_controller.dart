@@ -7,6 +7,7 @@ import '../../../common/loaders/loaders.dart';
 import '../../../data/repositories/health_log/health_log_repository.dart';
 import '../../../data/repositories/user/user_repository.dart';
 import '../../../features/personalization/models/user_profile_model.dart';
+import '../../../services/diabetes_prediction_service.dart';
 import '../../authentication/models/user_model.dart';
 import '../views/diabetes_input/blood_glucose_input_screen.dart';
 import '../views/diabetes_input/height_weight_input_screen.dart';
@@ -18,6 +19,7 @@ import '../views/diabetes_input/stress_level_input_screen.dart';
 import '../views/diabetes_input/water_intake_input_screen.dart';
 import '../views/diabetes_input/widgets/diabetes_prediction_input_screen.dart';
 import '../../../services/diabetes_hive_storage_manager.dart';
+import '../views/diabetes_output/diabetes_risk_detail_screen.dart';
 
 class DiabetesPredictionOverviewController extends GetxController {
   static DiabetesPredictionOverviewController get instance => Get.find();
@@ -159,7 +161,7 @@ class DiabetesPredictionOverviewController extends GetxController {
       // Step 7: Medicine Prescribed
       if (cache.isStepCompleted(7)) {
         if (cache.takesMedication == true) {
-          stepValues[7] = 'Yes, ${cache.medicationAdherence}x/day';
+          stepValues[7] = 'Yes, ${cache.medicationAdherence}% adherence';
         } else {
           stepValues[7] = 'No medication';
         }
@@ -167,13 +169,30 @@ class DiabetesPredictionOverviewController extends GetxController {
 
       // Step 8: Meal Photos & Diet Assessment
       if (cache.isStepCompleted(8)) {
-        if (cache.mealPhotosProcessed == true && cache.dietAssessment != null) {
+        // 必须同时满足：有照片 + 全部已处理 + 有 assessment
+        if (cache.mealPhotos != null &&
+            cache.mealPhotos!.isNotEmpty &&
+            cache.mealPhotosProcessed == true &&
+            cache.dietAssessment != null) {
           final assessment = cache.dietAssessment!;
           stepValues[8] = assessment.isHealthy
-              ? 'Healthy (${cache.mealPhotos?.length ?? 0} photos)'
-              : 'Needs Improvement (${cache.mealPhotos?.length ?? 0} photos)';
-        } else if (cache.mealPhotos != null && cache.mealPhotos!.isNotEmpty) {
-          stepValues[8] = '${cache.mealPhotos!.length} photos uploaded';
+              ? 'Healthy (${cache.mealPhotos!.length} photos)'
+              : 'Needs Improvement (${cache.mealPhotos!.length} photos)';
+        } else {
+          // 虽然标记为完成，但数据不完整，显示为未完成
+          stepValues.remove(8);
+        }
+      } else {
+        // 未完成状态的显示
+        if (cache.mealPhotos != null && cache.mealPhotos!.isNotEmpty) {
+          // 有照片但未完成处理
+          if (cache.mealPhotosProcessed == true) {
+            stepValues.remove(8); // 已处理但可能缺少 assessment，不显示
+          } else {
+            stepValues.remove(8); // 未处理完成，不显示
+          }
+        } else {
+          stepValues.remove(8); // 没有照片，不显示
         }
       }
 
@@ -479,39 +498,30 @@ class DiabetesPredictionOverviewController extends GetxController {
   }
 
   /// Check if all steps are completed
-  RxBool get allStepsCompleted => (completedSteps.value == 8).obs;
+  bool get allStepsCompleted => completedSteps.value == 8;
 
   /// Start prediction - Export to Firestore and navigate to results
   Future<void> startPrediction() async {
     try {
       isLoading.value = true;
 
-      // Export assessment data for prediction
-      final assessmentData = _storageManager.exportToFirestore();
+      // 使用 DiabetesPredictionService 进行预测
+      final predictionService = DiabetesPredictionService.instance;
 
-      if (assessmentData == null) {
-        TLoaders.errorSnackBar(
-          title: 'Error',
-          message: 'Assessment data is incomplete',
-        );
-        return;
-      }
-
-      // TODO: Call prediction API and save to Firestore history
-      // await _predictionService.predict(assessmentData);
+      // 调用预测服务
+      final predictionResult = await predictionService.startPrediction();
 
       TLoaders.successSnackBar(
-        title: 'Ready',
-        message: 'Starting diabetes risk prediction...',
+        title: 'Prediction Complete',
+        message: 'Your diabetes risk assessment is ready',
       );
 
-      // Navigate to results (implement later)
-      // Get.toNamed('/prediction-results');
+      Get.to(() => DiabetesRiskDetailScreen(prediction: predictionResult,));
 
     } catch (e) {
       TLoaders.errorSnackBar(
-        title: 'Error',
-        message: 'Failed to start prediction: ${e.toString()}',
+        title: 'Prediction Failed',
+        message: 'Failed to complete prediction: ${e.toString()}',
       );
     } finally {
       isLoading.value = false;

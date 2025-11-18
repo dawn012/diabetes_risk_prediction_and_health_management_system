@@ -39,23 +39,23 @@ class UserManagementHeader extends StatelessWidget {
                     ),
                     SizedBox(width: 16),
                     Obx(() => Container(
-                          padding:
-                              EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: TAdminColors.primary.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                                color: TAdminColors.primary.withOpacity(0.3)),
-                          ),
-                          child: Text(
-                            '${controller.filteredUsers.length} ${controller.showingActiveUsers.value ? 'Active' : 'Banned'}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: TAdminColors.primary,
-                            ),
-                          ),
-                        )),
+                      padding:
+                      EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: TAdminColors.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color: TAdminColors.primary.withOpacity(0.3)),
+                      ),
+                      child: Text(
+                        '${controller.filteredUsers.length} ${_getTabLabel()}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: TAdminColors.primary,
+                        ),
+                      ),
+                    )),
                   ],
                 ),
                 SizedBox(height: 8),
@@ -95,17 +95,17 @@ class UserManagementHeader extends StatelessWidget {
                       builder: (context, value, child) {
                         return value.text.isNotEmpty
                             ? IconButton(
-                                icon: Icon(
-                                  Iconsax.close_circle_bold,
-                                  color: TAdminColors.getOnSurfaceVariantColor(
-                                      darkMode),
-                                  size: 20,
-                                ),
-                                onPressed: () {
-                                  controller.searchController.clear();
-                                  controller.filterUsers();
-                                },
-                              )
+                          icon: Icon(
+                            Iconsax.close_circle_bold,
+                            color: TAdminColors.getOnSurfaceVariantColor(
+                                darkMode),
+                            size: 20,
+                          ),
+                          onPressed: () {
+                            controller.searchController.clear();
+                            controller.filterUsers();
+                          },
+                        )
                             : const SizedBox.shrink();
                       },
                     ),
@@ -118,10 +118,10 @@ class UserManagementHeader extends StatelessWidget {
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide:
-                          BorderSide(color: TAdminColors.primary, width: 2),
+                      BorderSide(color: TAdminColors.primary, width: 2),
                     ),
                     contentPadding:
-                        EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   ),
                   style: TextStyle(
                     color: TAdminColors.getOnSurfaceColor(darkMode),
@@ -143,15 +143,15 @@ class UserManagementHeader extends StatelessWidget {
                 child: IconButton(
                   onPressed: controller.refreshUsers,
                   icon: Obx(() => AnimatedRotation(
-                        turns: controller.isLoading.value ? 1.0 : 0.0,
-                        duration: Duration(milliseconds: 1000),
-                        child: Icon(
-                          Iconsax.refresh_bold,
-                          color:
-                              TAdminColors.getOnSurfaceVariantColor(darkMode),
-                          size: 20,
-                        ),
-                      )),
+                    turns: controller.isLoading.value ? 1.0 : 0.0,
+                    duration: Duration(milliseconds: 1000),
+                    child: Icon(
+                      Iconsax.refresh_bold,
+                      color:
+                      TAdminColors.getOnSurfaceVariantColor(darkMode),
+                      size: 20,
+                    ),
+                  )),
                   tooltip: 'Refresh users',
                   style: IconButton.styleFrom(
                     minimumSize: Size(48, 48),
@@ -167,7 +167,7 @@ class UserManagementHeader extends StatelessWidget {
       // Filter controls
       Row(
         children: [
-          // Post status tabs
+          // User status tabs
           _buildUserTypeTabs(controller, darkMode),
 
           const Spacer(),
@@ -184,7 +184,7 @@ class UserManagementHeader extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Container(
-                height: 48, // Same height as other controls
+                height: 48,
                 child: Obx(() => DropdownButtonHideUnderline(
                   child: DropdownButton<int>(
                     value: controller.itemsPerPage.value,
@@ -234,6 +234,19 @@ class UserManagementHeader extends StatelessWidget {
     ]);
   }
 
+  String _getTabLabel() {
+    switch (controller.selectedTabIndex.value) {
+      case 0:
+        return 'Active';
+      case 1:
+        return 'Banned';
+      case 2:
+        return 'Inactive';
+      default:
+        return 'Users';
+    }
+  }
+
   Widget _buildUserTypeTabs(UserManagementController controller, bool isDark) {
     return Container(
       decoration: BoxDecoration(
@@ -246,15 +259,22 @@ class UserManagementHeader extends StatelessWidget {
         children: [
           Obx(() => _buildTabButton(
             'Active Users',
-            controller.showingActiveUsers.value,
-                () => controller.showActiveUsers(),
+            controller.selectedTabIndex.value == 0,
+                () => controller.changeTab(0),
             isDark,
           )),
           const SizedBox(width: 4),
           Obx(() => _buildTabButton(
             'Banned Users',
-            !controller.showingActiveUsers.value,
-                () => controller.showBannedUsers(),
+            controller.selectedTabIndex.value == 1,
+                () => controller.changeTab(1),
+            isDark,
+          )),
+          const SizedBox(width: 4),
+          Obx(() => _buildTabButton(
+            'Inactive Users',
+            controller.selectedTabIndex.value == 2,
+                () => controller.changeTab(2),
             isDark,
           )),
         ],

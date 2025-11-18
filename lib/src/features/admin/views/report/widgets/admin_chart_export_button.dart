@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:icons_plus/icons_plus.dart';
 
 import '../../../../../utils/constants/admin_colors.dart';
-import '../../../../../utils/helpers/export_helper.dart';
 import '../../../../../utils/helpers/helper_functions.dart';
+import '../../../../../utils/helpers/web_export_helper.dart';
 
 class AdminChartExportButton extends StatelessWidget {
   final ChartExportData exportData;
@@ -37,7 +37,7 @@ class AdminChartExportButton extends StatelessWidget {
         ),
         child: ElevatedButton.icon(
           onPressed: exportData.hasData
-              ? () => ExportHelper.showExportDialog(exportData: exportData)
+              ? () => WebExportHelper.showExportDialog(exportData: exportData)
               : null,
           icon: Icon(
             icon ?? Iconsax.document_download_bold,
@@ -81,7 +81,7 @@ class AdminChartExportButton extends StatelessWidget {
         ),
         child: IconButton(
           onPressed: exportData.hasData
-              ? () => ExportHelper.showExportDialog(exportData: exportData)
+              ? () => WebExportHelper.showExportDialog(exportData: exportData)
               : null,
           icon: Icon(
             icon ?? Iconsax.document_download_bold,

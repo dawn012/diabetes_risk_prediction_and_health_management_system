@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -23,6 +25,7 @@ class UserRepository extends GetxController {
   static UserRepository get instance => Get.find();
 
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseFunctions _functions = FirebaseFunctions.instance;
 
   /// Collection reference
   late final CollectionReference _usersCollection;
@@ -645,12 +648,36 @@ class UserRepository extends GetxController {
     }
   }
 
+  /// Update user's last active timestamp
+  Future<void> updateLastActive(String userId) async {
+    try {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await _db
+          .collection(FirebaseCollectionNames.users)
+          .doc(userId)
+          .update({
+        FirebaseFieldNames.lastActive: now,
+      });
+    } on FirebaseException catch (e) {
+      // 不抛出异常，因为更新最后活跃时间不是关键操作
+      print('Error updating last active: ${e.message}');
+    } catch (e) {
+      print('Error updating last active: $e');
+    }
+  }
+
   /// Ban a user
-  Future<void> banUser(String userId) async {
+  Future<void> banUser(String userId, {String? banReason}) async {
     try {
       await _db.collection(FirebaseCollectionNames.users).doc(userId).update({
         FirebaseFieldNames.accountAvailable: false,
       });
+
+      // 发送封禁邮件
+      unawaited(sendUserBannedEmail(
+        userId: userId,
+        banReason: banReason ?? 'Violation of community guidelines.',
+      ));
     } on FirebaseException catch (e) {
       throw TFirebaseException(e.code).message;
     } on FormatException catch (_) {
@@ -668,6 +695,12 @@ class UserRepository extends GetxController {
       await _db.collection(FirebaseCollectionNames.users).doc(userId).update({
         FirebaseFieldNames.accountAvailable: true,
       });
+
+      // 发送恢复邮件 (从封禁状态恢复)
+      unawaited(sendUserRestoredEmail(
+        userId: userId,
+        wasInactive: false, // false 表示从 banned 恢复
+      ));
     } on FirebaseException catch (e) {
       throw TFirebaseException(e.code).message;
     } on FormatException catch (_) {
@@ -679,10 +712,37 @@ class UserRepository extends GetxController {
     }
   }
 
-  /// Function to remove user data from Firestore
-  Future<void> removeUserRecord(String userId) async {
+  /// Soft delete user (mark as deleted by user)
+  Future<void> deleteAccount(String userId) async {
     try {
-      await _db.collection(FirebaseCollectionNames.users).doc(userId).delete();
+      await _db.collection(FirebaseCollectionNames.users).doc(userId).update({
+        // FirebaseFieldNames.accountAvailable: false,
+        FirebaseFieldNames.isDeleted: true, // 标记为用户自己删除
+      });
+    } on FirebaseException catch (e) {
+      throw TFirebaseException(e.code).message;
+    } on FormatException catch (_) {
+      throw const TFormatException();
+    } on PlatformException catch (e) {
+      throw TPlatformException(e.code).message;
+    } catch (e) {
+      throw TTexts.commonErrorMessage;
+    }
+  }
+
+  /// Restore soft-deleted user
+  Future<void> restoreAccount(String userId) async {
+    try {
+      await _db.collection(FirebaseCollectionNames.users).doc(userId).update({
+        // FirebaseFieldNames.accountAvailable: false,
+        FirebaseFieldNames.isDeleted: false,
+      });
+
+      // 发送恢复邮件 (从 inactive 状态恢复)
+      unawaited(sendUserRestoredEmail(
+        userId: userId,
+        wasInactive: true, // true 表示从 inactive 恢复
+      ));
     } on FirebaseException catch (e) {
       throw TFirebaseException(e.code).message;
     } on FormatException catch (_) {
@@ -756,6 +816,102 @@ class UserRepository extends GetxController {
       throw TPlatformException(e.code).message;
     } catch (e) {
       throw TTexts.commonErrorMessage;
+    }
+  }
+
+  /// Send ban email to a user
+  Future<bool> sendUserBannedEmail({
+    required String userId,
+    String? banReason,
+  }) async {
+    try {
+      final callable = _functions.httpsCallable('sendUserBannedEmail');
+      final response = await callable.call({
+        'userId': userId,
+        'banReason': banReason,
+      });
+
+      return response.data['success'] == true;
+    } catch (e) {
+      print('Error calling sendUserBannedEmail: $e');
+      return false;
+    }
+  }
+
+  /// Send restore email to a user
+  Future<bool> sendUserRestoredEmail({
+    required String userId,
+    required bool wasInactive,
+  }) async {
+    try {
+      final callable = _functions.httpsCallable('sendUserRestoredEmail');
+      final response = await callable.call({
+        'userId': userId,
+        'wasInactive': wasInactive,
+      });
+
+      return response.data['success'] == true;
+    } catch (e) {
+      print('Error calling sendUserRestoredEmail: $e');
+      return false;
+    }
+  }
+
+  /// Send batch ban emails to multiple users
+  Future<Map<String, dynamic>> sendBatchUserBannedEmails({
+    required List<String> userIds,
+    String? banReason,
+  }) async {
+    try {
+      final callable = _functions.httpsCallable('sendBatchUserBannedEmails');
+      final response = await callable.call({
+        'userIds': userIds,
+        'banReason': banReason,
+      });
+
+      return {
+        'success': response.data['success'] == true,
+        'succeeded': response.data['succeeded'] ?? 0,
+        'failed': response.data['failed'] ?? 0,
+        'message': response.data['message'] ?? '',
+      };
+    } catch (e) {
+      print('Error calling sendBatchUserBannedEmails: $e');
+      return {
+        'success': false,
+        'succeeded': 0,
+        'failed': userIds.length,
+        'message': 'Failed to send emails: $e',
+      };
+    }
+  }
+
+  /// Send batch restore emails to multiple users
+  Future<Map<String, dynamic>> sendBatchUserRestoredEmails({
+    required List<String> userIds,
+    required bool wasInactive,
+  }) async {
+    try {
+      final callable = _functions.httpsCallable('sendBatchUserRestoredEmails');
+      final response = await callable.call({
+        'userIds': userIds,
+        'wasInactive': wasInactive,
+      });
+
+      return {
+        'success': response.data['success'] == true,
+        'succeeded': response.data['succeeded'] ?? 0,
+        'failed': response.data['failed'] ?? 0,
+        'message': response.data['message'] ?? '',
+      };
+    } catch (e) {
+      print('Error calling sendBatchUserRestoredEmails: $e');
+      return {
+        'success': false,
+        'succeeded': 0,
+        'failed': userIds.length,
+        'message': 'Failed to send emails: $e',
+      };
     }
   }
 }

@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 
+import '../../../../common/widgets/dialogs/dialog.dart';
 import '../../../../utils/constants/colors.dart';
 import '../../../../utils/helpers/helper_functions.dart';
 import '../../controllers/meal_photos_controller.dart';
@@ -30,11 +31,11 @@ class MealPhotosUploadScreen extends StatelessWidget {
       title: 'Meal Photos',
       progressValue: 8 / 8,
       showBackButton: mode == NavigationMode.flow,
-      showCloseButton: mode == NavigationMode.edit,
+      showCloseButton: true,
       navigationMode: mode,
       canProceed: controller.shouldShowProcessButton
-          ? controller.canProcessPhotos  // 显示Process时：有未处理照片才enable
-          : controller.canContinueOrSave, // 显示Continue/Save时：一切OK才enable
+          ? controller.canProcessPhotos
+          : controller.canContinueOrSave,
       isLoading: controller.isProcessingAPI.value,
       continueButtonText: controller.continueButtonText,
       onContinue: controller.shouldShowProcessButton
@@ -69,11 +70,11 @@ class MealPhotosUploadScreen extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            // Upload Button
-            if (!controller.allPhotosProcessed)
+            // Upload Button - Show when not at max limit
+            if (controller.mealPhotos.length < controller.maxPhotos)
               _buildUploadButton(controller, darkMode),
 
-            if (!controller.allPhotosProcessed)
+            if (controller.mealPhotos.length < controller.maxPhotos)
               const SizedBox(height: 20),
 
             // Photos Grid
@@ -85,7 +86,7 @@ class MealPhotosUploadScreen extends StatelessWidget {
             const SizedBox(height: 20),
 
             // GL Info Card (only show after processing)
-            if (controller.hasProcessedPhotos)
+            if (controller.hasValidProcessedPhotos)
               _buildGLInfoCard(darkMode),
 
             const SizedBox(height: 20),
@@ -330,7 +331,7 @@ class MealPhotosUploadScreen extends StatelessWidget {
             ),
             if (controller.mealPhotos.isNotEmpty)
               TextButton.icon(
-                onPressed: () => _showClearConfirmation(controller),
+                onPressed: () => TDialog.confirmDialog(title: 'Clear All Photos?', message: 'This will remove all uploaded photos. This action cannot be undone.', confirmText: 'Clear All', onConfirm: () => controller.resetData()),
                 icon: const Icon(Icons.delete_outline, size: 18),
                 label: const Text('Clear All'),
                 style: TextButton.styleFrom(
@@ -365,18 +366,24 @@ class MealPhotosUploadScreen extends StatelessWidget {
       MealPhotosController controller,
       bool darkMode,
       ) {
-    final hasGL = photo.analysisResult != null;
+    final hasGL = photo.analysisResult != null && !photo.analysisResult!.hasError;
+    final hasError = photo.analysisResult?.hasError ?? false;
+
     final glColor = hasGL
         ? photo.analysisResult!.glCategory == 'low'
         ? Colors.green
         : photo.analysisResult!.glCategory == 'medium'
         ? Colors.orange
         : Colors.red
+        : hasError
+        ? Colors.red
         : Colors.grey;
 
     return GestureDetector(
       onTap: hasGL
           ? () => _showMealDetails(photo.analysisResult!, darkMode)
+          : hasError
+          ? () => _showErrorDetails(photo.analysisResult!, darkMode)
           : null,
       child: Container(
         decoration: BoxDecoration(
@@ -415,6 +422,31 @@ class MealPhotosUploadScreen extends StatelessWidget {
                   ),
                   child: const Text(
                     'NEW',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+
+            // Error Badge
+            if (hasError)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    'ERROR',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 10,
@@ -478,7 +510,16 @@ class MealPhotosUploadScreen extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    if (hasGL) ...[
+                    if (hasError)
+                      Text(
+                        'Not a food item',
+                        style: TextStyle(
+                          color: Colors.red.shade200,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                    else if (hasGL) ...[
                       Text(
                         '${photo.analysisResult!.foods.length} food(s)',
                         style: TextStyle(
@@ -529,7 +570,7 @@ class MealPhotosUploadScreen extends StatelessWidget {
             ),
 
             // Tap to view indicator
-            if (hasGL)
+            if (hasGL || hasError)
               Positioned(
                 bottom: 60,
                 right: 8,
@@ -539,8 +580,8 @@ class MealPhotosUploadScreen extends StatelessWidget {
                     color: Colors.black.withOpacity(0.5),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(
-                    Icons.info_outline,
+                  child: Icon(
+                    hasError ? Icons.error_outline : Icons.info_outline,
                     color: Colors.white,
                     size: 16,
                   ),
@@ -585,6 +626,50 @@ class MealPhotosUploadScreen extends StatelessWidget {
               color: darkMode ? TColors.darkGrey : TColors.darkerGrey,
             ),
           ),
+          const SizedBox(height: 12),
+
+          // Formula
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.purple.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.purple.withOpacity(0.2)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Formula:',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.purple,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'GL = (GI × Net Carbs) / 100',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    fontFamily: 'monospace',
+                    color: darkMode ? TColors.white : TColors.black,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Net Carbs = Total Carbs - Fiber',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontStyle: FontStyle.italic,
+                    color: darkMode ? TColors.darkGrey : TColors.darkerGrey,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
           const SizedBox(height: 12),
           Row(
             children: [
@@ -676,6 +761,8 @@ class MealPhotosUploadScreen extends StatelessWidget {
           _resultRow('Total Foods Detected', '${data.totalFoodsDetected}'),
           _resultRow('Low GL Meals',
               '${data.lowGLMealsCount}/${data.mealCount}'),
+          _resultRow('Medium GL Meals',
+              '${data.mediumGLMealsCount}/${data.mealCount}'),
           _resultRow('High GL Meals',
               '${data.highGLMealsCount}/${data.mealCount}'),
 
@@ -683,10 +770,10 @@ class MealPhotosUploadScreen extends StatelessWidget {
           const Divider(),
           const SizedBox(height: 12),
 
-          _resultRow('Total Calories', '${data.totalCalories.toInt()} kcal'),
-          _resultRow('Total Carbs', '${data.totalCarbs.toInt()}g'),
-          _resultRow('Total Sugar', '${data.totalSugar.toInt()}g'),
-          _resultRow('Total Fiber', '${data.totalFiber.toInt()}g'),
+          _resultRow('Total Calories', '${data.totalCalories.toStringAsFixed(2)} kcal'),
+          _resultRow('Total Carbs', '${data.totalCarbs.toStringAsFixed(2)} g'),
+          _resultRow('Total Sugar', '${data.totalSugar.toStringAsFixed(2)} g'),
+          _resultRow('Total Fiber', '${data.totalFiber.toStringAsFixed(2)} g'),
 
           if (data.warnings.isNotEmpty) ...[
             const SizedBox(height: 16),
@@ -784,6 +871,92 @@ class MealPhotosUploadScreen extends StatelessWidget {
     );
   }
 
+  void _showErrorDetails(MealAnalysisResult meal, bool darkMode) {
+    Get.dialog(
+      Dialog(
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Meal ${meal.mealNumber}',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Get.back(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              Icon(
+                Icons.error_outline,
+                size: 64,
+                color: Colors.red,
+              ),
+
+              const SizedBox(height: 16),
+
+              Text(
+                'No Food Detected',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.red,
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              Text(
+                meal.error ?? 'This image does not contain any food items.',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: darkMode ? TColors.darkGrey : TColors.darkerGrey,
+                ),
+                textAlign: TextAlign.center,
+              ),
+
+              const SizedBox(height: 20),
+
+              Text(
+                'Please upload a photo that clearly shows food items.',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontStyle: FontStyle.italic,
+                  color: darkMode ? TColors.darkGrey : TColors.darkerGrey,
+                ),
+                textAlign: TextAlign.center,
+              ),
+
+              const SizedBox(height: 24),
+
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Get.back(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    padding: EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: Text('OK'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showMealDetails(MealAnalysisResult meal, bool darkMode) {
     Get.dialog(
       Dialog(
@@ -846,6 +1019,8 @@ class MealPhotosUploadScreen extends StatelessWidget {
                   itemCount: meal.foods.length,
                   itemBuilder: (context, index) {
                     final food = meal.foods[index];
+                    final hasGIData = food.giValue != null && food.glycemicLoad != null;
+
                     return Card(
                       margin: const EdgeInsets.only(bottom: 8),
                       child: Padding(
@@ -861,10 +1036,11 @@ class MealPhotosUploadScreen extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 8),
-                            if (food.glycemicLoad != null) ...[
+
+                            // Show GI data if available
+                            if (hasGIData) ...[
                               Row(
-                                mainAxisAlignment:
-                                MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   const Text(
                                     'GL:',
@@ -892,39 +1068,8 @@ class MealPhotosUploadScreen extends StatelessWidget {
                                 ],
                               ),
                               const SizedBox(height: 4),
-                            ],
-                            Row(
-                              mainAxisAlignment:
-                              MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                  'Calories:',
-                                  style: TextStyle(fontSize: 12),
-                                ),
-                                Text(
-                                  '${food.calories.toInt()} kcal',
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                              ],
-                            ),
-                            Row(
-                              mainAxisAlignment:
-                              MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                  'Carbs:',
-                                  style: TextStyle(fontSize: 12),
-                                ),
-                                Text(
-                                  '${food.carbs.toInt()}g',
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                              ],
-                            ),
-                            if (food.giValue != null)
                               Row(
-                                mainAxisAlignment:
-                                MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   const Text(
                                     'GI:',
@@ -936,6 +1081,80 @@ class MealPhotosUploadScreen extends StatelessWidget {
                                   ),
                                 ],
                               ),
+                              const SizedBox(height: 4),
+                            ] else ...[
+                              // Show warning if no GI data
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.info_outline,
+                                      size: 12,
+                                      color: Colors.orange,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Cannot find GI value',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.orange,
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                            ],
+
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Calories:',
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                                Text(
+                                  '${food.calories.toStringAsFixed(2)} kcal',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ],
+                            ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Carbs:',
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                                Text(
+                                  '${food.carbs.toStringAsFixed(2)} g',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ],
+                            ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Fiber:',
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                                Text(
+                                  '${food.fiber.toStringAsFixed(2)} g',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ],
+                            ),
                           ],
                         ),
                       ),
@@ -1025,31 +1244,6 @@ class MealPhotosUploadScreen extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  void _showClearConfirmation(MealPhotosController controller) {
-    Get.dialog(
-      AlertDialog(
-        title: const Text('Clear All Photos?'),
-        content: const Text(
-          'This will remove all uploaded photos. This action cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Get.back();
-              controller.resetData();
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Clear All'),
-          ),
-        ],
       ),
     );
   }

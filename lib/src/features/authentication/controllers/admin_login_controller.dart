@@ -110,6 +110,14 @@ class AdminLoginController extends GetxController {
           errorMessage.value = TTexts.accountDisabledMessage;
           return;
         }
+
+        // Check if account is deleted
+        final isDeleted = userData['isDeleted'] ?? false;
+        if (isDeleted) {
+          isLoading.value = false;
+          errorMessage.value = TTexts.accountDeletedMessage;
+          return;
+        }
       }
 
       // 登录成功后就更新 Firestore 的 isVerify 为 true

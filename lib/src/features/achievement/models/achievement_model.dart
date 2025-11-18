@@ -13,7 +13,8 @@ class AchievementModel {
   final List<AchievementLevelModel> levels;
   final bool isActive;
   final DateTime createdAt;
-  final int iconCodePoint; // 存储 IconData 的 codePoint
+  final DateTime updatedAt;
+  final int iconCodePoint;
 
   const AchievementModel({
     required this.achievementId,
@@ -23,14 +24,15 @@ class AchievementModel {
     required this.levels,
     required this.isActive,
     required this.createdAt,
+    required this.updatedAt,
     this.iconCodePoint = 0xf01a, // Icons.emoji_events.codePoint
   });
 
   /// 获取 IconData
   IconData get iconData => IconData(
-    iconCodePoint,
-    fontFamily: 'MaterialIcons',
-    fontPackage: null
+      iconCodePoint,
+      fontFamily: 'MaterialIcons',
+      fontPackage: null
   );
 
   /// Static function to create an empty achievement model
@@ -43,7 +45,8 @@ class AchievementModel {
       levels: [],
       isActive: false,
       createdAt: DateTime.now(),
-      iconCodePoint: Icons.emoji_events_outlined.codePoint, // 默认图标
+      updatedAt: DateTime.now(),
+      iconCodePoint: Icons.emoji_events_outlined.codePoint,
     );
   }
 
@@ -56,9 +59,8 @@ class AchievementModel {
     List<AchievementLevelModel>? levels,
     bool? isActive,
     DateTime? createdAt,
+    DateTime? updatedAt,
     int? iconCodePoint,
-    String? iconFontFamily,
-    String? iconFontPackage,
   }) {
     return AchievementModel(
       achievementId: achievementId ?? this.achievementId,
@@ -68,6 +70,7 @@ class AchievementModel {
       levels: levels ?? this.levels,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
       iconCodePoint: iconCodePoint ?? this.iconCodePoint,
     );
   }
@@ -82,6 +85,7 @@ class AchievementModel {
       FirebaseFieldNames.levels: levels.map((e) => e.toJson()).toList(),
       FirebaseFieldNames.isActive: isActive,
       FirebaseFieldNames.createdAt: createdAt.millisecondsSinceEpoch,
+      FirebaseFieldNames.updatedAt: updatedAt.millisecondsSinceEpoch,
       FirebaseFieldNames.iconCodePoint: iconCodePoint,
     };
   }
@@ -105,6 +109,10 @@ class AchievementModel {
         createdAt: data[FirebaseFieldNames.createdAt] != null
             ? DateTime.fromMillisecondsSinceEpoch(
             data[FirebaseFieldNames.createdAt])
+            : DateTime.now(),
+        updatedAt: data[FirebaseFieldNames.updatedAt] != null
+            ? DateTime.fromMillisecondsSinceEpoch(
+            data[FirebaseFieldNames.updatedAt])
             : DateTime.now(),
         iconCodePoint: data[FirebaseFieldNames.iconCodePoint] ?? Icons.emoji_events.codePoint,
       );

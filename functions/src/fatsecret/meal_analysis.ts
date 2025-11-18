@@ -67,13 +67,6 @@ interface AnalysisResponse {
   nutritionData: DietAssessmentReport;
 }
 
-// interface GISearchResponse {
-//   food_name: string;
-//   gi_value: number;
-//   source: string;
-//   status: string;
-// }
-
 interface GIBatchResponse {
   results: Array<{
     food_name: string;
@@ -103,15 +96,15 @@ if (!FLASK_GI_API) throw new Error("FLASK_API_URL not defined");
 
 // GL thresholds (per meal average)
 const GL_THRESHOLDS = {
-  low: 10,      // GL < 10 is low
-  medium: 20,   // GL 10-20 is medium
-  high: 20,     // GL > 20 is high
+  low: 10,
+  medium: 20,
+  high: 20,
 };
 
-// Rate limiting for FatSecret API (避免被封)
+// Rate limiting for FatSecret API
 const FATSECRET_RATE_LIMIT = {
-  maxConcurrent: 3, // 同时最多3个请求
-  delayBetweenBatches: 1000, // 批次间延迟1秒
+  maxConcurrent: 3,
+  delayBetweenBatches: 1000,
 };
 
 /**
@@ -155,6 +148,20 @@ async function analyzeMealImage(imageBase64: string, accessToken: string): Promi
     );
     return response.data;
   } catch (error: any) {
+    // Check if it's a FatSecret error response (211 - no food detected)
+    if (error.response?.data?.error) {
+      const errorData = error.response.data.error;
+      if (errorData.code === 211) {
+        console.log("❌ No food detected in image (Error 211)");
+        return {
+          error: {
+            code: 211,
+            message: "No food item detected in this image"
+          }
+        };
+      }
+    }
+
     console.error("FatSecret analysis error:", error.response?.data || error.message);
     throw new Error("Failed to analyze image");
   }
@@ -163,8 +170,11 @@ async function analyzeMealImage(imageBase64: string, accessToken: string): Promi
 /**
  * Process multiple images concurrently with rate limiting
  */
-async function processImagesConcurrently(images: MealImage[], accessToken: string): Promise<Array<{image: MealImage, data: any}>> {
-  const results: Array<{image: MealImage, data: any}> = [];
+async function processImagesConcurrently(
+  images: MealImage[],
+  accessToken: string
+): Promise<Array<{image: MealImage, data: any, error?: string}>> {
+  const results: Array<{image: MealImage, data: any, error?: string}> = [];
 
   const batchSize = FATSECRET_RATE_LIMIT.maxConcurrent;
 
@@ -175,12 +185,21 @@ async function processImagesConcurrently(images: MealImage[], accessToken: strin
     const batchPromises = batch.map(async (image) => {
       try {
         const data = await analyzeMealImage(image.image_b64, accessToken);
-        // 保存原始响应用于调试
-        console.log(`📸 Image ${image.id} response keys:`, Object.keys(data));
+
+        // Check if FatSecret returned an error (no food detected)
+        if (data.error && data.error.code === 211) {
+          console.log(`⚠️ Image ${image.id}: No food detected`);
+          return {
+            image,
+            data: null,
+            error: "No food item detected in this image. Please upload a photo that clearly shows food items."
+          };
+        }
+
+        console.log(`📸 Image ${image.id} processed successfully`);
         return { image, data };
       } catch (error: any) {
         console.error(`❌ FatSecret API error for image ${image.id}:`, error.message);
-        // 保存错误信息
         return { image, data: null, error: error.message };
       }
     });
@@ -214,7 +233,7 @@ async function getGIBatch(foodNames: string[]): Promise<Map<string, number>> {
     const response = await axios.post<GIBatchResponse>(
       `${FLASK_GI_API}/api/batch-search-gi`,
       { food_names: uniqueFoodNames },
-      { timeout: 60000 } // 60秒超时
+      { timeout: 60000 }
     );
 
     console.log(`📊 Batch GI results: ${response.data.summary.found} found, ${response.data.summary.not_found} not found`);
@@ -241,7 +260,7 @@ async function getGIBatch(foodNames: string[]): Promise<Map<string, number>> {
 function calculateGlycemicLoad(giValue: number, carbs: number, fiber: number): number {
   const netCarbs = Math.max(0, carbs - fiber);
   const gl = (giValue * netCarbs) / 100;
-  return Math.round(gl * 10) / 10; // Round to 1 decimal
+  return Math.round(gl * 10) / 10;
 }
 
 /**
@@ -260,20 +279,11 @@ function extractFoodData(apiResponse: any): Partial<DetectedFood>[] {
   const foods: Partial<DetectedFood>[] = [];
 
   try {
-    console.log("🔍 Raw API response structure:", JSON.stringify(apiResponse, null, 2).substring(0, 1000));
-
     if (apiResponse.food_response && Array.isArray(apiResponse.food_response)) {
-      console.log("✅ Found food_response array");
       for (const foodItem of apiResponse.food_response) {
-        console.log("📦 Food item:", JSON.stringify(foodItem, null, 2).substring(0, 500));
-
         if (foodItem.eaten && foodItem.eaten.total_nutritional_content) {
           const content = foodItem.eaten.total_nutritional_content;
-          console.log("🎯 Nutritional content found");
-
-          // 修复：优先使用 food_entry_name，并添加调试
           const foodName = foodItem.food_entry_name || "Unknown Food";
-          console.log(`📝 Extracted food name: "${foodName}"`);
 
           foods.push({
             name: foodName,
@@ -286,23 +296,14 @@ function extractFoodData(apiResponse: any): Partial<DetectedFood>[] {
             sugar: parseFloat(content.sugar || 0),
             sodium: parseFloat(content.sodium || 0),
           });
-        } else {
-          console.log("❌ No eaten data or nutritional content");
         }
       }
-    } else {
-      console.log("❌ No food_response array found");
     }
   } catch (error) {
     console.error("❌ Error extracting food data:", error);
   }
 
-  // 增强调试：显示具体提取的食物名称
-  console.log(`🍎 Extracted ${foods.length} foods:`);
-  foods.forEach((food, index) => {
-    console.log(`   ${index + 1}. "${food.name}" - Carbs: ${food.carbs}g, Fiber: ${food.fiber}g`);
-  });
-
+  console.log(`🍎 Extracted ${foods.length} foods`);
   return foods;
 }
 
@@ -325,7 +326,7 @@ async function processMealWithGI(
       foods: [],
       totalGL: 0,
       glCategory: "unknown",
-      error: "No foods detected in this image",
+      error: "No food item detected in this image. Please upload a photo that clearly shows food items.",
     };
   }
 
@@ -397,10 +398,8 @@ function assessDietQuality(mealGLs: number[]): {
   // Calculate average GL per meal
   const avgGL = mealGLs.reduce((sum, gl) => sum + gl, 0) / mealGLs.length;
 
-  // Determine health status based on average GL
   let isHealthy = true;
 
-  // Check average GL
   if (avgGL > GL_THRESHOLDS.high) {
     warnings.push(
       `High average glycemic load (${avgGL.toFixed(1)}) - may cause frequent blood sugar spikes`
@@ -412,7 +411,6 @@ function assessDietQuality(mealGLs: number[]): {
     );
   }
 
-  // Check individual meals
   const highGLMeals = mealGLs.filter(gl => gl > GL_THRESHOLDS.high).length;
   if (highGLMeals > mealGLs.length * 0.4) {
     warnings.push(
@@ -421,7 +419,6 @@ function assessDietQuality(mealGLs: number[]): {
     isHealthy = false;
   }
 
-  // Check for very high individual GLs
   const veryHighGL = mealGLs.filter(gl => gl > 30).length;
   if (veryHighGL > 0) {
     warnings.push(
@@ -451,7 +448,7 @@ export const analyzeMealPhotos = functions.https.onCall(
       if (!data.images || !Array.isArray(data.images) || data.images.length < 1) {
         throw new functions.https.HttpsError(
           "invalid-argument",
-          "At least 7 meal images required"
+          "At least 1 meal image required"
         );
       }
 
@@ -466,92 +463,103 @@ export const analyzeMealPhotos = functions.https.onCall(
 
       const accessToken = await getFatSecretAccessToken();
 
-      // 1. 并发处理所有图片的 FatSecret API 调用
+      // 1. Process all images concurrently
       console.log("🔄 Starting concurrent image analysis...");
       const imageResults = await processImagesConcurrently(data.images, accessToken);
 
-      // 2. 收集所有检测到的食物名称用于批量 GI 查询
+      // 2. Collect food names from successful analyses
       const allFoodNames: string[] = [];
       const validImageResults: Array<{image: MealImage, data: any}> = [];
 
       for (const result of imageResults) {
-        if (result.data) {
+        if (result.data && !result.error) {
           const foods = extractFoodData(result.data);
           foods.forEach(food => {
             if (food.name && food.name !== "Unknown Food") {
               allFoodNames.push(food.name);
             }
           });
-          validImageResults.push(result);
+          validImageResults.push({ image: result.image, data: result.data });
         }
       }
 
-      // 3. 批量获取所有食物的 GI 值
+      // 3. Batch get GI values
       console.log(`🔍 Collecting GI values for ${allFoodNames.length} food items...`);
 
       let giMap: Map<string, number>;
       try {
         giMap = await getGIBatch(allFoodNames);
       } catch (error: any) {
-        console.error("❌ Batch GI failed, using empty map");
-        console.error(`Error: ${error.message}`);
+        console.error("❌ Batch GI failed, using empty map: ", error.message);
         giMap = new Map();
       }
 
-      // 4. 处理每个餐食的结果
+      // 4. Process each meal result
       const mealResults: MealAnalysisResult[] = [];
       const allMealGLs: number[] = [];
 
-      for (let i = 0; i < validImageResults.length; i++) {
-        const { image, data } = validImageResults[i];
-        try {
-          const mealResult = await processMealWithGI(image, i + 1, data, giMap);
-          mealResults.push(mealResult);
+      for (let i = 0; i < imageResults.length; i++) {
+        const result = imageResults[i];
 
-          if (mealResult.totalGL > 0) {
-            allMealGLs.push(mealResult.totalGL);
-          }
-        } catch (error: any) {
-          console.error(`❌ Error processing image ${image.id}:`, error.message);
-          mealResults.push({
-            id: image.id,
-            mealNumber: i + 1,
-            error: error.message,
-            foods: [],
-            totalGL: 0,
-            glCategory: "unknown",
-          });
-        }
-      }
-
-      // 处理失败的图片
-      for (const result of imageResults) {
-        if (!result.data) {
+        // Handle images with errors (no food detected)
+        if (result.error) {
+          console.log(`⚠️ Image ${result.image.id} has error: ${result.error}`);
           mealResults.push({
             id: result.image.id,
-            mealNumber: mealResults.length + 1,
-            error: "Image analysis failed",
+            mealNumber: i + 1,
+            error: result.error,
             foods: [],
             totalGL: 0,
             glCategory: "unknown",
           });
+          continue;
+        }
+
+        // Process valid images
+        if (result.data) {
+          try {
+            const mealResult = await processMealWithGI(
+              result.image,
+              i + 1,
+              result.data,
+              giMap
+            );
+            mealResults.push(mealResult);
+
+            // Only count meals without errors for GL calculation
+            if (!mealResult.error && mealResult.totalGL > 0) {
+              allMealGLs.push(mealResult.totalGL);
+            }
+          } catch (error: any) {
+            console.error(`❌ Error processing image ${result.image.id}:`, error.message);
+            mealResults.push({
+              id: result.image.id,
+              mealNumber: i + 1,
+              error: error.message,
+              foods: [],
+              totalGL: 0,
+              glCategory: "unknown",
+            });
+          }
         }
       }
 
-      // 按原始顺序排序
+      // Sort by original order
       mealResults.sort((a, b) => {
         const indexA = data.images.findIndex(img => img.id === a.id);
         const indexB = data.images.findIndex(img => img.id === b.id);
         return indexA - indexB;
       });
 
-      // Assess overall diet quality
+      // Assess overall diet quality (only from valid meals)
       const validGLs = allMealGLs.filter(gl => gl > 0);
+      const validMealCount = mealResults.filter(m => !m.error && m.totalGL > 0).length;
+
       const assessment = validGLs.length > 0
         ? assessDietQuality(validGLs)
         : {
           isHealthy: false,
-          warnings: ["Unable to calculate GL for most meals"],
+          warnings: ["Unable to calculate GL - no valid food data found"],
           avgGL: 0
         };
 
@@ -561,19 +569,18 @@ export const analyzeMealPhotos = functions.https.onCall(
         avgGLPerMeal: Math.round(assessment.avgGL * 10) / 10,
         isHealthy: assessment.isHealthy,
         warnings: assessment.warnings,
-        mealCount: data.images.length,
+        mealCount: validMealCount, // Only count valid meals
         glThresholds: GL_THRESHOLDS,
         processedAt: new Date().toISOString(),
       };
 
       console.log("✨ Analysis completed:", {
         userId: context.auth.uid,
-        mealCount: data.images.length,
+        totalImages: data.images.length,
+        validMeals: validMealCount,
+        errorMeals: mealResults.filter(m => m.error).length,
         avgGL: assessment.avgGL.toFixed(1),
         isHealthy: assessment.isHealthy,
-        validMeals: validGLs.length,
-        successfulImages: validImageResults.length,
-        totalFoods: allFoodNames.length,
         foodsWithGI: giMap.size,
       });
 

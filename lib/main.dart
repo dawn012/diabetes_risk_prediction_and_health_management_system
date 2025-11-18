@@ -11,6 +11,7 @@ import 'package:hive_flutter/adapters.dart';
 import 'app.dart';
 import 'firebase_options.dart';
 import 'src/data/repositories/authentication/authentication_repository.dart';
+import 'src/data/repositories/notification/notification_repository.dart';
 import 'src/services/fcm_service.dart';
 
 Future<void> main() async {
@@ -50,6 +51,7 @@ Future<void> main() async {
 
   // --- Inject AuthenticationRepository into GetX dependency system ---
   Get.put(AuthenticationRepository());
+  Get.put(NotificationRepository());
 
   // --- Initialize Firebase Cloud Messaging (safe for all platforms) ---
   final fcmService = FCMService();

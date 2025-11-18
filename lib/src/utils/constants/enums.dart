@@ -17,7 +17,7 @@ enum ExportFormat { pdf, csv }
 
 enum ReportStatus { loading, success, error, empty }
 
-enum NotificationType { reminder, system, }
+enum NotificationType { reminder, system, account_status }
 
 enum BatchActionType {
   disable,

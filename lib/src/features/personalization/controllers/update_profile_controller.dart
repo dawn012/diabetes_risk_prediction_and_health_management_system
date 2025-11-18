@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../common/loaders/loaders.dart';
+import '../../../data/repositories/authentication/authentication_repository.dart';
 import '../../../data/repositories/user/user_repository.dart';
 import '../../../utils/constants/text_strings.dart';
 import '../../../utils/helpers/network_manager.dart';
@@ -394,18 +395,10 @@ class UpdateProfileController extends GetxController {
       // Stop Loading
       isPasswordLoading.value = false;
 
-      // Success Message
-      TLoaders.successSnackBar(
-        title: 'Success',
-        message: 'Your password has been changed successfully.',
-      );
-
-      // Refresh user data before going back
-      await userController.fetchUserRecord();
-
-      // Go back
-      Get.back();
+      // Logout user for security
+      await AuthenticationRepository.instance.logout(title: 'Password Changed', message: 'Your password has been changed successfully. For your security, you have been logged out. Please log in again using your new password.');
     } catch (e) {
+      // Stop Loading
       isPasswordLoading.value = false;
       TLoaders.errorSnackBar(title: TTexts.error, message: e.toString());
     }

@@ -19,9 +19,11 @@ class AdminLineChart extends StatelessWidget {
   final GlobalKey? chartKey;
   final String? periodFilter;
   final String? trendFilter;
-  final String yAxisLabel; // New parameter for Y-axis label
+  final String yAxisLabel;
+  final double horizontalInterval;
+  final double leftTitleInterval;
 
-  AdminLineChart({
+  const AdminLineChart({
     super.key,
     required this.spots,
     required this.xLabels,
@@ -36,7 +38,9 @@ class AdminLineChart extends StatelessWidget {
     this.chartKey,
     this.periodFilter,
     this.trendFilter,
-    this.yAxisLabel = '', // Default empty
+    this.yAxisLabel = '',
+    required this.horizontalInterval,
+    required this.leftTitleInterval,
   });
 
   @override
@@ -45,170 +49,215 @@ class AdminLineChart extends StatelessWidget {
 
     return RepaintBoundary(
       key: chartKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Y-axis label
-          if (yAxisLabel.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(left: 20, bottom: 8),
-              child: Text(
-                yAxisLabel,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: TAdminColors.getOnSurfaceVariantColor(darkMode),
+      child: Container(
+        padding: const EdgeInsets.only(
+          right: 48, // 为右侧标签提供空间
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Y-axis label
+            if (yAxisLabel.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(left: 20, bottom: 8),
+                child: Text(
+                  yAxisLabel,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: TAdminColors.getOnSurfaceVariantColor(darkMode),
+                  ),
                 ),
               ),
-            ),
-          Expanded(
-            child: LineChart(
-              LineChartData(
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: true,
-                  horizontalInterval: _calculateHorizontalInterval(),
-                  verticalInterval: 1, // Show all months for yearly view
-                  getDrawingHorizontalLine: (value) {
-                    return FlLine(
-                      color: TAdminColors.getBorderColor(darkMode).withOpacity(0.3),
-                      strokeWidth: 1,
-                    );
-                  },
-                  getDrawingVerticalLine: (value) {
-                    return FlLine(
-                      color: TAdminColors.getBorderColor(darkMode).withOpacity(0.3),
-                      strokeWidth: 1,
-                    );
-                  },
-                ),
-                titlesData: FlTitlesData(
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 60,
-                      interval: _calculateLeftTitleInterval(),
-                      getTitlesWidget: (value, meta) {
-                        // Format Y-axis values properly
-                        String displayValue;
-                        if (yAxisUnit.toLowerCase().contains('rm') || yAxisUnit.toLowerCase().contains('revenue')) {
-                          displayValue = 'RM${value.toInt()}';
-                        } else {
-                          displayValue = value.toInt().toString();
-                        }
-
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: Text(
-                            displayValue,
-                            style: TextStyle(
-                              color: TAdminColors.getOnSurfaceVariantColor(darkMode),
-                              fontSize: 12,
-                            ),
-                            textAlign: TextAlign.right,
-                          ),
-                        );
-                      },
-                    ),
+            Expanded(
+              child: LineChart(
+                LineChartData(
+                  gridData: FlGridData(
+                    show: true,
+                    drawVerticalLine: true,
+                    horizontalInterval: horizontalInterval,
+                    verticalInterval: 1, // Show all months for yearly view
+                    getDrawingHorizontalLine: (value) {
+                      return FlLine(
+                        color: TAdminColors.getBorderColor(darkMode).withOpacity(0.3),
+                        strokeWidth: 1,
+                      );
+                    },
+                    getDrawingVerticalLine: (value) {
+                      return FlLine(
+                        color: TAdminColors.getBorderColor(darkMode).withOpacity(0.3),
+                        strokeWidth: 1,
+                      );
+                    },
                   ),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 30,
-                      interval: 1, // Show all labels
-                      getTitlesWidget: (value, meta) {
-                        final index = value.toInt();
-                        if (index >= 0 && index < xLabels.length) {
+                  titlesData: FlTitlesData(
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 60,
+                        interval: leftTitleInterval,
+                        getTitlesWidget: (value, meta) {
+                          // Format Y-axis values properly
+                          String displayValue;
+                          if (yAxisUnit.toLowerCase().contains('rm') || yAxisUnit.toLowerCase().contains('revenue')) {
+                            displayValue = 'RM${value.toInt()}';
+                          } else {
+                            displayValue = value.toInt().toString();
+                          }
+
                           return Padding(
-                            padding: const EdgeInsets.only(top: 8),
+                            padding: const EdgeInsets.only(right: 8),
                             child: Text(
-                              xLabels[index],
+                              displayValue,
                               style: TextStyle(
                                 color: TAdminColors.getOnSurfaceVariantColor(darkMode),
                                 fontSize: 12,
                               ),
+                              textAlign: TextAlign.right,
                             ),
                           );
-                        }
-                        return const SizedBox.shrink();
-                      },
+                        },
+                      ),
+                    ),
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 50,
+                        interval: 1, // Show all labels
+                        getTitlesWidget: (value, meta) {
+                          final index = value.toInt();
+                          if (index >= 0 && index < xLabels.length) {
+                            final label = xLabels[index];
+
+                            // 检查是否包含换行符
+                            if (label.contains('\n')) {
+                              final parts = label.split('\n');
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: SizedBox(
+                                  height: 40, // 固定高度
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    mainAxisAlignment: MainAxisAlignment.start,
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        parts[0],
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          color: TAdminColors.getOnSurfaceVariantColor(darkMode),
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        parts[1],
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          color: TAdminColors.getOnSurfaceVariantColor(darkMode).withOpacity(0.7),
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            } else {
+                              // 单行文本的处理
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Text(
+                                  label,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: TAdminColors.getOnSurfaceVariantColor(darkMode),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              );
+                            }
+                          }
+                          return const SizedBox.shrink();
+                        },
+                      ),
+                    ),
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
                     ),
                   ),
-                  rightTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  topTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                ),
-                borderData: FlBorderData(
-                  show: true,
-                  border: Border.all(
-                    color: TAdminColors.getBorderColor(darkMode),
-                  ),
-                ),
-                minX: 0,
-                maxX: (xLabels.length - 1).toDouble(),
-                minY: minY,
-                maxY: maxY,
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: spots,
-                    isCurved: true,
-                    color: lineColor,
-                    barWidth: 3,
-                    isStrokeCapRound: true,
-                    dotData: FlDotData(
-                      show: showDots,
-                      getDotPainter: (spot, percent, barData, index) {
-                        return FlDotCirclePainter(
-                          radius: 4,
-                          color: lineColor,
-                          strokeWidth: 2,
-                          strokeColor: TAdminColors.white,
-                        );
-                      },
-                    ),
-                    belowBarData: BarAreaData(
-                      show: showArea,
-                      color: lineColor.withOpacity(0.1),
-                      cutOffY: minY, // Prevent area from going below chart bounds
-                      applyCutOffY: true,
-                    ),
-                  ),
-                ],
-                lineTouchData: LineTouchData(
-                  enabled: true,
-                  touchTooltipData: LineTouchTooltipData(
-                    getTooltipColor: (touchedSpot) => TAdminColors.getSurfaceColor(darkMode),
-                    tooltipBorder: BorderSide(
+                  borderData: FlBorderData(
+                    show: true,
+                    border: Border.all(
                       color: TAdminColors.getBorderColor(darkMode),
                     ),
-                    getTooltipItems: (touchedSpots) {
-                      return touchedSpots.map((touchedSpot) {
-                        final index = touchedSpot.x.toInt();
-                        final label = index < xLabels.length ? xLabels[index] : 'Unknown';
-                        String valueText;
-                        if (yAxisUnit.toLowerCase().contains('rm') || yAxisUnit.toLowerCase().contains('revenue')) {
-                          valueText = 'RM${touchedSpot.y.toStringAsFixed(2)}';
-                        } else {
-                          valueText = '${touchedSpot.y.toInt()} $yAxisUnit';
-                        }
-                        return LineTooltipItem(
-                          '$label\n$valueText',
-                          TextStyle(
-                            color: TAdminColors.getOnSurfaceColor(darkMode),
-                            fontWeight: FontWeight.bold,
-                          ),
-                        );
-                      }).toList();
-                    },
+                  ),
+                  minX: 0,
+                  maxX: (xLabels.length - 1).toDouble(),
+                  minY: minY,
+                  maxY: maxY,
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: spots,
+                      isCurved: true,
+                      color: lineColor,
+                      barWidth: 3,
+                      isStrokeCapRound: true,
+                      dotData: FlDotData(
+                        show: showDots,
+                        getDotPainter: (spot, percent, barData, index) {
+                          return FlDotCirclePainter(
+                            radius: 4,
+                            color: lineColor,
+                            strokeWidth: 2,
+                            strokeColor: TAdminColors.white,
+                          );
+                        },
+                      ),
+                      belowBarData: BarAreaData(
+                        show: showArea,
+                        color: lineColor.withOpacity(0.1),
+                        cutOffY: minY, // Prevent area from going below chart bounds
+                        applyCutOffY: true,
+                      ),
+                    ),
+                  ],
+                  lineTouchData: LineTouchData(
+                    enabled: true,
+                    touchTooltipData: LineTouchTooltipData(
+                      getTooltipColor: (touchedSpot) => TAdminColors.getSurfaceColor(darkMode),
+                      tooltipBorder: BorderSide(
+                        color: TAdminColors.getBorderColor(darkMode),
+                      ),
+                      getTooltipItems: (touchedSpots) {
+                        return touchedSpots.map((touchedSpot) {
+                          final index = touchedSpot.x.toInt();
+                          final label = index < xLabels.length ? xLabels[index] : 'Unknown';
+                          String valueText;
+                          if (yAxisUnit.toLowerCase().contains('rm') || yAxisUnit.toLowerCase().contains('revenue')) {
+                            valueText = 'RM${touchedSpot.y.toStringAsFixed(2)}';
+                          } else {
+                            valueText = '${touchedSpot.y.toInt()} $yAxisUnit';
+                          }
+                          return LineTooltipItem(
+                            '$label\n$valueText',
+                            TextStyle(
+                              color: TAdminColors.getOnSurfaceColor(darkMode),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          );
+                        }).toList();
+                      },
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

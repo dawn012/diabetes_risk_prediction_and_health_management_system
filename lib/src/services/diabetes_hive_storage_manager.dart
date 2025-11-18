@@ -1,10 +1,13 @@
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
+import '../features/diabetes_prediction/models/detected_food_model.dart';
 import '../features/diabetes_prediction/models/diabetes_assessment_cache_model.dart';
 import '../features/diabetes_prediction/models/diet_assessment_report_model.dart';
 import '../features/diabetes_prediction/models/meal_analysis_result_model.dart';
 import '../features/diabetes_prediction/models/meal_photo_record_model.dart';
+import '../features/diabetes_prediction/utils/diabetes_category_helper.dart';
+import '../features/personalization/controllers/user_controller.dart';
 
 class DiabetesHiveStorageManager extends GetxService {
   static DiabetesHiveStorageManager get instance => Get.find();
@@ -38,7 +41,9 @@ class DiabetesHiveStorageManager extends GetxService {
       if (!Hive.isAdapterRegistered(3)) {
         Hive.registerAdapter(MealAnalysisResultAdapter());
       }
-      // 只注册需要的适配器，DetectedFood 等不需要
+      if (!Hive.isAdapterRegistered(4)) {
+        Hive.registerAdapter(DetectedFoodAdapter());
+      }
 
       // Open boxes
       _assessmentBox = await Hive.openBox<DiabetesAssessmentCache>(_boxName);
@@ -173,10 +178,7 @@ class DiabetesHiveStorageManager extends GetxService {
           currentStep: step,
         );
 
-        // 只有当明确要求时才标记完成
-        if (markComplete) {
-          cache.markStepCompleted(8, true);
-        }
+        cache.markStepCompleted(8, markComplete);
         break;
     }
 
@@ -457,19 +459,69 @@ class DiabetesHiveStorageManager extends GetxService {
   /// Export cache to Firestore format (when user completes prediction)
   Map<String, dynamic>? exportToFirestore() {
     final cache = getCachedAssessment();
-    if (cache == null || !cache.isComplete) return null;
+    if (cache == null) return null;
+
+    final user = UserController.instance.user.value;
+
+    final hasRequiredData =
+        cache.height != null &&
+            cache.weight != null &&
+            cache.bloodGlucose != null &&
+            cache.physicalActivityDuration != null &&
+            cache.stressLevel != null &&
+            cache.sleepDuration != null &&
+            cache.waterIntake != null &&
+            cache.takesMedication != null &&
+            cache.mealPhotos != null &&
+            cache.mealPhotos!.isNotEmpty &&
+            cache.dietAssessment != null;
+
+    if (!hasRequiredData) {
+      print('Missing required data for export:');
+      print('   height: ${cache.height}');
+      print('   weight: ${cache.weight}');
+      print('   bloodGlucose: ${cache.bloodGlucose}');
+      print('   physicalActivityDuration: ${cache.physicalActivityDuration}');
+      print('   stressLevel: ${cache.stressLevel}');
+      print('   sleepDuration: ${cache.sleepDuration}');
+      print('   waterIntake: ${cache.waterIntake}');
+      print('   takesMedication: ${cache.takesMedication}');
+      print('   mealPhotos: ${cache.mealPhotos?.length}');
+      print('   dietAssessment: ${cache.dietAssessment}');
+      return null;
+    }
+
+    // 获取 stress category (0, 1, 2)
+    final stressCategory = DiabetesCategoryHelper.getStressCategory(cache.stressLevel!);
+
+    // 获取 water intake category
+    final waterIntakeCategory = DiabetesCategoryHelper.getHydrationStatusBinary(cache.waterIntake!, gender: user.profile.gender, age: user.profile.age);
+
+    // 获取 medication category
+    final medicationCategory = DiabetesCategoryHelper.getMedicationAdherentBinary(
+        cache.takesMedication!,
+        cache.medicationAdherence
+    );
+
+    // 获取 diet health (0 or 1)
+    final dietHealthy = DiabetesCategoryHelper.getDietHealthyBinary(cache.dietAssessment!.isHealthy);
 
     return {
+      // 直接使用输入值
       'height': cache.height,
       'weight': cache.weight,
       'bloodGlucose': cache.bloodGlucose,
-      'glucoseUnit': cache.glucoseUnit,
       'physicalActivityDuration': cache.physicalActivityDuration,
-      'stressLevel': cache.stressLevel,
       'sleepDuration': cache.sleepDuration,
-      'waterIntake': cache.waterIntake,
-      'takesMedication': cache.takesMedication,
-      'medicationAdherence': cache.medicationAdherence,
+
+      // 使用分类值
+      'stressLevel': stressCategory, // 0, 1, 2
+      'waterIntake': waterIntakeCategory, // 分类值
+      'medicationAdherence': medicationCategory, // 分类值
+      'dietHealthy': dietHealthy, // 0 or 1
+
+      // 元数据
+      'glucoseUnit': cache.glucoseUnit,
       'assessmentDate': cache.lastUpdated.toIso8601String(),
       'completedSteps': cache.completedSteps,
     };

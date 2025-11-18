@@ -24,7 +24,6 @@ class UserManagementScreen extends StatelessWidget {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            // Calculate available space for table
             final headerHeight = 200.0;
             final batchActionsHeight = 60.0;
             final paginationHeight = 80.0;
@@ -48,7 +47,7 @@ class UserManagementScreen extends StatelessWidget {
                       return controller.selectedUsers.isNotEmpty
                           ? BatchActionsBar(
                         selectedItems: controller.selectedUsers,
-                        showingActive: controller.showingActiveUsers,
+                        showingActive: (controller.selectedTabIndex.value == 0).obs,
                         onClearSelection: () => controller.toggleSelectAll(false),
                         onBatchBan: () => controller.batchBanUsers(),
                         onBatchRestore: () => controller.batchRestoreUsers(),
@@ -256,7 +255,6 @@ class UserManagementScreen extends StatelessWidget {
   }
 
   Widget _buildProfileAvatar(UserModel user, bool isDark) {
-    // 如果有头像URL且不为空，显示网络图片
     if (user.profileImg.isNotEmpty) {
       return CircleAvatar(
         radius: 20,
@@ -265,7 +263,6 @@ class UserManagementScreen extends StatelessWidget {
       );
     }
 
-    // 否则显示默认头像图标
     return CircleAvatar(
       radius: 20,
       backgroundColor: TAdminColors.primary.withOpacity(0.2),
@@ -286,12 +283,16 @@ class UserManagementScreen extends StatelessWidget {
       statusColor = TAdminColors.banned;
       statusText = 'Banned';
       statusIcon = Iconsax.user_remove_bold;
+    } else if (user.isDeleted) {
+      statusColor = TAdminColors.offline;
+      statusText = 'Inactive';
+      statusIcon = Iconsax.slash_bold;
     } else if (user.isVerify) {
       statusColor = TAdminColors.success;
       statusText = 'Verified';
       statusIcon = Iconsax.shield_tick_bold;
     } else {
-      statusColor = TAdminColors.error; // 红色显示 Not verified
+      statusColor = TAdminColors.error;
       statusText = 'Not verified';
       statusIcon = Iconsax.shield_cross_bold;
     }
@@ -316,12 +317,15 @@ class UserManagementScreen extends StatelessWidget {
                 color: statusColor,
               ),
               const SizedBox(width: 4),
-              Text(
-                statusText,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  color: statusColor,
+              Flexible(
+                child: Text(
+                  statusText,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: statusColor,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -332,24 +336,67 @@ class UserManagementScreen extends StatelessWidget {
   }
 
   Widget _buildActionButtons(UserModel user, UserManagementController controller, bool isDark) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: (user.accountAvailable == true) ? MainAxisAlignment.spaceAround : MainAxisAlignment.start,
-      children: [
-        // Detail Button
-        IconButton(
-          onPressed: () => _showUserDetailDialog(user, isDark),
-          icon: const Icon(Iconsax.eye_bold, size: 16),
-          tooltip: 'View Details',
-          style: IconButton.styleFrom(
-            backgroundColor: TAdminColors.info.withOpacity(0.1),
-            foregroundColor: TAdminColors.info,
-            minimumSize: const Size(32, 32),
+    // For inactive (deleted by user) users
+    if (user.isDeleted) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Detail Button
+          IconButton(
+            onPressed: () => _showUserDetailDialog(user, isDark),
+            icon: const Icon(Iconsax.eye_bold, size: 16),
+            tooltip: 'View Details',
+            style: IconButton.styleFrom(
+              backgroundColor: TAdminColors.info.withOpacity(0.1),
+              foregroundColor: TAdminColors.info,
+              minimumSize: const Size(32, 32),
+            ),
           ),
-        ),
-        const SizedBox(width: 4),
-        if (user.accountAvailable) ...[
-          // Edit Button (only for active users)
+          const SizedBox(width: 4),
+          // Restore Button
+          IconButton(
+            onPressed: () {
+              ConfirmationDialog.show(
+                title: 'Restore User',
+                message: 'Are you sure you want to restore ${user.username}? This will reactivate their account.',
+                confirmButtonText: 'Restore User',
+                customIcon: Iconsax.refresh_bold,
+                iconColor: TAdminColors.success,
+                confirmButtonColor: TAdminColors.success,
+                onConfirm: () => controller.restoreUser(user),
+              );
+            },
+            icon: const Icon(Iconsax.refresh_bold, size: 16),
+            tooltip: 'Restore User',
+            style: IconButton.styleFrom(
+              backgroundColor: TAdminColors.success.withOpacity(0.1),
+              foregroundColor: TAdminColors.success,
+              minimumSize: const Size(32, 32),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // For active users
+    if (user.accountAvailable) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          // Detail Button
+          IconButton(
+            onPressed: () => _showUserDetailDialog(user, isDark),
+            icon: const Icon(Iconsax.eye_bold, size: 16),
+            tooltip: 'View Details',
+            style: IconButton.styleFrom(
+              backgroundColor: TAdminColors.info.withOpacity(0.1),
+              foregroundColor: TAdminColors.info,
+              minimumSize: const Size(32, 32),
+            ),
+          ),
+          const SizedBox(width: 4),
+          // Edit Button
           IconButton(
             onPressed: () => controller.openEditUserDialog(user),
             icon: const Icon(Iconsax.edit_bold, size: 16),
@@ -377,24 +424,42 @@ class UserManagementScreen extends StatelessWidget {
               minimumSize: const Size(32, 32),
             ),
           ),
-        ] else ...[
-          // Restore Button (only for banned users)
-          IconButton(
-            onPressed: () {
-              ConfirmationDialog.showRestoreUser(
-                user.username,
-                    () => controller.restoreUser(user),
-              );
-            },
-            icon: const Icon(Iconsax.refresh_bold, size: 16),
-            tooltip: 'Restore User',
-            style: IconButton.styleFrom(
-              backgroundColor: TAdminColors.success.withOpacity(0.1),
-              foregroundColor: TAdminColors.success,
-              minimumSize: const Size(32, 32),
-            ),
-          ),
         ],
+      );
+    }
+
+    // For banned users
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Detail Button
+        IconButton(
+          onPressed: () => _showUserDetailDialog(user, isDark),
+          icon: const Icon(Iconsax.eye_bold, size: 16),
+          tooltip: 'View Details',
+          style: IconButton.styleFrom(
+            backgroundColor: TAdminColors.info.withOpacity(0.1),
+            foregroundColor: TAdminColors.info,
+            minimumSize: const Size(32, 32),
+          ),
+        ),
+        const SizedBox(width: 4),
+        // Restore Button
+        IconButton(
+          onPressed: () {
+            ConfirmationDialog.showRestoreUser(
+              user.username,
+                  () => controller.restoreUser(user),
+            );
+          },
+          icon: const Icon(Iconsax.refresh_bold, size: 16),
+          tooltip: 'Restore User',
+          style: IconButton.styleFrom(
+            backgroundColor: TAdminColors.success.withOpacity(0.1),
+            foregroundColor: TAdminColors.success,
+            minimumSize: const Size(32, 32),
+          ),
+        ),
       ],
     );
   }

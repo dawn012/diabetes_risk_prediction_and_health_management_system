@@ -138,17 +138,6 @@ class StressLevelController extends GetxController {
     }
   }
 
-  /// Get stress category as numeric value (0 = Low, 1 = Moderate, 2 = High)
-  int getStressCategory() {
-    if (stressLevel.value <= 3) {
-      return 0; // Low
-    } else if (stressLevel.value <= 6) {
-      return 1; // Moderate
-    } else {
-      return 2; // High
-    }
-  }
-
   /// Handle close button - always go to overview with slide down
   Future<void> handleClose(BuildContext context) async {
     if (navigationMode.value == NavigationMode.flow) {

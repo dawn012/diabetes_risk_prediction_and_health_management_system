@@ -1,7 +1,7 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:cloud_functions/cloud_functions.dart';
-import 'package:diabetes_risk_prediction_and_health_management_system/src/data/repositories/user/user_repository.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -13,7 +13,9 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../../../navigation_menu.dart';
 import '../../../common/loaders/loaders.dart';
+import '../../../common/widgets/dialogs/account_banned_dialog.dart';
 import '../../../features/admin/views/admin_dashboard/admin_dashboard_screen.dart';
+import '../../../features/authentication/controllers/login_controller.dart';
 import '../../../features/authentication/views/login/admin_login_screen.dart';
 import '../../../features/authentication/views/login/login_screen.dart';
 import '../../../features/authentication/views/onboarding/onboarding.dart';
@@ -24,6 +26,7 @@ import '../../../utils/exceptions/firebase_auth_exceptions.dart';
 import '../../../utils/exceptions/firebase_exceptions.dart';
 import '../../../utils/exceptions/format_exceptions.dart';
 import '../../../utils/exceptions/platform_exceptions.dart';
+import '../user/user_repository.dart';
 
 class AuthenticationRepository extends GetxController {
   static AuthenticationRepository get instance => Get.find();
@@ -42,28 +45,67 @@ class AuthenticationRepository extends GetxController {
   // 用于存储 Firebase 发送的验证码会话 ID
   var verificationId = ''.obs;
 
-  // Getters
-  // User? get firebaseUser => _firebaseUser.value;
-  // String get getUserId => firebaseUser?.uid ?? "";
-  // String get getUserEmail => firebaseUser?.email ?? "";
+  // Stream subscription for account status
+  StreamSubscription<bool>? _accountStatusSubscription;
 
   @override
   void onReady() {
     FlutterNativeSplash.remove();
-
-    // 只在移动端执行自动重定向
-    // if (!kIsWeb) {
-      screenRedirect();
-    // }
+    screenRedirect();
 
     if (authUser != null) {
       getUserRole();
+      // Note: Account status listener will be started after successful screenRedirect
     }
   }
 
-  screenRedirect() async {
+  @override
+  void onClose() {
+    _accountStatusSubscription?.cancel();
+    super.onClose();
+  }
+
+  /// Listen to account status changes (ban detection)
+  void _startAccountStatusListener() {
+    final userId = authUser?.uid;
+    if (userId == null) return;
+
+    _accountStatusSubscription = UserRepository.instance
+        .streamUserDetailsById(userId)
+        .map((user) => user.accountAvailable)
+        .distinct() // Only emit when value changes
+        .listen((isAccountAvailable) {
+      if (!isAccountAvailable) {
+        // Account has been banned
+        _handleAccountBanned();
+      }
+    });
+  }
+
+  /// Handle account banned scenario
+  void _handleAccountBanned() {
+    // Cancel the subscription to prevent multiple triggers
+    _accountStatusSubscription?.cancel();
+
+    // Show banned dialog and logout
+    AccountBannedDialog.show(
+      onConfirm: () async {
+        await logout(showSuccessMessage: false);
+      },
+    );
+  }
+
+  Future<void> screenRedirect() async {
     final user = _auth.currentUser;
     if (user != null) {
+      // Check if account is banned before proceeding
+      final isAccountAvailable = await _checkAccountAvailability(user.uid);
+      if (!isAccountAvailable) {
+        // Account is banned, logout immediately
+        await logout();
+        return;
+      }
+
       final role = await getUserRole();
 
       print("Is verified: ${user.emailVerified}");
@@ -83,12 +125,17 @@ class AuthenticationRepository extends GetxController {
           }
         }
 
+        // 更新用户最后活跃时间
+        await UserRepository.instance.updateLastActive(user.uid);
+
         // If the user's email is verified and (如果是用户则档案已完成)，navigate based on role
         if (role == 'admin' || role.contains('manager')) {
           Get.offAll(() => AdminDashboardScreen());
         } else {
           Get.offAll(() => NavigationMenu());
         }
+
+        _startAccountStatusListener();
       } else {
         // 对于所有用户，如果邮箱未验证，都显示错误或去验证页面
         // 对于 Web (Admin/Manager)，保持在登录页显示错误
@@ -114,6 +161,17 @@ class AuthenticationRepository extends GetxController {
             ? Get.offAll(() => const LoginScreen())
             : Get.offAll(() => const OnBoardingScreen());
       }
+    }
+  }
+
+  /// Check if account is available (not banned)
+  Future<bool> _checkAccountAvailability(String userId) async {
+    try {
+      final user = await UserRepository.instance.fetchUserDetailsById(userId);
+      return user.accountAvailable;
+    } catch (e) {
+      print('Error checking account availability: $e');
+      return true; // Default to true if error occurs
     }
   }
 
@@ -187,6 +245,23 @@ class AuthenticationRepository extends GetxController {
   Future<void> sendEmailVerification() async {
     try {
       await _auth.currentUser?.sendEmailVerification();
+    } on FirebaseAuthException catch (e) {
+      throw TFirebaseAuthException(e.code).message;
+    } on FirebaseException catch (e) {
+      throw TFirebaseException(e.code).message;
+    } on FormatException catch (_) {
+      throw const TFormatException();
+    } on PlatformException catch (e) {
+      throw TPlatformException(e.code).message;
+    } catch (e) {
+      throw TTexts.commonErrorMessage;
+    }
+  }
+
+  // Set password for manager
+  Future<void> sendPasswordResetEmail(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
     } on FirebaseAuthException catch (e) {
       throw TFirebaseAuthException(e.code).message;
     } on FirebaseException catch (e) {
@@ -280,16 +355,6 @@ class AuthenticationRepository extends GetxController {
       } else {
         throw Exception('Facebook login failed: ${loginResult.message}');
       }
-
-      // // Trigger the authentication flow
-      // // Allow the user to select the gmail they want to sign in
-      // final LoginResult loginResult = await FacebookAuth.instance.login(permissions: ['email', 'public_profile'],);
-      //
-      // // Create a credential from the access token
-      // final OAuthCredential facebookAuthCredential = FacebookAuthProvider.credential('${loginResult.accessToken?.tokenString}');
-      //
-      // // Once signed in, return the userCredential
-      // return await FirebaseAuth.instance.signInWithCredential(facebookAuthCredential);
     } on FirebaseAuthException catch (e) {
       throw TFirebaseAuthException(e.code).message;
     } on FirebaseException catch (e) {
@@ -339,12 +404,6 @@ class AuthenticationRepository extends GetxController {
       },
       verificationFailed: (e) {
         print(e.code);
-        // if (e.code == 'invalid-phone-number') {
-        //   Get.snackbar('Error', 'The provided phone number is not valid.');
-        // } else {
-        //   Get.snackbar(
-        //       'Error', 'Something went wrong. Please try again later.');
-        // }
       },
     );
   }
@@ -468,13 +527,20 @@ class AuthenticationRepository extends GetxController {
     }
   }
 
-  Future<void> logout() async {
+  Future<void> logout({
+    String? title,
+    String? message,
+    bool showSuccessMessage = true,
+  }) async {
     try {
-      // 主要的 Firebase 登出
+      // Cancel account status listener
+      _accountStatusSubscription?.cancel();
+
+      // Firebase sign out
       await FirebaseAuth.instance.signOut();
       print('Firebase signOut successful');
 
-      // 只在移动端执行第三方登出
+      // 移动端第三方登出
       if (!kIsWeb) {
         try {
           await GoogleSignIn().signOut();
@@ -491,34 +557,24 @@ class AuthenticationRepository extends GetxController {
         }
       }
 
-      TLoaders.successSnackBar(
-        title: 'See you soon!',
-        message: 'You have been successfully logged out.',
-      );
+      if (showSuccessMessage) {
+        TLoaders.successSnackBar(
+          title: title ?? 'See you soon!',
+          message: message ?? 'You have been successfully logged out.',
+        );
+      }
 
+      if (Get.isRegistered<LoginController>()) {
+        Get.delete<LoginController>(force: true);
+      }
+
+      // 跳转登录页
       if (kIsWeb) {
         Get.offAll(() => const AdminLoginScreen());
       } else {
         Get.offAll(() => const LoginScreen());
       }
-    } on FirebaseAuthException catch (e) {
-      throw TFirebaseAuthException(e.code).message;
-    } on FirebaseException catch (e) {
-      throw TFirebaseException(e.code).message;
-    } on FormatException catch (_) {
-      throw const TFormatException();
-    } on PlatformException catch (e) {
-      throw TPlatformException(e.code).message;
-    } catch (e) {
-      throw TTexts.commonErrorMessage;
-    }
-  }
 
-  /// Delete User - Remove User Auth and Firestore Account
-  Future<void> deleteAccount() async {
-    try {
-      await UserRepository.instance.removeUserRecord(_auth.currentUser!.uid);
-      await _auth.currentUser?.delete();
     } on FirebaseAuthException catch (e) {
       throw TFirebaseAuthException(e.code).message;
     } on FirebaseException catch (e) {
@@ -572,6 +628,8 @@ class AuthenticationRepository extends GetxController {
         await getUserRole();
       } else {
         userRole.value = 'user';
+        // Cancel listener when user logs out
+        _accountStatusSubscription?.cancel();
       }
     });
   }

@@ -1,13 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:icons_plus/icons_plus.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 
 import '../../../common/widgets/custom_shapes/containers/primary_header_container.dart';
 import '../../../utils/constants/colors.dart';
 import '../../../utils/constants/sizes.dart';
+import '../../../utils/formatters/formatter.dart';
 import '../../../utils/helpers/helper_functions.dart';
 import '../controllers/blood_glucose_controller.dart';
 import '../controllers/blood_pressure_controller.dart';
@@ -703,9 +703,7 @@ class _DashboardState extends State<Dashboard> {
       subtitle = 'Last Record | All Periods';
       value = 'No Data';
     } else if (hasSingleRecord) {
-      final time = DateFormat('HH:mm')
-          .format(controller.latestWeightRecord.value!.logDateTime);
-      subtitle = 'Last Record: $time | All Periods';
+      subtitle = 'Last Record: ${TFormatter.formatLastRecordDate(controller.latestWeightRecord.value!.logDateTime)} | All Periods';
       value = '${controller.weightCurrent.value.toStringAsFixed(1)} kg';
     } else {
       final change =
@@ -713,7 +711,7 @@ class _DashboardState extends State<Dashboard> {
       final changePrefix = change >= 0 ? 'Increase' : 'Decrease';
       changeText = '$changePrefix ${change.abs().toStringAsFixed(1)} kg';
       subtitle =
-          'Last Record: ${DateFormat('HH:mm').format(controller.latestWeightRecord.value!.logDateTime)} | All Periods';
+          'Last Record: ${TFormatter.formatLastRecordDate(controller.latestWeightRecord.value!.logDateTime)} | All Periods';
       value = '${controller.weightCurrent.value.toStringAsFixed(1)} kg';
     }
 
@@ -1473,7 +1471,7 @@ class _DashboardState extends State<Dashboard> {
                         ),
                       ),
                       Text(
-                        'Last Assessment',
+                        'Past 14 Days | All Periods',
                         style: TextStyle(
                           fontSize: 13,
                           color: darkMode
@@ -1694,66 +1692,4 @@ class HealthTip {
     required this.title,
     required this.content,
   });
-}
-
-class TNotificationIcon extends StatelessWidget {
-  const TNotificationIcon({
-    super.key,
-    required this.iconColor,
-    required this.onPressed,
-  });
-
-  final Color iconColor;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(right: 16),
-      child: IconButton(
-        onPressed: onPressed,
-        icon: Stack(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Iconsax.notification_bold,
-                color: Colors.white,
-                size: 20,
-              ),
-            ),
-            // Notification badge
-            Positioned(
-              right: 0,
-              top: 0,
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFF4757),
-                  shape: BoxShape.circle,
-                ),
-                constraints: const BoxConstraints(
-                  minWidth: 18,
-                  minHeight: 18,
-                ),
-                child: const Text(
-                  '3',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

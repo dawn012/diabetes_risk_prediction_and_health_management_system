@@ -18,6 +18,7 @@ class FirebaseFieldNames {
   static const String accountAvailable = 'accountAvailable';
   static const String isDeleted = 'isDeleted';
   static const String profile = 'profile';
+  static const String lastActive = 'lastActive';
 
   ///-- Users Profile
   static const String gender = "gender";

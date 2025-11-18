@@ -12,6 +12,7 @@ import '../../authentication/models/user_model.dart';
 import '../../../data/repositories/authentication/authentication_repository.dart';
 import '../../personalization/controllers/user_controller.dart';
 import '../views/user_management/edit_user_dialog.dart';
+import '../../../data/repositories/notification/notification_repository.dart';
 
 class UserManagementController extends GetxController {
   static UserManagementController get instance => Get.find();
@@ -20,6 +21,7 @@ class UserManagementController extends GetxController {
   final userRepository = UserRepository.instance;
   final authRepository = AuthenticationRepository.instance;
   final userController = UserController.instance;
+  final notificationRepository = NotificationRepository.instance;
 
   // Controllers
   final searchController = TextEditingController();
@@ -33,7 +35,7 @@ class UserManagementController extends GetxController {
   final allUsers = <UserModel>[].obs;
   final filteredUsers = <UserModel>[].obs;
   final selectedUsers = <UserModel>[].obs;
-  final showingActiveUsers = true.obs;
+  final selectedTabIndex = 0.obs; // 0: Active, 1: Banned, 2: Inactive
   final currentUserRole = ''.obs;
 
   // Sorting
@@ -77,7 +79,7 @@ class UserManagementController extends GetxController {
       currentUserRole.value = role;
     } catch (e) {
       print("Error loading user role: $e");
-      currentUserRole.value = "user"; // fallback
+      currentUserRole.value = "user";
     }
   }
 
@@ -109,9 +111,20 @@ class UserManagementController extends GetxController {
 
   void filterUsers() {
     List<UserModel> filtered = allUsers.where((user) {
-      bool statusMatch = showingActiveUsers.value
-          ? user.accountAvailable
-          : !user.accountAvailable;
+      bool statusMatch;
+      switch (selectedTabIndex.value) {
+        case 0: // Active users
+          statusMatch = user.accountAvailable && !user.isDeleted;
+          break;
+        case 1: // Banned users
+          statusMatch = !user.accountAvailable && !user.isDeleted;
+          break;
+        case 2: // Inactive (deleted by user)
+          statusMatch = user.isDeleted;
+          break;
+        default:
+          statusMatch = true;
+      }
 
       if (!statusMatch) return false;
 
@@ -205,20 +218,10 @@ class UserManagementController extends GetxController {
     currentPage.value = page;
   }
 
-  void showActiveUsers() {
-    if (!showingActiveUsers.value) {
-      showingActiveUsers.value = true;
-      currentPage.value = 1;
-      filterUsers();
-    }
-  }
-
-  void showBannedUsers() {
-    if (showingActiveUsers.value) {
-      showingActiveUsers.value = false;
-      currentPage.value = 1;
-      filterUsers();
-    }
+  void changeTab(int index) {
+    selectedTabIndex.value = index;
+    currentPage.value = 1;
+    filterUsers();
   }
 
   void toggleUserSelection(UserModel user, bool selected) {
@@ -273,7 +276,6 @@ class UserManagementController extends GetxController {
     usernameError.value = null;
     isEditingUser.value = true;
 
-    // Show dialog
     Get.dialog(
       EditUserDialog(),
       barrierDismissible: false,
@@ -282,17 +284,11 @@ class UserManagementController extends GetxController {
 
   Future<void> pickImage() async {
     try {
-      // 使用 WebImageHelper 选择图片
       final imageBytes = await WebImageHelper.pickImage();
       if (imageBytes != null) {
-        // Show loading while processing image
         TLoaders.customToast(message: 'Processing image...');
-
-        // 立即验证和压缩图片
         final processedImage = await userController.validateAndCompressImage(imageBytes);
-
         if (processedImage != null) {
-          // 处理成功，设置新图片
           selectedImageBytes.value = processedImage;
         }
       }
@@ -338,7 +334,6 @@ class UserManagementController extends GetxController {
         hasChanges = true;
       }
 
-      // 处理图片上传
       String? newImageUrl = currentUser.profileImg;
       bool imageUploadFailed = false;
 
@@ -351,12 +346,10 @@ class UserManagementController extends GetxController {
           newImageUrl = uploadResult;
           hasChanges = true;
         } else {
-          // 图片上传失败
           imageUploadFailed = true;
         }
       }
 
-      // 如果有图片上传失败，停止更新
       if (imageUploadFailed) {
         isLoading.value = false;
         return;
@@ -376,6 +369,13 @@ class UserManagementController extends GetxController {
       );
 
       await userRepository.updateUserDetails(updatedUser);
+
+      // Send notification to user
+      await notificationRepository.sendSystemNotification(
+        userId: currentUser.userId,
+        title: 'Account Updated',
+        message: 'Your account information has been updated by an administrator. Please review your profile to see the changes.',
+      );
 
       TLoaders.successSnackBar(
         title: 'Success',
@@ -416,6 +416,14 @@ class UserManagementController extends GetxController {
 
     try {
       await userRepository.banUser(user.userId);
+
+      // Send notification
+      await notificationRepository.sendSystemNotification(
+        userId: user.userId,
+        title: 'Account Suspended',
+        message: 'Your account has been suspended by an administrator. If you believe this is an error, please contact support.',
+      );
+
       TLoaders.successSnackBar(
         title: 'Success',
         message: 'User banned successfully',
@@ -438,7 +446,23 @@ class UserManagementController extends GetxController {
     }
 
     try {
-      await userRepository.restoreUser(user.userId);
+      // Determine if restoring from banned or inactive
+      final isFromBanned = !user.accountAvailable && !user.isDeleted;
+      final isFromInactive = user.isDeleted;
+
+      if (isFromBanned) {
+        await userRepository.restoreUser(user.userId);
+      } else if (isFromInactive) {
+        await userRepository.restoreAccount(user.userId);
+      }
+
+      // Send notification
+      await notificationRepository.sendSystemNotification(
+        userId: user.userId,
+        title: 'Account Restored',
+        message: 'Your account has been restored. You can now access all features again. Welcome back!',
+      );
+
       TLoaders.successSnackBar(
         title: 'Success',
         message: 'User restored successfully',
@@ -468,6 +492,11 @@ class UserManagementController extends GetxController {
 
       for (final user in usersToProcess) {
         await userRepository.banUser(user.userId);
+        await notificationRepository.sendSystemNotification(
+          userId: user.userId,
+          title: 'Account Suspended',
+          message: 'Your account has been suspended by an administrator. If you believe this is an error, please contact support.',
+        );
       }
 
       TLoaders.successSnackBar(
@@ -500,7 +529,17 @@ class UserManagementController extends GetxController {
       final usersToProcess = List<UserModel>.from(selectedUsers);
 
       for (final user in usersToProcess) {
-        await userRepository.restoreUser(user.userId);
+        if (!user.accountAvailable && !user.isDeleted) {
+          await userRepository.restoreUser(user.userId);
+        } else if (user.isDeleted) {
+          await userRepository.restoreAccount(user.userId);
+        }
+
+        await notificationRepository.sendSystemNotification(
+          userId: user.userId,
+          title: 'Account Restored',
+          message: 'Your account has been restored. You can now access all features again. Welcome back!',
+        );
       }
 
       TLoaders.successSnackBar(

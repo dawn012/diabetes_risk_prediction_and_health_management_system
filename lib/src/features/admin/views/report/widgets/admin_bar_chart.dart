@@ -19,7 +19,7 @@ class AdminBarChart extends StatelessWidget {
   final String? trendFilter;
   final String yAxisLabel;
 
-  AdminBarChart({
+  const AdminBarChart({
     super.key,
     required this.barGroups,
     required this.xLabels,
@@ -116,21 +116,61 @@ class AdminBarChart extends StatelessWidget {
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
-                      reservedSize: 30,
+                      reservedSize: 50,
                       interval: 1, // Show all labels
                       getTitlesWidget: (value, meta) {
                         final index = value.toInt();
                         if (index >= 0 && index < xLabels.length) {
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: Text(
-                              xLabels[index],
-                              style: TextStyle(
-                                color: TAdminColors.getOnSurfaceVariantColor(darkMode),
-                                fontSize: 12,
+                          final label = xLabels[index];
+
+                          // 检查是否包含换行符
+                          if (label.contains('\n')) {
+                            final parts = label.split('\n');
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: SizedBox(
+                                height: 40, // 固定高度
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisAlignment: MainAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      parts[0],
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: TAdminColors.getOnSurfaceVariantColor(darkMode),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      parts[1],
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: TAdminColors.getOnSurfaceVariantColor(darkMode).withOpacity(0.7),
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                          );
+                            );
+                          } else {
+                            // 单行文本的处理
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text(
+                                label,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: TAdminColors.getOnSurfaceVariantColor(darkMode),
+                                  fontSize: 12,
+                                ),
+                              ),
+                            );
+                          }
                         }
                         return const SizedBox.shrink();
                       },

@@ -36,23 +36,127 @@ class DietAssessmentReport {
     required this.assessmentDate,
   });
 
-  factory DietAssessmentReport.fromJson(Map<String, dynamic> json) => DietAssessmentReport(
-    meals: (json['meals'] as List)
-        .map((m) => MealAnalysisResult.fromJson(m))
-        .toList(),
-    avgGLPerMeal: (json['avgGLPerMeal'] ?? 0).toDouble(),
-    isHealthy: json['isHealthy'] ?? false,
-    warnings: List<String>.from(json['warnings'] ?? []),
-    mealCount: json['mealCount'] ?? 0,
-    glThresholds: Map<String, int>.from(json['glThresholds'] ?? {
-      'low': 10,
-      'medium': 20,
-      'high': 20,
-    }),
-    assessmentDate: json['processedAt'] != null
-        ? DateTime.parse(json['processedAt'])
-        : DateTime.now(),
-  );
+  factory DietAssessmentReport.fromJson(Map<String, dynamic> json) {
+    try {
+      print('🔧 Parsing DietAssessmentReport from JSON');
+
+      // 安全处理 meals 数组
+      List<MealAnalysisResult> meals = [];
+      final mealsData = json['meals'];
+      if (mealsData is List) {
+        print('📊 Processing ${mealsData.length} meals');
+        for (int i = 0; i < mealsData.length; i++) {
+          try {
+            final mealItem = mealsData[i];
+            if (mealItem is Map<String, dynamic>) {
+              meals.add(MealAnalysisResult.fromJson(mealItem));
+            } else if (mealItem is Map) {
+              final convertedMeal = _convertMealMap(mealItem);
+              meals.add(MealAnalysisResult.fromJson(convertedMeal));
+            } else {
+              print('⚠️ Meal item $i has invalid type: ${mealItem.runtimeType}');
+            }
+          } catch (e) {
+            print('❌ Error parsing meal item $i: $e');
+          }
+        }
+      } else {
+        print('⚠️ Meals data is not a List: ${mealsData?.runtimeType}');
+      }
+
+      // 安全处理其他字段
+      final avgGLPerMeal = _safeDouble(json['avgGLPerMeal']);
+      final isHealthy = json['isHealthy'] == true;
+      final mealCount = _safeInt(json['mealCount']);
+
+      // 处理 warnings 数组
+      List<String> warnings = [];
+      final warningsData = json['warnings'];
+      if (warningsData is List) {
+        warnings = warningsData.map((w) => w?.toString() ?? '').where((w) => w.isNotEmpty).toList();
+      }
+
+      // 处理 glThresholds
+      Map<String, int> glThresholds = {
+        'low': 10,
+        'medium': 20,
+        'high': 20,
+      };
+      final thresholdsData = json['glThresholds'];
+      if (thresholdsData is Map) {
+        glThresholds = thresholdsData.map<String, int>((key, value) {
+          final stringKey = key?.toString() ?? '';
+          final intValue = (value is num) ? value.toInt() : 0;
+          return MapEntry(stringKey, intValue);
+        });
+      }
+
+      // 处理日期
+      DateTime assessmentDate;
+      try {
+        final processedAt = json['processedAt']?.toString();
+        assessmentDate = processedAt != null ? DateTime.parse(processedAt) : DateTime.now();
+      } catch (e) {
+        print('⚠️ Error parsing date, using current time: $e');
+        assessmentDate = DateTime.now();
+      }
+
+      print('✅ Successfully parsed DietAssessmentReport with ${meals.length} meals');
+
+      return DietAssessmentReport(
+        meals: meals,
+        avgGLPerMeal: avgGLPerMeal,
+        isHealthy: isHealthy,
+        warnings: warnings,
+        mealCount: mealCount,
+        glThresholds: glThresholds,
+        assessmentDate: assessmentDate,
+      );
+    } catch (e) {
+      print('💥 Critical error in DietAssessmentReport.fromJson: $e');
+      print('📄 Problematic JSON: $json');
+
+      // 返回一个默认的评估报告而不是抛出异常
+      return DietAssessmentReport(
+        meals: [],
+        avgGLPerMeal: 0.0,
+        isHealthy: false,
+        warnings: ['Error parsing assessment data'],
+        mealCount: 0,
+        glThresholds: {'low': 10, 'medium': 20, 'high': 20},
+        assessmentDate: DateTime.now(),
+      );
+    }
+  }
+
+  static Map<String, dynamic> _convertMealMap(Map<dynamic, dynamic> rawMap) {
+    return rawMap.map<String, dynamic>((key, value) {
+      final stringKey = key?.toString() ?? '';
+      return MapEntry(stringKey, value);
+    });
+  }
+
+  static String _safeString(dynamic value) {
+    if (value == null) return '';
+    if (value is String) return value;
+    return value.toString();
+  }
+
+  static int _safeInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
+  }
+
+  static double _safeDouble(dynamic value) {
+    if (value == null) return 0.0;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0.0;
+    return 0.0;
+  }
 
   Map<String, dynamic> toJson() => {
     'meals': meals.map((m) => m.toJson()).toList(),
@@ -64,45 +168,63 @@ class DietAssessmentReport {
     'processedAt': assessmentDate.toIso8601String(),
   };
 
-  // Helper getters for summary statistics
-
-  /// Total number of foods detected across all meals
-  int get totalFoodsDetected => meals.fold(0, (sum, m) => sum + m.foods.length);
+  /// Total number of foods detected across all meals (excluding error meals)
+  int get totalFoodsDetected => meals
+      .where((m) => !m.hasError)
+      .fold(0, (sum, m) => sum + m.foods.length);
 
   /// Number of low GL meals
-  int get lowGLMealsCount => meals.where((m) => m.glCategory == 'low').length;
+  int get lowGLMealsCount => meals
+      .where((m) => !m.hasError && m.glCategory == 'low')
+      .length;
 
   /// Number of medium GL meals
-  int get mediumGLMealsCount => meals.where((m) => m.glCategory == 'medium').length;
+  int get mediumGLMealsCount => meals
+      .where((m) => !m.hasError && m.glCategory == 'medium')
+      .length;
 
   /// Number of high GL meals
-  int get highGLMealsCount => meals.where((m) => m.glCategory == 'high').length;
+  int get highGLMealsCount => meals
+      .where((m) => !m.hasError && m.glCategory == 'high')
+      .length;
 
-  /// Total calories across all meals
-  double get totalCalories => meals.fold(0.0, (sum, m) =>
+  /// Total calories across all meals (excluding error meals)
+  double get totalCalories => meals
+      .where((m) => !m.hasError)
+      .fold(0.0, (sum, m) =>
   sum + m.foods.fold(0.0, (s, f) => s + f.calories));
 
-  /// Total carbs across all meals
-  double get totalCarbs => meals.fold(0.0, (sum, m) =>
+  /// Total carbs across all meals (excluding error meals)
+  double get totalCarbs => meals
+      .where((m) => !m.hasError)
+      .fold(0.0, (sum, m) =>
   sum + m.foods.fold(0.0, (s, f) => s + f.carbs));
 
-  /// Total sugar across all meals
-  double get totalSugar => meals.fold(0.0, (sum, m) =>
+  /// Total sugar across all meals (excluding error meals)
+  double get totalSugar => meals
+      .where((m) => !m.hasError)
+      .fold(0.0, (sum, m) =>
   sum + m.foods.fold(0.0, (s, f) => s + f.sugar));
 
-  /// Total fiber across all meals
-  double get totalFiber => meals.fold(0.0, (sum, m) =>
+  /// Total fiber across all meals (excluding error meals)
+  double get totalFiber => meals
+      .where((m) => !m.hasError)
+      .fold(0.0, (sum, m) =>
   sum + m.foods.fold(0.0, (s, f) => s + f.fiber));
 
-  /// Total protein across all meals
-  double get totalProtein => meals.fold(0.0, (sum, m) =>
+  /// Total protein across all meals (excluding error meals)
+  double get totalProtein => meals
+      .where((m) => !m.hasError)
+      .fold(0.0, (sum, m) =>
   sum + m.foods.fold(0.0, (s, f) => s + f.protein));
 
-  /// Total fat across all meals
-  double get totalFat => meals.fold(0.0, (sum, m) =>
+  /// Total fat across all meals (excluding error meals)
+  double get totalFat => meals
+      .where((m) => !m.hasError)
+      .fold(0.0, (sum, m) =>
   sum + m.foods.fold(0.0, (s, f) => s + f.fat));
 
-  /// Percentage of high GL meals
+  /// Percentage of high GL meals (only from valid meals)
   double get highGLPercentage => mealCount > 0
       ? (highGLMealsCount / mealCount * 100)
       : 0.0;
@@ -122,7 +244,7 @@ class DietAssessmentReport {
       ? 'Healthy Diet Detected'
       : 'Diet Needs Improvement';
 
-  /// Get GL distribution as percentages
+  /// Get GL distribution as percentages (only from valid meals)
   Map<String, double> get glDistributionPercentage => {
     'low': mealCount > 0 ? (lowGLMealsCount / mealCount * 100) : 0.0,
     'medium': mealCount > 0 ? (mediumGLMealsCount / mealCount * 100) : 0.0,
@@ -132,9 +254,14 @@ class DietAssessmentReport {
   /// Check if there are any warnings
   bool get hasWarnings => warnings.isNotEmpty;
 
-  /// Get number of meals with valid data
+  /// Get number of meals with valid data (no errors)
   int get validMealsCount => meals.where((m) => m.hasValidData).length;
 
   /// Get number of meals with errors
   int get errorMealsCount => meals.where((m) => m.hasError).length;
+
+  @override
+  String toString() {
+    return 'DietAssessmentReport(meals: ${meals.length}, validMeals: $validMealsCount, avgGL: $avgGLPerMeal, isHealthy: $isHealthy)';
+  }
 }

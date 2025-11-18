@@ -39,29 +39,24 @@ class AchievementManagementHeader extends StatelessWidget {
                         ),
                       ),
                       SizedBox(width: 16),
-                      Obx(() =>
-                          Container(
-                            padding: EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: TAdminColors.primary.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                  color: TAdminColors.primary.withOpacity(0.3)),
-                            ),
-                            child: Text(
-                              '${controller.filteredAchievements
-                                  .length} ${controller
-                                  .showingActiveAchievements.value
-                                  ? 'Active'
-                                  : 'Disabled'}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: TAdminColors.primary,
-                              ),
-                            ),
-                          )),
+                      Obx(() => Container(
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: TAdminColors.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                              color: TAdminColors.primary.withOpacity(0.3)),
+                        ),
+                        child: Text(
+                          '${controller.filteredAchievements.length} ${controller.showingActiveAchievements.value ? 'Active' : 'Disabled'}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: TAdminColors.primary,
+                          ),
+                        ),
+                      )),
                     ],
                   ),
                   SizedBox(height: 8),
@@ -87,7 +82,8 @@ class AchievementManagementHeader extends StatelessWidget {
                   child: TextField(
                     controller: controller.searchController,
                     decoration: InputDecoration(
-                      hintText: 'Search achievements by title or description...',
+                      hintText:
+                      'Search achievements by title or description...',
                       hintStyle: TextStyle(
                         color: TAdminColors.getOnSurfaceVariantColor(darkMode),
                       ),
@@ -103,7 +99,8 @@ class AchievementManagementHeader extends StatelessWidget {
                               ? IconButton(
                             icon: Icon(
                               Iconsax.close_circle_bold,
-                              color: TAdminColors.getOnSurfaceVariantColor(
+                              color:
+                              TAdminColors.getOnSurfaceVariantColor(
                                   darkMode),
                               size: 20,
                             ),
@@ -126,8 +123,8 @@ class AchievementManagementHeader extends StatelessWidget {
                         borderSide: BorderSide(
                             color: TAdminColors.primary, width: 2),
                       ),
-                      contentPadding: EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 14),
+                      contentPadding:
+                      EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                     ),
                     style: TextStyle(
                       color: TAdminColors.getOnSurfaceColor(darkMode),
@@ -148,17 +145,16 @@ class AchievementManagementHeader extends StatelessWidget {
                   ),
                   child: IconButton(
                     onPressed: controller.refreshAchievements,
-                    icon: Obx(() =>
-                        AnimatedRotation(
-                          turns: controller.isLoading.value ? 1.0 : 0.0,
-                          duration: Duration(milliseconds: 1000),
-                          child: Icon(
-                            Iconsax.refresh_bold,
-                            color: TAdminColors.getOnSurfaceVariantColor(
-                                darkMode),
-                            size: 20,
-                          ),
-                        )),
+                    icon: Obx(() => AnimatedRotation(
+                      turns: controller.isLoading.value ? 1.0 : 0.0,
+                      duration: Duration(milliseconds: 1000),
+                      child: Icon(
+                        Iconsax.refresh_bold,
+                        color: TAdminColors.getOnSurfaceVariantColor(
+                            darkMode),
+                        size: 20,
+                      ),
+                    )),
                     tooltip: 'Refresh achievements',
                     style: IconButton.styleFrom(
                       minimumSize: Size(48, 48),
@@ -185,21 +181,19 @@ class AchievementManagementHeader extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Obx(() =>
-                      _buildTabButton(
-                        'Active Achievements',
-                        controller.showingActiveAchievements.value,
-                            () => controller.showActiveAchievements(),
-                        darkMode,
-                      )),
+                  Obx(() => _buildTabButton(
+                    'Active Achievements',
+                    controller.showingActiveAchievements.value,
+                        () => controller.showActiveAchievements(),
+                    darkMode,
+                  )),
                   SizedBox(width: 4),
-                  Obx(() =>
-                      _buildTabButton(
-                        'Disabled Achievements',
-                        !controller.showingActiveAchievements.value,
-                            () => controller.showDisabledAchievements(),
-                        darkMode,
-                      )),
+                  Obx(() => _buildTabButton(
+                    'Disabled Achievements',
+                    !controller.showingActiveAchievements.value,
+                        () => controller.showDisabledAchievements(),
+                    darkMode,
+                  )),
                 ],
               ),
             ),
@@ -227,41 +221,39 @@ class AchievementManagementHeader extends StatelessWidget {
                 const SizedBox(width: 8),
                 Container(
                   height: 48,
-                  child: Obx(() =>
-                      DropdownButtonHideUnderline(
-                        child: DropdownButton<int>(
-                          value: controller.itemsPerPage.value,
-                          onChanged: controller.changeItemsPerPage,
-                          items: controller.itemsPerPageOptions
-                              .map((items) =>
-                              DropdownMenuItem(
-                                value: items,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 8),
-                                  child: Text(
-                                    '$items',
-                                    style: TextStyle(
-                                      color: TAdminColors.getOnSurfaceColor(
-                                          darkMode),
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ))
-                              .toList(),
-                          style: TextStyle(
-                            color: TAdminColors.getOnSurfaceColor(darkMode),
-                          ),
-                          dropdownColor: TAdminColors.getSurfaceColor(darkMode),
-                          borderRadius: BorderRadius.circular(8),
-                          icon: Icon(
-                            Iconsax.arrow_down_1_bold,
-                            color: TAdminColors.getOnSurfaceVariantColor(
-                                darkMode),
+                  child: Obx(() => DropdownButtonHideUnderline(
+                    child: DropdownButton<int>(
+                      value: controller.itemsPerPage.value,
+                      onChanged: controller.changeItemsPerPage,
+                      items: controller.itemsPerPageOptions
+                          .map((items) => DropdownMenuItem(
+                        value: items,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          child: Text(
+                            '$items',
+                            style: TextStyle(
+                              color: TAdminColors.getOnSurfaceColor(
+                                  darkMode),
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
-                      )),
+                      ))
+                          .toList(),
+                      style: TextStyle(
+                        color: TAdminColors.getOnSurfaceColor(darkMode),
+                      ),
+                      dropdownColor: TAdminColors.getSurfaceColor(darkMode),
+                      borderRadius: BorderRadius.circular(8),
+                      icon: Icon(
+                        Iconsax.arrow_down_1_bold,
+                        color: TAdminColors.getOnSurfaceVariantColor(
+                            darkMode),
+                      ),
+                    ),
+                  )),
                 ),
                 const SizedBox(width: 8),
                 Text(
@@ -279,8 +271,8 @@ class AchievementManagementHeader extends StatelessWidget {
     );
   }
 
-  Widget _buildTabButton(String text, bool isSelected, VoidCallback onTap,
-      bool isDark) {
+  Widget _buildTabButton(
+      String text, bool isSelected, VoidCallback onTap, bool isDark) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -293,7 +285,8 @@ class AchievementManagementHeader extends StatelessWidget {
           boxShadow: isSelected
               ? [
             BoxShadow(
-              color: isDark ? Colors.black26 : Colors.grey.withOpacity(0.1),
+              color:
+              isDark ? Colors.black26 : Colors.grey.withOpacity(0.1),
               blurRadius: 4,
               offset: Offset(0, 2),
             ),
@@ -330,7 +323,7 @@ class AchievementManagementHeader extends StatelessWidget {
           items: [
             DropdownMenuItem(
               value: 'all',
-              child: Row(
+              child: Obx(() => Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
@@ -348,13 +341,14 @@ class AchievementManagementHeader extends StatelessWidget {
                   ),
                   Container(
                     margin: EdgeInsets.only(left: 8),
-                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                    EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: TAdminColors.primary.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
-                      '${controller.allAchievements.length}',
+                      '${controller.getAchievementCountByType('all')}',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -363,15 +357,17 @@ class AchievementManagementHeader extends StatelessWidget {
                     ),
                   ),
                 ],
-              ),
+              )),
             ),
-            ...controller.achievementTypes.where((type) => type != 'all').map(
+            ...controller.achievementTypes
+                .where((type) => type != 'all')
+                .map(
                   (type) {
                 IconData icon;
                 Color iconColor;
 
                 switch (type) {
-                  case 'monthly':
+                  case 'periodic':
                     icon = Iconsax.calendar_bold;
                     iconColor = TAdminColors.warning;
                     break;
@@ -381,16 +377,13 @@ class AchievementManagementHeader extends StatelessWidget {
                     break;
                   default:
                     icon = Iconsax.medal_bold;
-                    iconColor = TAdminColors.getOnSurfaceVariantColor(darkMode);
+                    iconColor =
+                        TAdminColors.getOnSurfaceVariantColor(darkMode);
                 }
-
-                final count = controller.allAchievements
-                    .where((achievement) => achievement.achievementType == type)
-                    .length;
 
                 return DropdownMenuItem(
                   value: type,
-                  child: Row(
+                  child: Obx(() => Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
@@ -415,7 +408,7 @@ class AchievementManagementHeader extends StatelessWidget {
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
-                          '$count',
+                          '${controller.getAchievementCountByType(type)}',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
@@ -424,7 +417,7 @@ class AchievementManagementHeader extends StatelessWidget {
                         ),
                       ),
                     ],
-                  ),
+                  )),
                 );
               },
             ).toList(),

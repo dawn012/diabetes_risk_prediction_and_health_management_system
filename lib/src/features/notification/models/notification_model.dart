@@ -1,10 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../../utils/constants/enums.dart';
 import '../../../utils/constants/firebase_field_names.dart';
 
 class NotificationModel {
   final String notificationId;
-  final String notificationType;
+  final NotificationType notificationType;
   final String notificationTitle;
   final String message;
   final bool isRead;
@@ -23,7 +24,7 @@ class NotificationModel {
   static NotificationModel empty() {
     return NotificationModel(
       notificationId: '',
-      notificationType: '',
+      notificationType: NotificationType.system,
       notificationTitle: '',
       message: '',
       isRead: false,
@@ -34,7 +35,7 @@ class NotificationModel {
   /// Creates a copy of the current NotificationModel with the given fields replaced
   NotificationModel copyWith({
     String? notificationId,
-    String? notificationType,
+    NotificationType? notificationType,
     String? notificationTitle,
     String? message,
     bool? isRead,
@@ -54,7 +55,7 @@ class NotificationModel {
   Map<String, dynamic> toJson() {
     return {
       FirebaseFieldNames.notificationId: notificationId,
-      FirebaseFieldNames.notificationType: notificationType,
+      FirebaseFieldNames.notificationType: notificationType.name,
       FirebaseFieldNames.notificationTitle: notificationTitle,
       FirebaseFieldNames.message: message,
       FirebaseFieldNames.isRead: isRead,
@@ -67,9 +68,10 @@ class NotificationModel {
       DocumentSnapshot<Map<String, dynamic>> document) {
     if (document.data() != null) {
       final data = document.data()!;
+
       return NotificationModel(
         notificationId: data[FirebaseFieldNames.notificationId] ?? '',
-        notificationType: data[FirebaseFieldNames.notificationType] ?? '',
+        notificationType: _parseNotificationType(data[FirebaseFieldNames.notificationType]),
         notificationTitle: data[FirebaseFieldNames.notificationTitle] ?? '',
         message: data[FirebaseFieldNames.message] ?? '',
         isRead: data[FirebaseFieldNames.isRead] ?? false,
@@ -78,6 +80,20 @@ class NotificationModel {
       );
     } else {
       return NotificationModel.empty();
+    }
+  }
+
+// 辅助方法：将字符串转换为 NotificationType
+  static NotificationType _parseNotificationType(String? typeString) {
+    if (typeString == null) return NotificationType.system;
+
+    try {
+      return NotificationType.values.firstWhere(
+            (type) => type.name == typeString,
+        orElse: () => NotificationType.system,
+      );
+    } catch (e) {
+      return NotificationType.system;
     }
   }
 }

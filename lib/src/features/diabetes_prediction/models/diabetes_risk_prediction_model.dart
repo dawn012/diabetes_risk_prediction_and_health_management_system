@@ -3,13 +3,13 @@ import 'diabetes_assessment_cache_model.dart';
 import 'diet_assessment_report_model.dart';
 import 'meal_analysis_result_model.dart';
 import 'meal_photo_record_model.dart';
+import 'detected_food_model.dart';
 import '../../../utils/constants/firebase_field_names.dart';
 
 class DiabetesRiskPredictionModel {
   final String predictionId;
-  final String userId;
   final DateTime predictionDateTime;
-  final String riskLevel; // 'low', 'medium', 'high', 'very_high'
+  final String riskLevel; // 'low', 'medium', 'high'
   final double riskScore; // 0.0 - 1.0 or 0-100
   final List<String> recommendations;
 
@@ -18,7 +18,6 @@ class DiabetesRiskPredictionModel {
 
   DiabetesRiskPredictionModel({
     required this.predictionId,
-    required this.userId,
     required this.predictionDateTime,
     required this.riskLevel,
     required this.riskScore,
@@ -29,7 +28,6 @@ class DiabetesRiskPredictionModel {
   /// Empty constructor for initialization
   factory DiabetesRiskPredictionModel.empty() => DiabetesRiskPredictionModel(
     predictionId: '',
-    userId: '',
     predictionDateTime: DateTime.fromMillisecondsSinceEpoch(0),
     riskLevel: '',
     riskScore: 0.0,
@@ -49,7 +47,6 @@ class DiabetesRiskPredictionModel {
   }) {
     return DiabetesRiskPredictionModel(
       predictionId: predictionId ?? this.predictionId,
-      userId: userId ?? this.userId,
       predictionDateTime: predictionDateTime ?? this.predictionDateTime,
       riskLevel: riskLevel ?? this.riskLevel,
       riskScore: riskScore ?? this.riskScore,
@@ -62,7 +59,6 @@ class DiabetesRiskPredictionModel {
   Map<String, dynamic> toJson() {
     return {
       FirebaseFieldNames.predictionId: predictionId,
-      FirebaseFieldNames.userId: userId,
       FirebaseFieldNames.predictionDateTime: predictionDateTime.millisecondsSinceEpoch,
       FirebaseFieldNames.riskLevel: riskLevel,
       FirebaseFieldNames.riskScore: riskScore,
@@ -81,7 +77,6 @@ class DiabetesRiskPredictionModel {
   factory DiabetesRiskPredictionModel.fromJson(Map<String, dynamic> json) {
     return DiabetesRiskPredictionModel(
       predictionId: json[FirebaseFieldNames.predictionId] ?? '',
-      userId: json[FirebaseFieldNames.userId] ?? '',
       predictionDateTime: DateTime.fromMillisecondsSinceEpoch(
         json[FirebaseFieldNames.predictionDateTime] ?? 0,
       ),
@@ -92,7 +87,7 @@ class DiabetesRiskPredictionModel {
     );
   }
 
-  // 转换 Hive Cache 为 Firestore 友好的格式
+  // 转换 Hive Cache 为 Firestore 友好的格式 - 包含完整的 food 数据
   static Map<String, dynamic> _convertCacheToFirestore(DiabetesAssessmentCache cache) {
     return {
       // 基础健康数据
@@ -111,17 +106,19 @@ class DiabetesRiskPredictionModel {
       FirebaseFieldNames.isTakeMedication: cache.takesMedication,
       FirebaseFieldNames.medicationAdherence: cache.medicationAdherence,
 
-      // 餐食照片信息（包含 analysisResult）
+      // 餐食照片信息（包含 analysisResult 和完整的 foods 数据）
       'mealPhotos': _convertMealPhotosForFirestore(cache.mealPhotos),
       'mealPhotosProcessed': cache.mealPhotosProcessed,
 
-      // 饮食评估结果（只存储汇总信息，不存 meals 数组）
+      // 饮食评估结果
       'dietAssessment': _convertDietAssessmentForFirestore(cache.dietAssessment),
     };
   }
 
   // 从 Firestore 数据重建 Cache 对象
   static DiabetesAssessmentCache _convertFirestoreToCache(Map<String, dynamic> data) {
+    final mealPhotos = _convertFirestoreToMealPhotos(data['mealPhotos'] ?? []);
+
     return DiabetesAssessmentCache(
       height: data[FirebaseFieldNames.height]?.toDouble(),
       weight: data[FirebaseFieldNames.weight]?.toDouble(),
@@ -133,25 +130,24 @@ class DiabetesRiskPredictionModel {
       waterIntake: data[FirebaseFieldNames.waterIntake]?.toDouble(),
       takesMedication: data[FirebaseFieldNames.isTakeMedication],
       medicationAdherence: data[FirebaseFieldNames.medicationAdherence],
-      mealPhotos: _convertFirestoreToMealPhotos(data['mealPhotos'] ?? []),
+      mealPhotos: mealPhotos,
       mealPhotosProcessed: data['mealPhotosProcessed'],
-      dietAssessment: _convertFirestoreToDietAssessment(data['dietAssessment']),
+      dietAssessment: _convertFirestoreToDietAssessment(data['dietAssessment'], mealPhotos),
       lastUpdated: DateTime.now(),
     );
   }
 
-  // 转换餐食照片为 Firestore 格式 - 包含 analysisResult
+  // 转换餐食照片为 Firestore 格式
   static List<Map<String, dynamic>> _convertMealPhotosForFirestore(List<MealPhotoRecord>? photos) {
     if (photos == null) return [];
 
     return photos.map((photo) {
       return {
         'id': photo.id,
-        'imagePath': photo.imagePath, // 共用字段：存储云端URL
+        'imagePath': photo.imagePath,
         'uploadTime': photo.uploadTime.millisecondsSinceEpoch,
         'needsProcessing': photo.needsProcessing,
-        'isFromCloud': true, // 存到 Firestore 时标记为云端
-        // 存储每张图片的 analysisResult（包含 totalGL 和 glCategory）
+        'isFromCloud': true,
         'analysisResult': _convertAnalysisResultForFirestore(photo.analysisResult),
       };
     }).toList();
@@ -163,47 +159,88 @@ class DiabetesRiskPredictionModel {
       final photoData = data as Map<String, dynamic>;
       return MealPhotoRecord.createFromCloud(
         id: photoData['id'] ?? '',
-        storageUrl: photoData['imagePath'], // 直接使用 imagePath 作为云端URL
+        storageUrl: photoData['imagePath'],
         uploadTime: DateTime.fromMillisecondsSinceEpoch(photoData['uploadTime'] ?? 0),
         analysisResult: _convertFirestoreToAnalysisResult(photoData['analysisResult']),
       );
     }).toList();
   }
 
-  // 转换分析结果为 Firestore 格式
+  // 转换分析结果为 Firestore 格式 - 包含完整的 foods 数组
   static Map<String, dynamic>? _convertAnalysisResultForFirestore(MealAnalysisResult? result) {
     if (result == null) return null;
 
     return {
       'id': result.id,
       'mealNumber': result.mealNumber,
-      'totalGL': result.totalGL,        // 每张图片的 totalGL
-      'glCategory': result.glCategory,  // 每张图片的 GL 分类
+      'totalGL': result.totalGL,
+      'glCategory': result.glCategory,
       'error': result.error,
-      // 不存储 foods 数组
+      // 现在存储完整的 foods 数组
+      'foods': result.foods.map((food) => _convertFoodForFirestore(food)).toList(),
     };
   }
 
-  // 从 Firestore 重建分析结果
+  // 转换单个 food 为 Firestore 格式
+  static Map<String, dynamic> _convertFoodForFirestore(DetectedFood food) {
+    return {
+      'name': food.name,
+      'calories': food.calories,
+      'carbs': food.carbs,
+      'protein': food.protein,
+      'fat': food.fat,
+      'fiber': food.fiber,
+      'sugar': food.sugar,
+      'sodium': food.sodium,
+      'saturatedFat': food.saturatedFat,
+      'giValue': food.giValue,
+      'glycemicLoad': food.glycemicLoad,
+      'glCategory': food.glCategory,
+    };
+  }
+
+  // 从 Firestore 重建分析结果 - 包含完整的 foods 数组
   static MealAnalysisResult? _convertFirestoreToAnalysisResult(Map<String, dynamic>? data) {
     if (data == null) return null;
+
+    // 重建 foods 数组
+    final foods = (data['foods'] as List<dynamic>?)
+        ?.map((foodData) => _convertFirestoreToFood(foodData as Map<String, dynamic>))
+        .toList() ?? [];
 
     return MealAnalysisResult(
       id: data['id'] ?? '',
       mealNumber: data['mealNumber'] ?? 0,
-      foods: [], // 不重建 foods 数组
+      foods: foods,
       totalGL: (data['totalGL'] ?? 0).toDouble(),
       glCategory: data['glCategory'] ?? 'unknown',
       error: data['error'],
     );
   }
 
-  // 转换饮食评估为 Firestore 格式 - 只存储汇总信息，不存 meals 数组
+  // 从 Firestore 重建单个 food
+  static DetectedFood _convertFirestoreToFood(Map<String, dynamic> data) {
+    return DetectedFood(
+      name: data['name'] ?? 'Unknown',
+      calories: (data['calories'] ?? 0).toDouble(),
+      carbs: (data['carbs'] ?? 0).toDouble(),
+      protein: (data['protein'] ?? 0).toDouble(),
+      fat: (data['fat'] ?? 0).toDouble(),
+      fiber: (data['fiber'] ?? 0).toDouble(),
+      sugar: (data['sugar'] ?? 0).toDouble(),
+      sodium: (data['sodium'] ?? 0).toDouble(),
+      saturatedFat: (data['saturatedFat'] ?? 0).toDouble(),
+      giValue: data['giValue'],
+      glycemicLoad: data['glycemicLoad']?.toDouble(),
+      glCategory: data['glCategory'] ?? 'unknown',
+    );
+  }
+
+  // 转换饮食评估为 Firestore 格式 - 不存储 meals 数组（因为在 mealPhotos 中已有）
   static Map<String, dynamic>? _convertDietAssessmentForFirestore(DietAssessmentReport? assessment) {
     if (assessment == null) return null;
 
     return {
-      // 不存储 meals 数组，因为数据在 mealPhotos 中已经有了
       'avgGLPerMeal': assessment.avgGLPerMeal,
       'isHealthy': assessment.isHealthy,
       'warnings': assessment.warnings,
@@ -214,16 +251,33 @@ class DiabetesRiskPredictionModel {
   }
 
   // 从 Firestore 重建饮食评估
-  static DietAssessmentReport? _convertFirestoreToDietAssessment(Map<String, dynamic>? data) {
+  static DietAssessmentReport? _convertFirestoreToDietAssessment(
+      Map<String, dynamic>? data,
+      List<MealPhotoRecord>? mealPhotos
+      ) {
     if (data == null) return null;
 
+    List<MealAnalysisResult> meals = [];
+    if (mealPhotos != null) {
+      for (int i = 0; i < mealPhotos.length; i++) {
+        final photo = mealPhotos[i];
+        if (photo.analysisResult != null) {
+          meals.add(photo.analysisResult!);
+        }
+      }
+    }
+
+    print('🔄 Rebuilt ${meals.length} meals from ${mealPhotos?.length ?? 0} photos');
+
     return DietAssessmentReport(
-      meals: [], // 不重建 meals 数组，因为数据在 mealPhotos 中
+      meals: meals,
       avgGLPerMeal: (data['avgGLPerMeal'] ?? 0).toDouble(),
       isHealthy: data['isHealthy'] ?? false,
       warnings: List<String>.from(data['warnings'] ?? []),
-      mealCount: data['mealCount'] ?? 0,
-      glThresholds: Map<String, int>.from(data['glThresholds'] ?? {}),
+      mealCount: data['mealCount'] ?? meals.length,
+      glThresholds: Map<String, int>.from(data['glThresholds'] ?? {
+        'low': 10, 'medium': 20, 'high': 20
+      }),
       assessmentDate: DateTime.fromMillisecondsSinceEpoch(data['assessmentDate'] ?? 0),
     );
   }
@@ -247,16 +301,14 @@ class DiabetesRiskPredictionModel {
   List<String> get allWarnings {
     final warnings = <String>[];
 
-    // 从 dietAssessment 获取警告
     if (inputs.dietAssessment?.warnings != null) {
       warnings.addAll(inputs.dietAssessment!.warnings);
     }
 
-    // 从单张图片分析结果获取错误信息
     final photos = inputs.mealPhotos ?? [];
     for (final photo in photos) {
       if (photo.analysisResult?.error != null) {
-        warnings.add('图片 ${photo.id} 分析错误: ${photo.analysisResult!.error}');
+        warnings.add('Photo ${photo.id} analysis error: ${photo.analysisResult!.error}');
       }
     }
 

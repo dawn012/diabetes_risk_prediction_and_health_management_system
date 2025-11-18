@@ -38,21 +38,30 @@ class ImageHelper {
   /// Take photo with camera
   static Future<File?> takePhoto() async {
     try {
-      final picker = ImagePicker();
-      final file = await picker.pickImage(
-        source: ImageSource.camera,
-        maxHeight: 1920,
-        maxWidth: 1920,
-        imageQuality: 85,
-      );
-
-      if (file != null) {
-        return File(file.path);
-      }
-      return null;
+      // 使用自定义相机界面
+      final result = await openCustomCamera();
+      return result;
     } catch (e) {
       print('Error taking photo: $e');
-      return null;
+
+      // 如果自定义相机失败，回退到系统相机
+      try {
+        final picker = ImagePicker();
+        final file = await picker.pickImage(
+          source: ImageSource.camera,
+          maxHeight: 1920,
+          maxWidth: 1920,
+          imageQuality: 85,
+        );
+
+        if (file != null) {
+          return File(file.path);
+        }
+        return null;
+      } catch (fallbackError) {
+        print('Fallback camera also failed: $fallbackError');
+        return null;
+      }
     }
   }
 

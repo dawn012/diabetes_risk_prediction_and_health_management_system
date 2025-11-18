@@ -15,6 +15,7 @@ class FirebaseCollectionNames {
   static const String payments = 'payments';
   static const String reminders = 'reminders';
   static const String reminderSchedules = 'reminderSchedules';
+  static const String notifications = 'notifications';
   static const String stories = 'stories';
   static const String chatrooms = 'chatrooms';
   static const String messages = 'messages';

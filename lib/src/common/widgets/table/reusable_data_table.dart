@@ -247,91 +247,92 @@ class ReusableDataTable<T> extends StatelessWidget {
 
   Widget _buildDataRow(BuildContext context, T item, bool isSelected, bool isEven, bool isDark, int index) {
     return Material(
-      key: ValueKey('${_getItemId(item)}_$index'), // 添加唯一的 key
+      key: ValueKey('${_getItemId(item)}_$index'),
       color: Colors.transparent,
-      child: Container(
-        height: 64,
-        decoration: BoxDecoration(
-          color: isSelected
-              ? TAdminColors.primary.withOpacity(0.1)
-              : (isEven
-              ? TAdminColors.getTableRowColor(isDark)
-              : TAdminColors.getTableRowColor(isDark).withOpacity(0.5)),
-          border: Border(
-            bottom: BorderSide(
-              color: TAdminColors.getBorderColor(isDark).withOpacity(0.5),
-              width: 0.5,
+      child: Obx(() {
+        final currentIsSelected = selectedItems.contains(item);
+
+        return Container(
+          height: 64,
+          decoration: BoxDecoration(
+            color: currentIsSelected
+                ? TAdminColors.primary.withOpacity(0.1)
+                : (isEven
+                ? TAdminColors.getTableRowColor(isDark)
+                : TAdminColors.getTableRowColor(isDark).withOpacity(0.5)),
+            border: Border(
+              bottom: BorderSide(
+                color: TAdminColors.getBorderColor(isDark).withOpacity(0.5),
+                width: 0.5,
+              ),
             ),
           ),
-        ),
-        child: Row(
-          children: [
-            // Selection checkbox
-            if (onItemSelect != null)
-              SizedBox(
-                width: 60,
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () {
-                      onItemSelect!(item, !isSelected);
-                    },
-                    borderRadius: BorderRadius.circular(4),
-                    child: Container(
-                      padding: EdgeInsets.all(12),
-                      child: Theme(
-                        data: Theme.of(context).copyWith(
-                          checkboxTheme: CheckboxThemeData(
-                            checkColor: WidgetStateProperty.all(Colors.white),
-                            fillColor: WidgetStateProperty.resolveWith((states) {
-                              if (states.contains(WidgetState.selected)) {
-                                return TAdminColors.primary;
-                              }
-                              return Colors.transparent;
-                            }),
-                            side: WidgetStateBorderSide.resolveWith((states) {
-                              if (states.contains(WidgetState.selected)) {
-                                return BorderSide(color: TAdminColors.primary, width: 2);
-                              }
-                              return BorderSide(
-                                color: TAdminColors.getOnSurfaceVariantColor(isDark),
-                                width: 1.5,
-                              );
-                            }),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(3),
+          child: Row(
+            children: [
+              // Selection checkbox (保持不变)
+              if (onItemSelect != null)
+                SizedBox(
+                  width: 60,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        onItemSelect!(item, !currentIsSelected);
+                      },
+                      borderRadius: BorderRadius.circular(4),
+                      child: Container(
+                        padding: EdgeInsets.all(12),
+                        child: Theme(
+                          data: Theme.of(context).copyWith(
+                            checkboxTheme: CheckboxThemeData(
+                              checkColor: WidgetStateProperty.all(Colors.white),
+                              fillColor: WidgetStateProperty.resolveWith((states) {
+                                if (states.contains(WidgetState.selected)) {
+                                  return TAdminColors.primary;
+                                }
+                                return Colors.transparent;
+                              }),
+                              side: WidgetStateBorderSide.resolveWith((states) {
+                                if (states.contains(WidgetState.selected)) {
+                                  return BorderSide(color: TAdminColors.primary, width: 2);
+                                }
+                                return BorderSide(
+                                  color: TAdminColors.getOnSurfaceVariantColor(isDark),
+                                  width: 1.5,
+                                );
+                              }),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(3),
+                              ),
                             ),
                           ),
-                        ),
-                        child: Obx(() { // 保持 checkbox 的 Obx
-                          final currentIsSelected = selectedItems.contains(item);
-                          return Checkbox(
+                          child: Checkbox(
                             value: currentIsSelected,
                             onChanged: (value) {
                               if (value != null) {
                                 onItemSelect!(item, value);
                               }
                             },
-                          );
-                        }),
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
 
-            // Data cells
-            Expanded(
-              child: InkWell(
-                onTap: () {
-                  // 行点击逻辑
-                },
-                child: _buildDataCellsRow(item, isDark),
+              // Data cells
+              Expanded(
+                child: InkWell(
+                  onTap: () {
+                    // 行点击逻辑
+                  },
+                  child: _buildDataCellsRow(item, isDark),
+                ),
               ),
-            ),
-          ],
-        ),
-      ),
+            ],
+          ),
+        );
+      }),
     );
   }
 

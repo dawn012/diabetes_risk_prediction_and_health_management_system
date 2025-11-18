@@ -4,8 +4,8 @@ import 'package:icons_plus/icons_plus.dart';
 
 import '../../../../utils/constants/admin_colors.dart';
 import '../../../../utils/constants/enums.dart';
-import '../../../../utils/helpers/export_helper.dart';
 import '../../../../utils/helpers/helper_functions.dart';
+import '../../../../utils/helpers/web_export_helper.dart';
 import '../../controllers/transaction_report_controller.dart';
 import 'widgets/admin_bar_chart.dart';
 import 'widgets/admin_chart_export_button.dart';
@@ -112,6 +112,8 @@ class TransactionReportScreen extends StatelessWidget {
             data: controller.getExportData(),
             chartKey: controller.chartKey,
             timeRange: controller.getTimeRangeText(),
+            periodFilter: controller.selectedPeriod.value.name.capitalizeFirst,
+            trendFilter: controller.selectedYear.value.toString(),
             hasData: controller.transactions.isNotEmpty,
           ),
           tooltip: 'Export Report',
@@ -246,7 +248,7 @@ class TransactionReportScreen extends StatelessWidget {
 
   Widget _buildChartsContainer(TransactionReportController controller, bool darkMode, bool isTablet) {
     return Container(
-      height: isTablet ? 500 : 400,
+      height: isTablet ? 550 : 450,
       padding: EdgeInsets.all(isTablet ? 24 : 16),
       decoration: BoxDecoration(
         color: TAdminColors.getSurfaceColor(darkMode),
@@ -310,6 +312,8 @@ class TransactionReportScreen extends StatelessWidget {
               chartKey: controller.chartKey,
               periodFilter: controller.selectedPeriod.value.name,
               trendFilter: controller.selectedYear.value.toString(),
+              horizontalInterval: controller.calculateHorizontalInterval(),
+              leftTitleInterval: controller.calculateLeftTitleInterval(),
             )
                 : AdminBarChart(
               barGroups: controller.getBarChartData(),

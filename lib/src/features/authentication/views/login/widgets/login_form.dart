@@ -17,16 +17,14 @@ class TLoginForm extends StatefulWidget {
 }
 
 class _LoginFormState extends State<TLoginForm> {
-  // 创建FocusNode用于监听焦点
   FocusNode emailFocusNode = FocusNode();
   FocusNode passwordFocusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
-    // 监听焦点变化
     emailFocusNode.addListener(() {
-      setState(() {}); // 通过 setState() 来触发 UI 的重新构建
+      setState(() {});
     });
     passwordFocusNode.addListener(() {
       setState(() {});
@@ -35,7 +33,6 @@ class _LoginFormState extends State<TLoginForm> {
 
   @override
   void dispose() {
-    // 释放FocusNode
     emailFocusNode.dispose();
     passwordFocusNode.dispose();
     super.dispose();
@@ -43,7 +40,8 @@ class _LoginFormState extends State<TLoginForm> {
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.put(LoginController());
+    // ✅ 使用 Get.find 而不是 Get.put，避免重复创建
+    final controller = Get.find<LoginController>();
 
     return Form(
       key: controller.loginFormKey,
@@ -56,14 +54,12 @@ class _LoginFormState extends State<TLoginForm> {
             TextFormField(
               controller: controller.email,
               validator: (value) => TUserProfileValidator.validateEmail(value),
-              focusNode: emailFocusNode, // 将FocusNode关联到TextFormField
+              focusNode: emailFocusNode,
               decoration: InputDecoration(
                 prefixIcon: const Icon(Icons.person_outline_outlined),
                 labelText: TTexts.email,
                 labelStyle: TextStyle(
-                  color: emailFocusNode.hasFocus
-                      ? TColors.primary // 获得焦点时的颜色
-                      : null, // 未获得焦点时的颜色
+                  color: emailFocusNode.hasFocus ? TColors.primary : null,
                 ),
               ),
             ),
@@ -71,20 +67,17 @@ class _LoginFormState extends State<TLoginForm> {
 
             /// Password
             Obx(
-              () => TextFormField(
+                  () => TextFormField(
                 controller: controller.password,
                 validator: (value) =>
                     TUserProfileValidator.validateEmptyText('password', value),
                 obscureText: controller.hidePassword,
                 focusNode: passwordFocusNode,
-                // 将FocusNode关联到TextFormField
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.fingerprint),
                   labelText: TTexts.password,
                   labelStyle: TextStyle(
-                    color: passwordFocusNode.hasFocus
-                        ? TColors.primary // 获得焦点时的颜色
-                        : null, // 未获得焦点时的颜色
+                    color: passwordFocusNode.hasFocus ? TColors.primary : null,
                   ),
                   suffixIcon: IconButton(
                     onPressed: controller.togglePasswordVisibility,
@@ -99,38 +92,6 @@ class _LoginFormState extends State<TLoginForm> {
             ),
             const SizedBox(height: TSizes.spaceBtwInputFields / 2),
 
-            /// Remember Me & Forget Password
-            // Row(
-            //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            //   children: [
-            //     Row(
-            //       children: [
-            //         Obx(
-            //           () => Checkbox(
-            //               value: controller.rememberMe,
-            //               onChanged: (value) {
-            //                 controller.toggleRememberMe();
-            //               }),
-            //         ),
-            //         GestureDetector(
-            //           onTap: () {
-            //             controller.toggleRememberMe();
-            //           },
-            //           child: const Text(TTexts.rememberMe),
-            //         ),
-            //       ],
-            //     ),
-            //
-            //     /// Forget Password
-            //     TextButton(
-            //       onPressed: () {
-            //         ForgetPasswordScreen.buildShowModalBottomSheet(context);
-            //       },
-            //       child: Text('${TTexts.forgetPassword}?'),
-            //     ),
-            //   ],
-            // ),
-
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
@@ -141,9 +102,7 @@ class _LoginFormState extends State<TLoginForm> {
               ),
             ),
 
-            const SizedBox(
-              height: TSizes.spaceBtwSections,
-            ),
+            const SizedBox(height: TSizes.spaceBtwSections),
 
             /// Sign In Button
             SizedBox(
@@ -151,14 +110,11 @@ class _LoginFormState extends State<TLoginForm> {
               child: ElevatedButton(
                 onPressed: () {
                   controller.emailAndPasswordSignIn();
-                  // Get.to(() => NavigationMenu());
                 },
                 child: const Text(TTexts.signIn),
               ),
             ),
-            const SizedBox(
-              height: TSizes.spaceBtwItems,
-            ),
+            const SizedBox(height: TSizes.spaceBtwItems),
 
             /// Create Account Button
             SizedBox(

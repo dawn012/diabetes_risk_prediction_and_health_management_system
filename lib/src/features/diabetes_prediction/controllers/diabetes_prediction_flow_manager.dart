@@ -34,8 +34,13 @@ class DiabetesPredictionFlowManager extends GetxController {
           curve: Curves.easeInOut,
         );
       } else if (!isFirstTime && hasCache && !isComplete && completedCount > 0) {
-        // Has incomplete progress - show resume dialog
-        _showResumeDialog(completedCount);
+        // Has incomplete progress - go to start screen (will show continue and start new buttons)
+        Get.to(
+              () => DiabetesAssessmentStartScreen(),
+          transition: Transition.downToUp,
+          duration: Duration(milliseconds: 400),
+          curve: Curves.easeInOut,
+        );
       } else if (isComplete) {
         // All completed - go to overview
         Get.to(
@@ -86,95 +91,6 @@ class DiabetesPredictionFlowManager extends GetxController {
       });
     } catch (e) {
       print('Error prefilling from profile: $e');
-    }
-  }
-
-  /// Show resume dialog
-  void _showResumeDialog(int completedCount) {
-    Get.dialog(
-      AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        title: Row(
-          children: [
-            Icon(Icons.info_outline, color: Get.theme.primaryColor),
-            SizedBox(width: 12),
-            Text('Continue Assessment?'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'You have completed $completedCount out of 8 steps.',
-              style: TextStyle(fontSize: 16),
-            ),
-            SizedBox(height: 12),
-            Text(
-              'Would you like to continue where you left off or start from the beginning?',
-              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Get.back();
-              _startFromBeginning();
-            },
-            child: Text('Start Over'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Get.back();
-              _continueFromLastStep(completedCount);
-            },
-            child: Text('Continue'),
-          ),
-        ],
-      ),
-      barrierDismissible: false,
-    );
-  }
-
-  /// Continue from last completed step
-  Future<void> _continueFromLastStep(int completedCount) async {
-    if (completedCount > 0) {
-      // Go to overview to see progress and choose where to continue
-      Get.to(
-            () => DiabetesPredictionOverviewScreen(),
-        transition: Transition.downToUp,
-        duration: Duration(milliseconds: 400),
-        curve: Curves.easeInOut,
-      );
-    } else {
-      // Start from step 1
-      Get.to(() => HeightWeightInputScreen());
-    }
-  }
-
-  /// Start from beginning (clear cache)
-  Future<void> _startFromBeginning() async {
-    await _storageManager.clearCache();
-    await _prefillFromProfile(); // Re-prefill after clearing
-    Get.to(() => HeightWeightInputScreen());
-  }
-
-  /// Navigate to specific step by number
-  void navigateToStep(int stepNumber) {
-    switch (stepNumber) {
-      case 1:
-        Get.to(() => HeightWeightInputScreen());
-        break;
-    // Add other steps as you implement them
-      default:
-        Get.snackbar(
-          'Coming Soon',
-          'This step is not yet available',
-          snackPosition: SnackPosition.BOTTOM,
-        );
     }
   }
 

@@ -10,7 +10,7 @@ import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../common/loaders/loaders.dart';
-import '../../../common/widgets/dialogs/dialog.dart';
+import '../../../common/widgets/dialogs/delete_account_dialog.dart';
 import '../../../data/repositories/user/user_repository.dart';
 import '../../../utils/constants/firebase_collection_names.dart';
 import '../../../utils/constants/image_strings.dart';
@@ -56,7 +56,7 @@ class UserController extends GetxController {
   Future<UserModel> fetchUserRecordById(String userId) async {
     try {
       if (userCache.containsKey(userId)) {
-        return userCache[userId]!; // ✅ 直接返回缓存数据，避免重复请求
+        return userCache[userId]!; // 直接返回缓存数据，避免重复请求
       }
       final user = await userRepository.fetchUserDetailsById(userId);
       userCache[userId] = user;
@@ -308,111 +308,12 @@ class UserController extends GetxController {
     }
   }
 
-  /// Upload user profile picture with proper validation and compression
-  // Future<void> uploadUserProfilePicture() async {
-  //   try {
-  //     final imageFile = await ImageHelper.pickImage();
-  //     if (imageFile == null) {
-  //       // User cancelled image selection
-  //       return;
-  //     }
-  //
-  //     // Check Internet connectivity
-  //     final isConnected = await NetworkManager.instance.isConnected();
-  //     if (!isConnected) {
-  //       TLoaders.errorSnackBar(
-  //         title: 'No Internet Connection',
-  //         message: 'Please check your internet connection and try again.',
-  //       );
-  //       return;
-  //     }
-  //
-  //     // Validate file type
-  //     if (!ImageHelper.isImageFile(imageFile.path)) {
-  //       TLoaders.errorSnackBar(
-  //         title: 'Invalid File Type',
-  //         message: 'Please select a valid image file (JPG, JPEG, PNG, GIF, BMP, or WEBP).',
-  //       );
-  //       return;
-  //     }
-  //
-  //     // Check original file size
-  //     final originalSizeFormatted = ImageHelper.formatFileSize(imageFile.lengthSync());
-  //
-  //     if (!ImageHelper.isImageSizeValid(imageFile)) {
-  //       TLoaders.errorSnackBar(
-  //         title: 'File Too Large',
-  //         message: 'Image size ($originalSizeFormatted) exceeds 5MB limit. Please choose a smaller image.',
-  //       );
-  //       return;
-  //     }
-  //
-  //     // Compress image to WebP format for better performance
-  //     final compressedImage = await ImageHelper.compressImageToWebP(imageFile);
-  //     if (compressedImage == null) {
-  //       TLoaders.errorSnackBar(
-  //         title: 'Image Processing Failed',
-  //         message: 'Failed to compress image. Please try with a different image.',
-  //       );
-  //       return;
-  //     }
-  //
-  //     // Check compressed file size
-  //     final compressedSizeFormatted = ImageHelper.formatFileSize(compressedImage.lengthSync());
-  //
-  //     if (!ImageHelper.isImageSizeValid(compressedImage)) {
-  //       TLoaders.errorSnackBar(
-  //         title: 'Image Still Too Large',
-  //         message: 'Compressed image ($compressedSizeFormatted) is still too large. Please choose a smaller image.',
-  //       );
-  //       return;
-  //     }
-  //
-  //     // Upload compressed image to Firebase Storage
-  //     final imageUrl = await userRepository.uploadImage(
-  //       'profile/images',
-  //       XFile(compressedImage.path),
-  //     );
-  //
-  //     if (imageUrl.isEmpty) {
-  //       TLoaders.errorSnackBar(
-  //         title: 'Upload Failed',
-  //         message: 'Failed to upload image to server. Please try again.',
-  //       );
-  //       return;
-  //     }
-  //
-  //     // Update user image record in database
-  //     Map<String, dynamic> json = {'profileImg': imageUrl};
-  //     await userRepository.updateSingleField(json);
-  //
-  //     // Update local user model
-  //     user.value.profileImg = imageUrl;
-  //     user.refresh();
-  //
-  //     // Show success message
-  //     TLoaders.successSnackBar(
-  //       title: 'Profile Updated!',
-  //       message: 'Your profile picture has been updated successfully.',
-  //     );
-  //
-  //   } catch (e) {
-  //     TLoaders.errorSnackBar(
-  //       title: 'Upload Failed',
-  //       message: 'An unexpected error occurred: ${e.toString()}',
-  //     );
-  //   }
-  // }
-
   /// Delete Account Warning
   void deleteAccountWarningPopup() {
-    TDialog.deleteDialog(
-      title: 'Delete Account',
-      message:
-          'Are you sure you want to delete your account permanently? This action is not reversible and all of your data will be removed permanently.',
-      onConfirm: () {
-        deleteUserAccount();
-      }
+    DeleteAccountDialog.show(
+        onConfirm: () {
+          deleteUserAccount();
+        }
     );
   }
 
@@ -422,24 +323,18 @@ class UserController extends GetxController {
       TFullScreenLoader.openLoadingDialog(
           'Processing', TImages.loadingAnimation);
 
-      /// First re-authenticate user
       final auth = AuthenticationRepository.instance;
-      final provider =
-          auth.authUser!.providerData.map((e) => e.providerId).first;
-      if (provider.isNotEmpty) {
-        // Re Verify Auth Email
-        if (provider == 'google.com') {
-          await auth.signInWithGoogle();
-          await auth.deleteAccount();
-          TFullScreenLoader.stopLoading();
-        } else if (provider == 'password') {
-          TFullScreenLoader.stopLoading();
-          // Get.to(() => const ReAuthLoginForm);
-        }
-      }
+      final userId = auth.authUser!.uid;
+
+      // Soft delete Firestore user record
+      await userRepository.deleteAccount(userId);
+
+      TFullScreenLoader.stopLoading();
+
+      await auth.logout(title: 'Account Deleted', message: 'Your account has been successfully deleted.');
     } catch (e) {
       TFullScreenLoader.stopLoading();
-      TLoaders.warningSnackBar(title: TTexts.error, message: e.toString());
+      TLoaders.errorSnackBar(title: TTexts.error, message: e.toString());
     }
   }
 

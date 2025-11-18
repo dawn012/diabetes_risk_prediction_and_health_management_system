@@ -172,14 +172,15 @@ class PaymentRepository extends GetxController {
       DateTime endDate,
       ) async {
     try {
-      print(
-          'Fetching transactions from ${startDate.toIso8601String()} to ${endDate.toIso8601String()}');
+      print('Fetching transactions from ${startDate.toIso8601String()} to ${endDate.toIso8601String()}');
+
+      // 将 DateTime 转换为毫秒时间戳
+      final startMillis = startDate.millisecondsSinceEpoch;
+      final endMillis = endDate.millisecondsSinceEpoch;
 
       final QuerySnapshot querySnapshot = await _paymentsCollection
-          .where('transactionDateTime',
-          isGreaterThanOrEqualTo: Timestamp.fromDate(startDate))
-          .where('transactionDateTime',
-          isLessThanOrEqualTo: Timestamp.fromDate(endDate))
+          .where('transactionDateTime', isGreaterThanOrEqualTo: startMillis)
+          .where('transactionDateTime', isLessThanOrEqualTo: endMillis)
           .orderBy('transactionDateTime', descending: true)
           .get();
 

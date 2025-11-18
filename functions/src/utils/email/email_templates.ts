@@ -504,3 +504,288 @@ This is an automated message, please do not reply to this email.
     `,
   };
 };
+
+// 1️⃣ USER BANNED EMAIL
+export const generateUserBannedEmail = (
+  userName: string,
+  banReason?: string
+) => {
+  return {
+    subject: "Your Diatrack account has been suspended",
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #ffebee; padding: 20px; text-align: center; }
+          .content { padding: 30px; background: #fff; }
+          .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
+          .button { background: #dc3545; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block; }
+          .info-box { background: #fff3cd; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #ffc107; }
+          .warning { color: #856404; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h2>Account Suspended</h2>
+          </div>
+          <div class="content">
+            <h3>Dear ${userName},</h3>
+
+            <p>We regret to inform you that your Diatrack account has been suspended by an administrator.</p>
+
+            ${banReason ? `
+              <div class="info-box">
+                <p class="warning"><strong>Reason:</strong> ${banReason}</p>
+              </div>
+            ` : ""}
+
+            <p><strong>What this means:</strong></p>
+            <ul>
+              <li>You cannot access your account at this time</li>
+              <li>Your data is preserved and secure</li>
+              <li>You cannot log in or use the app</li>
+            </ul>
+
+            <p><strong>What you can do:</strong></p>
+            <ul>
+              <li>If you believe this is an error, please contact our support team</li>
+              <li>Review our Terms of Service and Community Guidelines</li>
+              <li>Wait for further communication from our team</li>
+            </ul>
+
+            <p style="text-align: center;">
+              <a href="https://diabetes-health-system.web.app/support" class="button">
+                Contact Support
+              </a>
+            </p>
+
+            <p>If you have any questions or concerns, our support team is available to assist you.</p>
+
+            <p>Best regards,<br>Diatrack Team</p>
+          </div>
+          <div class="footer">
+            <p>© ${new Date().getFullYear()} Diatrack. All rights reserved.</p>
+            <p>This is an automated message, please do not reply to this email.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+    text: `
+⚠️ ACCOUNT SUSPENDED
+
+Dear ${userName},
+
+We regret to inform you that your Diatrack account has been suspended by an administrator.
+
+${banReason ? `Reason: ${banReason}\n` : ""}
+What this means:
+- You cannot access your account at this time
+- Your data is preserved and secure
+- You cannot log in or use the app
+
+What you can do:
+- If you believe this is an error, please contact our support team
+- Review our Terms of Service and Community Guidelines
+- Wait for further communication from our team
+
+Contact Support: https://diabetes-health-system.web.app/support
+
+If you have any questions or concerns, our support team is available to assist you.
+
+Best regards,
+Diatrack Team
+
+© ${new Date().getFullYear()} Diatrack. All rights reserved.
+This is an automated message, please do not reply to this email.
+    `,
+  };
+};
+
+// 2️⃣ USER RESTORED FROM BAN EMAIL
+export const generateUserRestoredFromBanEmail = (
+  userName: string,
+  restoredBy: string = "an administrator"
+) => {
+  return {
+    subject: "Your Diatrack account has been restored",
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #e8f5e8; padding: 20px; text-align: center; }
+          .content { padding: 30px; background: #fff; }
+          .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
+          .button { background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block; }
+          .info-box { background: #d4edda; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #28a745; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h2>Account Restored!</h2>
+          </div>
+          <div class="content">
+            <h3>Dear ${userName},</h3>
+
+            <p>Good news! Your Diatrack account has been restored by ${restoredBy}. You can now access all features again.</p>
+
+            <div class="info-box">
+              <p><strong>✓ Your account is now active</strong></p>
+              <p><strong>✓ All features are available</strong></p>
+              <p><strong>✓ Your data is intact</strong></p>
+            </div>
+
+            <p>You can now:</p>
+            <ul>
+              <li>Log in to your account</li>
+              <li>Access all your health data</li>
+              <li>Use all app features</li>
+              <li>Participate in the community</li>
+            </ul>
+
+            <p style="text-align: center;">
+              <a href="https://diabetes-health-system.web.app/login" class="button">
+                Log In Now
+              </a>
+            </p>
+
+            <p>Welcome back! We're glad to have you with us again. If you have any questions, please don't hesitate to contact our support team.</p>
+
+            <p>Best regards,<br>Diatrack Team</p>
+          </div>
+          <div class="footer">
+            <p>© ${new Date().getFullYear()} Diatrack. All rights reserved.</p>
+            <p>This is an automated message, please do not reply to this email.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+    text: `
+✅ ACCOUNT RESTORED!
+
+Dear ${userName},
+
+Good news! Your Diatrack account has been restored by ${restoredBy}. You can now access all features again.
+
+✓ Your account is now active
+✓ All features are available
+✓ Your data is intact
+
+You can now:
+- Log in to your account
+- Access all your health data
+- Use all app features
+- Participate in the community
+
+Log In Now: https://diabetes-health-system.web.app/login
+
+Welcome back! We're glad to have you with us again. If you have any questions, please don't hesitate to contact our support team.
+
+Best regards,
+Diatrack Team
+
+© ${new Date().getFullYear()} Diatrack. All rights reserved.
+This is an automated message, please do not reply to this email.
+    `,
+  };
+};
+
+// 3️⃣ USER RESTORED FROM INACTIVE EMAIL
+export const generateUserRestoredFromInactiveEmail = (
+  userName: string,
+  restoredBy: string = "an administrator"
+) => {
+  return {
+    subject: "🎉 Your Diatrack account has been reactivated",
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #e3f2fd; padding: 20px; text-align: center; }
+          .content { padding: 30px; background: #fff; }
+          .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
+          .button { background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block; }
+          .info-box { background: #d1ecf1; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #0c5460; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h2>🎉 Account Reactivated!</h2>
+          </div>
+          <div class="content">
+            <h3>Dear ${userName},</h3>
+
+            <p>We're excited to let you know that your Diatrack account has been reactivated by ${restoredBy}!</p>
+
+            <div class="info-box">
+              <p><strong>Your account status has changed from Inactive to Active</strong></p>
+            </div>
+
+            <p>What's been restored:</p>
+            <ul>
+              <li>✅ Full access to your account</li>
+              <li>✅ All your health data and records</li>
+              <li>✅ App features and functionality</li>
+              <li>✅ Community access</li>
+              <li>✅ Your achievements and progress</li>
+            </ul>
+
+            <p style="text-align: center;">
+              <a href="https://diabetes-health-system.web.app/login" class="button">
+                Access Your Account
+              </a>
+            </p>
+
+            <p>We're happy to have you back! If you didn't request this reactivation or have any questions, please contact our support team.</p>
+
+            <p>Best regards,<br>Diatrack Team</p>
+          </div>
+          <div class="footer">
+            <p>© ${new Date().getFullYear()} Diatrack. All rights reserved.</p>
+            <p>This is an automated message, please do not reply to this email.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+    text: `
+🎉 ACCOUNT REACTIVATED!
+
+Dear ${userName},
+
+We're excited to let you know that your Diatrack account has been reactivated by ${restoredBy}!
+
+Your account status has changed from Inactive to Active
+
+What's been restored:
+- ✅ Full access to your account
+- ✅ All your health data and records
+- ✅ App features and functionality
+- ✅ Community access
+- ✅ Your achievements and progress
+
+Access Your Account: https://diabetes-health-system.web.app/login
+
+We're happy to have you back! If you didn't request this reactivation or have any questions, please contact our support team.
+
+Best regards,
+Diatrack Team
+
+© ${new Date().getFullYear()} Diatrack. All rights reserved.
+This is an automated message, please do not reply to this email.
+    `,
+  };
+};

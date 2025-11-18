@@ -3,7 +3,6 @@ import 'package:get/get.dart';
 import 'package:icons_plus/icons_plus.dart';
 
 import '../../../utils/constants/colors.dart';
-import '../../../utils/constants/sizes.dart';
 import '../../../utils/helpers/helper_functions.dart';
 
 class TDialog {
@@ -15,6 +14,48 @@ class TDialog {
     required String message,
     String confirmText = 'Confirm',
     String cancelText = 'Cancel',
+    IconData? icon,
+    Color? iconColor,
+    Color? confirmButtonColor,
+    VoidCallback? onConfirm,
+  }) async {
+    return await _baseConfirmDialog(
+      title: title,
+      message: message,
+      confirmText: confirmText,
+      cancelText: cancelText,
+      icon: icon,
+      iconColor: iconColor,
+      confirmButtonColor: confirmButtonColor ?? TColors.warning,
+      onConfirm: onConfirm,
+    );
+  }
+
+  /// Delete dialog with pre-configured red styling
+  static Future<bool?> deleteDialog({
+    required String title,
+    required String message,
+    required VoidCallback? onConfirm,
+    String? buttonTitle,
+  }) async {
+    return await _baseConfirmDialog(
+      title: title,
+      message: message,
+      confirmText: buttonTitle ?? 'Delete',
+      cancelText: 'Cancel',
+      icon: Iconsax.trash_bold,
+      iconColor: TColors.error,
+      confirmButtonColor: TColors.error,
+      onConfirm: onConfirm,
+    );
+  }
+
+  /// Common base dialog for confirmation actions
+  static Future<bool?> _baseConfirmDialog({
+    required String title,
+    required String message,
+    required String confirmText,
+    required String cancelText,
     IconData? icon,
     Color? iconColor,
     Color? confirmButtonColor,
@@ -34,36 +75,36 @@ class TDialog {
           padding: EdgeInsets.all(20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Icon
-              if (icon != null) ...[
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: (iconColor ?? TColors.warning).withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    icon,
-                    color: iconColor ?? TColors.warning,
-                    size: 28,
-                  ),
-                ),
-                SizedBox(height: 16),
-              ],
+              // if (icon != null) ...[
+              //   Container(
+              //     width: 56,
+              //     height: 56,
+              //     decoration: BoxDecoration(
+              //       color: (iconColor ?? TColors.warning).withOpacity(0.1),
+              //       shape: BoxShape.circle,
+              //     ),
+              //     child: Icon(
+              //       icon,
+              //       color: iconColor ?? TColors.warning,
+              //       size: 28,
+              //     ),
+              //   ),
+              //   SizedBox(height: 16),
+              // ],
 
               // Title
               Text(
                 title,
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
-                  fontSize: 18,
+                  fontSize: 22,
                   color: isDark ? TColors.white : TColors.black,
                 ),
-                textAlign: TextAlign.center,
               ),
-              SizedBox(height: 10),
+              SizedBox(height: 12),
 
               // Message
               Text(
@@ -73,117 +114,15 @@ class TDialog {
                   fontSize: 14,
                   height: 1.5,
                 ),
-                textAlign: TextAlign.center,
+                textAlign: TextAlign.left,
               ),
               SizedBox(height: 24),
 
               // Buttons
               Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Get.back(result: false),
-                      style: OutlinedButton.styleFrom(
-                        padding: EdgeInsets.symmetric(vertical: 14),
-                        foregroundColor: isDark ? TColors.white : TColors.black,
-                        side: BorderSide(
-                          color: isDark
-                              ? TColors.darkGrey.withOpacity(0.5)
-                              : TColors.grey.withOpacity(0.5),
-                          width: 1.5,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text(
-                        cancelText,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Get.back(result: true);
-                        onConfirm?.call();
-                      },
-                      style: ElevatedButton.styleFrom(
-                        padding: EdgeInsets.symmetric(vertical: 14),
-                        backgroundColor: confirmButtonColor ?? TColors.warning,
-                        foregroundColor: TColors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: Text(
-                        confirmText,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  static void deleteDialog({
-    required String title,
-    required String message,
-    required VoidCallback? onConfirm,
-    String? buttonTitle,
-  }) {
-    final context = Get.context!;
-    final isDark = THelperFunctions.isDarkMode(context);
-
-    Get.dialog(
-      Dialog(
-        backgroundColor: isDark ? TColors.dark : TColors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 25, horizontal: 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 标题
-              Text(
-                title,
-                style: Theme.of(context).textTheme.headlineMedium!.copyWith(
-                  fontSize: 22,
-                  color: isDark ? TColors.white : TColors.black,
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // 提示信息
-              Text(
-                message,
-                style: Theme.of(context).textTheme.bodySmall!.copyWith(
-                  color: isDark ? TColors.lightGrey : TColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // 按钮区域
-              Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // 取消按钮
+                  // Cancel button
                   Expanded(
                     child: TextButton(
                       onPressed: _handleCancel,
@@ -198,7 +137,7 @@ class TDialog {
                         ),
                       ),
                       child: Text(
-                        'Cancel',
+                        cancelText,
                         style: Theme.of(context).textTheme.titleMedium!.copyWith(
                           color: isDark ? TColors.white : TColors.black,
                         ),
@@ -207,12 +146,12 @@ class TDialog {
                   ),
                   const SizedBox(width: 12),
 
-                  // 删除按钮
+                  // Confirm button
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () => _handleConfirm(onConfirm),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: TColors.error,
+                        backgroundColor: confirmButtonColor ?? TColors.warning,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
@@ -221,7 +160,7 @@ class TDialog {
                         side: BorderSide.none,
                       ),
                       child: Text(
-                        buttonTitle ?? 'Delete',
+                        confirmText,
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
@@ -295,14 +234,14 @@ class TDialog {
 
   // 私有方法处理取消
   static void _handleCancel() {
-    Get.back();
+    Get.back(result: false);
   }
 
   // 私有方法处理确认
   static void _handleConfirm(VoidCallback? onConfirm) {
-    Get.back(); // 先关闭对话框
+    Get.back(result: true); // 先关闭对话框并返回 true
     if (onConfirm != null) {
-      onConfirm!(); // 然后执行回调
+      onConfirm(); // 然后执行回调
     }
   }
 }

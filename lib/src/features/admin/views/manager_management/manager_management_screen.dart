@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:icons_plus/icons_plus.dart';
 import '../../../../common/widgets/dialogs/common_confirmation_dialog.dart';
+import '../../../../common/widgets/dialogs/set_password_email_dialog.dart';
 import '../../../../common/widgets/pagination/pagination_widget.dart';
 import '../../../../common/widgets/table/reusable_data_table.dart';
 import '../../../../utils/constants/admin_colors.dart';
@@ -45,7 +46,7 @@ class ManagerManagementScreen extends StatelessWidget {
                       return controller.selectedManagers.isNotEmpty
                           ? BatchActionsBar(
                         selectedItems: controller.selectedManagers,
-                        showingActive: controller.showingActiveManagers,
+                        showingActive: (controller.selectedTabIndex.value == 0).obs,
                         onClearSelection: () => controller.toggleSelectAll(false),
                         onBatchBan: () => controller.batchBanManagers(),
                         onBatchRestore: () => controller.batchRestoreManagers(),
@@ -53,7 +54,7 @@ class ManagerManagementScreen extends StatelessWidget {
                         getUserName: (manager) => manager.username,
                         getUserEmail: (manager) => manager.email,
                       )
-                      : const SizedBox.shrink();
+                          : const SizedBox.shrink();
                     }),
                     const SizedBox(height: 16),
 
@@ -246,10 +247,10 @@ class ManagerManagementScreen extends StatelessWidget {
       DataTableColumn<AdminModel>(
         label: 'Status',
         field: 'status',
-        minWidth: 100,
+        minWidth: 120,
         flex: 3,
         sortable: true,
-        builder: (manager) => _buildStatusChip(manager, darkMode),
+        builder: (manager) => _buildStatusChip(manager, darkMode, controller),
       ),
       DataTableColumn<AdminModel>(
         label: 'Actions',
@@ -306,57 +307,80 @@ class ManagerManagementScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusChip(AdminModel manager, bool isDark) {
+  Widget _buildStatusChip(AdminModel manager, bool isDark, ManagerManagementController controller) {
     Color statusColor;
     String statusText;
     IconData statusIcon;
+    bool isClickable = false;
 
     if (!manager.accountAvailable) {
       statusColor = TAdminColors.banned;
       statusText = 'Banned';
       statusIcon = Iconsax.user_remove_bold;
+    } else if (manager.isDeleted) {
+      statusColor = TAdminColors.offline;
+      statusText = 'Inactive';
+      statusIcon = Iconsax.slash_bold;
     } else if (manager.isVerify) {
       statusColor = TAdminColors.success;
       statusText = 'Verified';
       statusIcon = Iconsax.shield_tick_bold;
     } else {
       statusColor = TAdminColors.error;
-      statusText = 'Not Verified';
+      statusText = 'Not verified';
       statusIcon = Iconsax.shield_cross_bold;
+      isClickable = true; // Make clickable for not verified managers
     }
 
     return Align(
       alignment: Alignment.centerLeft,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 120),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: statusColor.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: statusColor.withOpacity(0.3)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                statusIcon,
-                size: 12,
-                color: statusColor,
-              ),
-              const SizedBox(width: 4),
-              Flexible(
-                child: Text(
-                  statusText,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: statusColor,
-                  ),
-                  overflow: TextOverflow.ellipsis,
+      child: GestureDetector(
+        onTap: isClickable ? () {
+          Get.dialog(SetPasswordEmailDialog(manager: manager));
+        } : null,
+        child: MouseRegion(
+          cursor: isClickable ? SystemMouseCursors.click : SystemMouseCursors.basic,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 120),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: statusColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: statusColor.withOpacity(0.3),
+                  width: isClickable ? 1.5 : 1,
                 ),
               ),
-            ],
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    statusIcon,
+                    size: 12,
+                    color: statusColor,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    statusText,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: statusColor,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (isClickable) ...[
+                    const SizedBox(width: 5),
+                    Icon(
+                      Iconsax.arrow_right_3_bold,
+                      size: 10,
+                      color: statusColor,
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -364,25 +388,67 @@ class ManagerManagementScreen extends StatelessWidget {
   }
 
   Widget _buildActionButtons(AdminModel manager, ManagerManagementController controller, bool isDark) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: manager.accountAvailable ? MainAxisAlignment.spaceAround : MainAxisAlignment.start,
-      children: [
-        // Detail Button
-        IconButton(
-          onPressed: () => _showManagerDetailDialog(manager, isDark),
-          icon: const Icon(Iconsax.eye_bold, size: 16),
-          tooltip: 'View Details',
-          style: IconButton.styleFrom(
-            backgroundColor: TAdminColors.info.withOpacity(0.1),
-            foregroundColor: TAdminColors.info,
-            minimumSize: const Size(32, 32),
+    // For inactive (deleted by user) managers
+    if (manager.isDeleted) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Detail Button
+          IconButton(
+            onPressed: () => _showManagerDetailDialog(manager, isDark),
+            icon: const Icon(Iconsax.eye_bold, size: 16),
+            tooltip: 'View Details',
+            style: IconButton.styleFrom(
+              backgroundColor: TAdminColors.info.withOpacity(0.1),
+              foregroundColor: TAdminColors.info,
+              minimumSize: const Size(32, 32),
+            ),
           ),
-        ),
-        const SizedBox(width: 4),
+          const SizedBox(width: 4),
+          // Restore Button
+          IconButton(
+            onPressed: () {
+              ConfirmationDialog.show(
+                title: 'Restore Manager',
+                message: 'Are you sure you want to restore ${manager.username}? This will reactivate their account.',
+                confirmButtonText: 'Restore Manager',
+                customIcon: Iconsax.refresh_bold,
+                iconColor: TAdminColors.success,
+                confirmButtonColor: TAdminColors.success,
+                onConfirm: () => controller.restoreManager(manager),
+              );
+            },
+            icon: const Icon(Iconsax.refresh_bold, size: 16),
+            tooltip: 'Restore Manager',
+            style: IconButton.styleFrom(
+              backgroundColor: TAdminColors.success.withOpacity(0.1),
+              foregroundColor: TAdminColors.success,
+              minimumSize: const Size(32, 32),
+            ),
+          ),
+        ],
+      );
+    }
 
-        if (manager.accountAvailable) ...[
-          // Edit Button (only for active managers)
+    // For active managers
+    if (manager.accountAvailable) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          // Detail Button
+          IconButton(
+            onPressed: () => _showManagerDetailDialog(manager, isDark),
+            icon: const Icon(Iconsax.eye_bold, size: 16),
+            tooltip: 'View Details',
+            style: IconButton.styleFrom(
+              backgroundColor: TAdminColors.info.withOpacity(0.1),
+              foregroundColor: TAdminColors.info,
+              minimumSize: const Size(32, 32),
+            ),
+          ),
+          const SizedBox(width: 4),
+          // Edit Button
           IconButton(
             onPressed: () => controller.openEditManagerDialog(manager),
             icon: const Icon(Iconsax.edit_bold, size: 16),
@@ -415,29 +481,47 @@ class ManagerManagementScreen extends StatelessWidget {
               minimumSize: const Size(32, 32),
             ),
           ),
-        ] else ...[
-          // Restore Button (only for banned managers)
-          IconButton(
-            onPressed: () {
-              ConfirmationDialog.show(
-                title: 'Restore Manager',
-                message: 'Are you sure you want to restore ${manager.username}? This will reactivate their account.',
-                confirmButtonText: 'Restore Manager',
-                customIcon: Iconsax.refresh_bold,
-                iconColor: TAdminColors.success,
-                confirmButtonColor: TAdminColors.success,
-                onConfirm: () => controller.restoreManager(manager),
-              );
-            },
-            icon: const Icon(Iconsax.refresh_bold, size: 16),
-            tooltip: 'Restore Manager',
-            style: IconButton.styleFrom(
-              backgroundColor: TAdminColors.success.withOpacity(0.1),
-              foregroundColor: TAdminColors.success,
-              minimumSize: const Size(32, 32),
-            ),
-          ),
         ],
+      );
+    }
+
+    // For banned managers
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Detail Button
+        IconButton(
+          onPressed: () => _showManagerDetailDialog(manager, isDark),
+          icon: const Icon(Iconsax.eye_bold, size: 16),
+          tooltip: 'View Details',
+          style: IconButton.styleFrom(
+            backgroundColor: TAdminColors.info.withOpacity(0.1),
+            foregroundColor: TAdminColors.info,
+            minimumSize: const Size(32, 32),
+          ),
+        ),
+        const SizedBox(width: 4),
+        // Restore Button
+        IconButton(
+          onPressed: () {
+            ConfirmationDialog.show(
+              title: 'Restore Manager',
+              message: 'Are you sure you want to restore ${manager.username}? This will reactivate their account.',
+              confirmButtonText: 'Restore Manager',
+              customIcon: Iconsax.refresh_bold,
+              iconColor: TAdminColors.success,
+              confirmButtonColor: TAdminColors.success,
+              onConfirm: () => controller.restoreManager(manager),
+            );
+          },
+          icon: const Icon(Iconsax.refresh_bold, size: 16),
+          tooltip: 'Restore Manager',
+          style: IconButton.styleFrom(
+            backgroundColor: TAdminColors.success.withOpacity(0.1),
+            foregroundColor: TAdminColors.success,
+            minimumSize: const Size(32, 32),
+          ),
+        ),
       ],
     );
   }

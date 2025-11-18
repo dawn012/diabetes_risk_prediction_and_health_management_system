@@ -21,6 +21,14 @@ class DiabetesPredictionRepository extends GetxController {
   final _auth = FirebaseAuth.instance;
   final _storage = FirebaseStorage.instance;
 
+  /// Get diabetes predictions collection reference
+  CollectionReference<Map<String, dynamic>> _getDiabetesPredictionsCollection(String userId) {
+    return _db
+        .collection(FirebaseCollectionNames.diabetesPredictions)
+        .doc(userId)
+        .collection('predictionResults');
+  }
+
   /// Upload meal photos to Firebase Storage
   Future<List<String>> _uploadMealPhotos(List<File> mealPhotos) async {
     List<String> downloadUrls = [];
@@ -93,10 +101,7 @@ class DiabetesPredictionRepository extends GetxController {
       DateTime endDate,
       ) {
     try {
-      return _db
-          .collection(FirebaseCollectionNames.users)
-          .doc(userId)
-          .collection(FirebaseCollectionNames.diabetesPredictions)
+      return _getDiabetesPredictionsCollection(userId)
           .where(
         FirebaseFieldNames.predictionDateTime,
         isGreaterThanOrEqualTo: startDate.millisecondsSinceEpoch,
@@ -129,10 +134,7 @@ class DiabetesPredictionRepository extends GetxController {
       String predictionId,
       ) async {
     try {
-      final doc = await _db
-          .collection(FirebaseCollectionNames.users)
-          .doc(userId)
-          .collection(FirebaseCollectionNames.diabetesPredictions)
+      final doc = await _getDiabetesPredictionsCollection(userId)
           .doc(predictionId)
           .get();
 
@@ -158,7 +160,12 @@ class DiabetesPredictionRepository extends GetxController {
         List<File>? newMealPhotos,
       }) async {
     try {
-      print('🔄 Saving diabetes prediction: ${prediction.predictionId}');
+      // Generate UUID for prediction if not provided
+      final String predictionId = prediction.predictionId.isEmpty
+          ? const Uuid().v4()
+          : prediction.predictionId;
+
+      print('🔄 Saving diabetes prediction: $predictionId');
 
       // Upload new meal photos if any
       List<String> newMealPhotoUrls = [];
@@ -173,12 +180,12 @@ class DiabetesPredictionRepository extends GetxController {
           ? _updatePredictionWithPhotoUrls(prediction, newMealPhotoUrls)
           : prediction;
 
-      await _db
-          .collection(FirebaseCollectionNames.users)
-          .doc(userId)
-          .collection(FirebaseCollectionNames.diabetesPredictions)
-          .doc(prediction.predictionId)
-          .set(predictionToSave.toJson());
+      // Ensure the prediction has the correct ID
+      final finalPrediction = predictionToSave.copyWith(predictionId: predictionId);
+
+      await _getDiabetesPredictionsCollection(userId)
+          .doc(predictionId)
+          .set(finalPrediction.toJson());
 
       print('✅ Diabetes prediction saved successfully');
     } on FirebaseException catch (e) {
@@ -209,15 +216,7 @@ class DiabetesPredictionRepository extends GetxController {
       }).toList(),
     );
 
-    return DiabetesRiskPredictionModel(
-      predictionId: prediction.predictionId,
-      userId: prediction.userId,
-      predictionDateTime: prediction.predictionDateTime,
-      riskLevel: prediction.riskLevel,
-      riskScore: prediction.riskScore,
-      recommendations: prediction.recommendations,
-      inputs: updatedInputs,
-    );
+    return prediction.copyWith(inputs: updatedInputs);
   }
 
   /// Delete diabetes prediction and associated meal photos
@@ -246,10 +245,7 @@ class DiabetesPredictionRepository extends GetxController {
       }
 
       // Delete prediction document
-      await _db
-          .collection(FirebaseCollectionNames.users)
-          .doc(userId)
-          .collection(FirebaseCollectionNames.diabetesPredictions)
+      await _getDiabetesPredictionsCollection(userId)
           .doc(predictionId)
           .delete();
 
@@ -268,10 +264,7 @@ class DiabetesPredictionRepository extends GetxController {
   /// Get latest diabetes prediction
   Future<DiabetesRiskPredictionModel?> getLatestPrediction(String userId) async {
     try {
-      final snapshot = await _db
-          .collection(FirebaseCollectionNames.users)
-          .doc(userId)
-          .collection(FirebaseCollectionNames.diabetesPredictions)
+      final snapshot = await _getDiabetesPredictionsCollection(userId)
           .orderBy(FirebaseFieldNames.predictionDateTime, descending: true)
           .limit(1)
           .get();
@@ -298,10 +291,7 @@ class DiabetesPredictionRepository extends GetxController {
       DateTime endDate,
       ) async {
     try {
-      final snapshot = await _db
-          .collection(FirebaseCollectionNames.users)
-          .doc(userId)
-          .collection(FirebaseCollectionNames.diabetesPredictions)
+      final snapshot = await _getDiabetesPredictionsCollection(userId)
           .where(
         FirebaseFieldNames.predictionDateTime,
         isGreaterThanOrEqualTo: startDate.millisecondsSinceEpoch,
@@ -332,10 +322,7 @@ class DiabetesPredictionRepository extends GetxController {
       DateTime endDate,
       ) async {
     try {
-      final snapshot = await _db
-          .collection(FirebaseCollectionNames.users)
-          .doc(userId)
-          .collection(FirebaseCollectionNames.diabetesPredictions)
+      final snapshot = await _getDiabetesPredictionsCollection(userId)
           .where(FirebaseFieldNames.riskLevel, isEqualTo: riskLevel)
           .where(
         FirebaseFieldNames.predictionDateTime,
@@ -365,11 +352,7 @@ class DiabetesPredictionRepository extends GetxController {
   /// Get user's diabetes prediction statistics
   Future<Map<String, dynamic>> getUserPredictionStats(String userId) async {
     try {
-      final snapshot = await _db
-          .collection(FirebaseCollectionNames.users)
-          .doc(userId)
-          .collection(FirebaseCollectionNames.diabetesPredictions)
-          .get();
+      final snapshot = await _getDiabetesPredictionsCollection(userId).get();
 
       int totalPredictions = snapshot.size;
       int lowRiskCount = 0;
@@ -421,10 +404,7 @@ class DiabetesPredictionRepository extends GetxController {
     try {
       final thirtyDaysAgo = DateTime.now().subtract(Duration(days: 30));
 
-      return _db
-          .collection(FirebaseCollectionNames.users)
-          .doc(userId)
-          .collection(FirebaseCollectionNames.diabetesPredictions)
+      return _getDiabetesPredictionsCollection(userId)
           .where(
         FirebaseFieldNames.predictionDateTime,
         isGreaterThanOrEqualTo: thirtyDaysAgo.millisecondsSinceEpoch,

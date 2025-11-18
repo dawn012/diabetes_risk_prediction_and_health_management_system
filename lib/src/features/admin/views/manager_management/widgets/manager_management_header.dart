@@ -48,7 +48,7 @@ class ManagerManagementHeader extends StatelessWidget {
                             color: TAdminColors.primary.withOpacity(0.3)),
                       ),
                       child: Text(
-                        '${controller.filteredManagers.length} ${controller.showingActiveManagers.value ? 'Active' : 'Banned'}',
+                        '${controller.filteredManagers.length} ${_getTabLabel()}',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -252,6 +252,19 @@ class ManagerManagementHeader extends StatelessWidget {
     ]);
   }
 
+  String _getTabLabel() {
+    switch (controller.selectedTabIndex.value) {
+      case 0:
+        return 'Active';
+      case 1:
+        return 'Banned';
+      case 2:
+        return 'Inactive';
+      default:
+        return 'Managers';
+    }
+  }
+
   Widget _buildManagerTypeTabs(ManagerManagementController controller, bool isDark) {
     return Container(
       decoration: BoxDecoration(
@@ -264,15 +277,22 @@ class ManagerManagementHeader extends StatelessWidget {
         children: [
           Obx(() => _buildTabButton(
             'Active Managers',
-            controller.showingActiveManagers.value,
-                () => controller.showActiveManagers(),
+            controller.selectedTabIndex.value == 0,
+                () => controller.changeTab(0),
             isDark,
           )),
           const SizedBox(width: 4),
           Obx(() => _buildTabButton(
             'Banned Managers',
-            !controller.showingActiveManagers.value,
-                () => controller.showBannedManagers(),
+            controller.selectedTabIndex.value == 1,
+                () => controller.changeTab(1),
+            isDark,
+          )),
+          const SizedBox(width: 4),
+          Obx(() => _buildTabButton(
+            'Inactive Managers',
+            controller.selectedTabIndex.value == 2,
+                () => controller.changeTab(2),
             isDark,
           )),
         ],

@@ -7,6 +7,7 @@ import '../../../../common/widgets/pagination/pagination_widget.dart';
 import '../../../../common/widgets/table/reusable_data_table.dart';
 import '../../../../utils/constants/admin_colors.dart';
 import '../../../../utils/constants/enums.dart';
+import '../../../../utils/formatters/formatter.dart';
 import '../../../../utils/helpers/helper_functions.dart';
 import '../../../achievement/models/achievement_model.dart';
 import '../../controllers/achievement_management_controller.dart';
@@ -79,7 +80,7 @@ class AchievementManagementScreen extends StatelessWidget {
                               print('Obx rebuilding');
 
                               return ReusableDataTable<AchievementModel>(
-                                data: controller.filteredAchievements,
+                                data: controller.paginatedAchievements,
                                 columns: _getAchievementTableColumns(controller, darkMode),
                                 isLoading: controller.isLoading.value,
                                 onSelectAll: (selected) => controller.toggleSelectAll(selected),
@@ -146,7 +147,7 @@ class AchievementManagementScreen extends StatelessWidget {
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(7),
-                  child: _buildDefaultAchievementIcon(achievement.achievementType, darkMode),
+                  child: _buildDefaultAchievementIcon(achievement, darkMode),
                 ),
               ),
               const SizedBox(width: 12),
@@ -211,9 +212,9 @@ class AchievementManagementScreen extends StatelessWidget {
         builder: (achievement) => _buildCompletionStats(achievement, controller, darkMode),
       ),
       DataTableColumn<AchievementModel>(
-        label: 'Created',
-        field: 'createdAt',
-        minWidth: 100,
+        label: 'Created/Updated',
+        field: 'updatedAt',
+        minWidth: 140,
         flex: 2,
         sortable: true,
         builder: (achievement) => Column(
@@ -221,14 +222,14 @@ class AchievementManagementScreen extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              '${achievement.createdAt.day}/${achievement.createdAt.month}/${achievement.createdAt.year}',
+              '${achievement.updatedAt.day}/${achievement.updatedAt.month}/${achievement.updatedAt.year}',
               style: TextStyle(
                 fontSize: 12,
                 color: TAdminColors.getOnSurfaceColor(darkMode),
               ),
             ),
             Text(
-              _formatTime(achievement.createdAt),
+              TFormatter.formatElapsedTime(achievement.updatedAt),
               style: TextStyle(
                 fontSize: 10,
                 color: TAdminColors.getOnSurfaceVariantColor(darkMode),
@@ -256,29 +257,41 @@ class AchievementManagementScreen extends StatelessWidget {
     ];
   }
 
-  Widget _buildDefaultAchievementIcon(AchievementType type, bool darkMode) {
-    IconData icon;
+  Widget _buildDefaultAchievementIcon(AchievementModel achievement, bool darkMode) {
+    final iconData = IconData(achievement.iconCodePoint, fontFamily: 'MaterialIcons');
+
+    // 根据成就类型设置不同的背景色
+    Color backgroundColor;
     Color iconColor;
 
-    switch (type) {
+    switch (achievement.achievementType) {
       case AchievementType.periodic:
-        icon = Iconsax.calendar_bold;
+        backgroundColor = TAdminColors.warning.withOpacity(0.1);
         iconColor = TAdminColors.warning;
         break;
       case AchievementType.permanent:
-        icon = Iconsax.award_bold;
+        backgroundColor = TAdminColors.primary.withOpacity(0.1);
         iconColor = TAdminColors.primary;
         break;
       default:
-        icon = Iconsax.medal_bold;
+        backgroundColor = TAdminColors.getSurfaceVariantColor(darkMode);
         iconColor = TAdminColors.getOnSurfaceVariantColor(darkMode);
     }
 
     return Container(
-      color: iconColor.withOpacity(0.1),
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(8),
+        // border: Border.all(
+        //   color: TAdminColors.getBorderColor(darkMode),
+        //   width: 1,
+        // ),
+      ),
       child: Center(
         child: Icon(
-          icon,
+          iconData,
           size: 20,
           color: iconColor,
         ),
@@ -373,7 +386,8 @@ class AchievementManagementScreen extends StatelessWidget {
     final totalCompletions = completionStats['total'] ?? 0;
 
     return InkWell(
-      onTap: () => _showCompletionDetails(achievement, controller),
+      // onTap: () => _showCompletionDetails(achievement, controller),
+      onTap: null,
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -469,7 +483,7 @@ class AchievementManagementScreen extends StatelessWidget {
         const SizedBox(width: 4),
         // Edit Button
         IconButton(
-          onPressed: () => _showEditAchievementDialog(achievement, controller),
+          onPressed: () => controller.openEditAchievementDialog(achievement),
           icon: const Icon(Iconsax.edit_bold, size: 16),
           tooltip: 'Edit Achievement',
           style: IconButton.styleFrom(
@@ -535,28 +549,8 @@ class AchievementManagementScreen extends StatelessWidget {
     ));
   }
 
-  void _showEditAchievementDialog(AchievementModel achievement, AchievementManagementController controller) {
-    // TODO: Implement edit dialog
-    controller.editAchievement(achievement);
-  }
-
   void _showCompletionDetails(AchievementModel achievement, AchievementManagementController controller) {
     // TODO: Show completion details dialog
     controller.showCompletionBreakdown(achievement);
-  }
-
-  String _formatTime(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inDays > 0) {
-      return '${difference.inDays}d ago';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours}h ago';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes}m ago';
-    } else {
-      return 'Now';
-    }
   }
 }

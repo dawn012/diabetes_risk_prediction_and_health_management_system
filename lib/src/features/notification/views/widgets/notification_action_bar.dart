@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:icons_plus/icons_plus.dart';
 
+import '../../../../common/widgets/dialogs/dialog.dart';
 import '../../../../utils/constants/colors.dart';
 import '../../../../utils/constants/sizes.dart';
 import '../../../../utils/helpers/helper_functions.dart';
@@ -25,16 +26,21 @@ class NotificationActionBar extends StatelessWidget {
           color: isDark ? TColors.darkContainer : TColors.lightContainer,
           border: Border(
             top: BorderSide(
-              color: isDark ? TColors.notificationBorderDark : TColors.notificationBorder,
+              color: isDark
+                  ? TColors.notificationBorderDark
+                  : TColors.notificationBorder,
             ),
             bottom: BorderSide(
-              color: isDark ? TColors.notificationBorderDark : TColors.notificationBorder,
+              color: isDark
+                  ? TColors.notificationBorderDark
+                  : TColors.notificationBorder,
             ),
           ),
         ),
         child: controller.isSelectionMode.value
             ? Padding(
-          padding: EdgeInsets.symmetric(horizontal: TSizes.md, vertical: TSizes.sm),
+          padding: EdgeInsets.symmetric(
+              horizontal: TSizes.md, vertical: TSizes.sm),
           child: Row(
             children: [
               // Selection info
@@ -47,38 +53,75 @@ class NotificationActionBar extends StatelessWidget {
                       '$selectedCount selected',
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
-                        color: isDark ? TColors.white : TColors.textPrimary,
+                        color:
+                        isDark ? TColors.white : TColors.textPrimary,
                       ),
                     ),
-                    if (selectedCount > 0)
-                      GestureDetector(
-                        onTap: controller.deselectAll,
-                        child: Text(
-                          'Deselect all',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: TColors.primary,
-                          ),
-                        ),
-                      ),
+                    // if (selectedCount > 0)
+                    //   GestureDetector(
+                    //     onTap: controller.deselectAll,
+                    //     child: Text(
+                    //       'Deselect all',
+                    //       style: TextStyle(
+                    //         fontSize: 12,
+                    //         color: TColors.primary,
+                    //       ),
+                    //     ),
+                    //   ),
                   ],
                 ),
               ),
 
               // Quick selection
               TextButton.icon(
-                onPressed: controller.selectAllInCurrentView,
-                icon: Icon(
-                  Iconsax.tick_square_bold,
-                  size: 16,
-                  color: TColors.primary,
-                ),
-                label: Text(
-                  'Select All',
-                  style: TextStyle(color: TColors.primary),
-                ),
+                onPressed: () {
+                  final allIds = controller.currentTabNotifications
+                      .map((n) => n.notificationId)
+                      .toSet();
+                  final selectedIds =
+                  controller.selectedNotificationIds.toSet();
+
+                  if (selectedIds.containsAll(allIds) &&
+                      allIds.isNotEmpty) {
+                    controller.deselectAll();
+                  } else {
+                    controller.selectAllInCurrentView();
+                  }
+                },
+                icon: Obx(() {
+                  final allIds = controller.currentTabNotifications
+                      .map((n) => n.notificationId)
+                      .toSet();
+                  final selectedIds =
+                  controller.selectedNotificationIds.toSet();
+                  final allSelected = selectedIds.containsAll(allIds) &&
+                      allIds.isNotEmpty;
+
+                  return Icon(
+                    allSelected
+                        ? Iconsax.tick_square_bold
+                        : Iconsax.tick_square_outline,
+                    size: 16,
+                    color: TColors.primary,
+                  );
+                }),
+                label: Obx(() {
+                  final allIds = controller.currentTabNotifications
+                      .map((n) => n.notificationId)
+                      .toSet();
+                  final selectedIds =
+                  controller.selectedNotificationIds.toSet();
+                  final allSelected = selectedIds.containsAll(allIds) &&
+                      allIds.isNotEmpty;
+
+                  return Text(
+                    allSelected ? 'Deselect All' : 'Select All',
+                    style: TextStyle(color: TColors.primary),
+                  );
+                }),
                 style: TextButton.styleFrom(
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding:
+                  EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 ),
               ),
 
@@ -88,9 +131,11 @@ class NotificationActionBar extends StatelessWidget {
               if (selectedCount > 0) ...[
                 // Mark as read/unread
                 _buildActionButton(
-                  icon: Iconsax.tick_circle_bold,
+                  icon: _getMarkIcon(controller),
+                  label: _getMarkLabel(controller),
                   color: TColors.success,
-                  onPressed: () => _showMarkAsReadDialog(controller, selectedCount),
+                  onPressed: () =>
+                      _showMarkAsReadDialog(controller, selectedCount),
                 ),
 
                 SizedBox(width: TSizes.sm),
@@ -98,8 +143,9 @@ class NotificationActionBar extends StatelessWidget {
                 // Delete selected
                 _buildActionButton(
                   icon: Iconsax.trash_bold,
+                  label: 'Delete',
                   color: TColors.error,
-                  onPressed: () => _showDeleteDialog(controller, selectedCount),
+                  onPressed: () => TDialog.deleteDialog(title: 'Delete Notifications', message: 'Are you sure you want to delete $selectedCount selected notification${selectedCount == 1 ? '' : 's'}? This action cannot be undone.', onConfirm: () => controller.deleteSelectedNotifications()),
                 ),
               ],
             ],
@@ -110,8 +156,45 @@ class NotificationActionBar extends StatelessWidget {
     });
   }
 
+  IconData _getMarkIcon(NotificationController controller) {
+    final selectedNotifications = controller.allNotifications
+        .where((n) =>
+        controller.selectedNotificationIds.contains(n.notificationId))
+        .toList();
+
+    final hasUnread = selectedNotifications.any((n) => !n.isRead);
+    final hasRead = selectedNotifications.any((n) => n.isRead);
+
+    if (hasUnread && hasRead) {
+      return Iconsax.document_text_bold; // Mixed state
+    } else if (hasUnread) {
+      return Iconsax.tick_circle_bold; // Mark as read
+    } else {
+      return Iconsax.refresh_circle_bold; // Mark as unread
+    }
+  }
+
+  String _getMarkLabel(NotificationController controller) {
+    final selectedNotifications = controller.allNotifications
+        .where((n) =>
+        controller.selectedNotificationIds.contains(n.notificationId))
+        .toList();
+
+    final hasUnread = selectedNotifications.any((n) => !n.isRead);
+    final hasRead = selectedNotifications.any((n) => n.isRead);
+
+    if (hasUnread && hasRead) {
+      return 'Mark';
+    } else if (hasUnread) {
+      return 'Read';
+    } else {
+      return 'Unread';
+    }
+  }
+
   Widget _buildActionButton({
     required IconData icon,
+    required String label,
     required Color color,
     required VoidCallback onPressed,
   }) {
@@ -122,61 +205,45 @@ class NotificationActionBar extends StatelessWidget {
         onTap: onPressed,
         borderRadius: BorderRadius.circular(TSizes.borderRadiusSm),
         child: Container(
-          width: 40,
-          height: 40,
-          child: Icon(
-            icon,
-            color: color,
-            size: 20,
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                color: color,
+                size: 18,
+              ),
+              SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  void _showMarkAsReadDialog(NotificationController controller, int selectedCount) {
+  void _showMarkAsReadDialog(
+      NotificationController controller, int selectedCount) {
     // Check if selected notifications have mixed read states
     final selectedNotifications = controller.allNotifications
-        .where((n) => controller.selectedNotificationIds.contains(n.notificationId))
+        .where((n) =>
+        controller.selectedNotificationIds.contains(n.notificationId))
         .toList();
 
     final hasUnread = selectedNotifications.any((n) => !n.isRead);
     final hasRead = selectedNotifications.any((n) => n.isRead);
 
     if (hasUnread && hasRead) {
-      // Show dialog for mixed states
-      Get.dialog(
-        AlertDialog(
-          title: Text('Mark Notifications'),
-          content: Text('What would you like to do with the selected $selectedCount notifications?'),
-          actions: [
-            TextButton(
-              onPressed: () => Get.back(),
-              child: Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                Get.back();
-                controller.markSelectedAsRead();
-              },
-              child: Text(
-                'Mark as Read',
-                style: TextStyle(color: TColors.success),
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                Get.back();
-                controller.markSelectedAsUnread();
-              },
-              child: Text(
-                'Mark as Unread',
-                style: TextStyle(color: TColors.warning),
-              ),
-            ),
-          ],
-        ),
-      );
+      // Show custom dialog for mixed states
+      _showMixedStateDialog(controller, selectedCount);
     } else if (hasUnread) {
       // All selected are unread, mark as read
       controller.markSelectedAsRead();
@@ -186,32 +253,160 @@ class NotificationActionBar extends StatelessWidget {
     }
   }
 
-  void _showDeleteDialog(NotificationController controller, int selectedCount) {
+  void _showMixedStateDialog(
+      NotificationController controller, int selectedCount) {
+    final isDark = THelperFunctions.isDarkMode(Get.context!);
+
     Get.dialog(
-      AlertDialog(
-        title: Text('Delete Notifications'),
-        content: Text(
-          'Are you sure you want to delete $selectedCount selected notification${selectedCount == 1 ? '' : 's'}? This action cannot be undone.',
+      Dialog(
+        backgroundColor: isDark ? TColors.dark : TColors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: Text('Cancel'),
+        child: Container(
+          constraints: BoxConstraints(maxWidth: 400),
+          padding: EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Icon
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: TColors.primary.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Iconsax.document_text_bold,
+                  color: TColors.primary,
+                  size: 28,
+                ),
+              ),
+
+              SizedBox(height: 16),
+
+              // Title
+              Text(
+                'Mark Notifications',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 20,
+                  color: isDark ? TColors.white : TColors.black,
+                ),
+              ),
+
+              SizedBox(height: 8),
+
+              // Message
+              Text(
+                'You have selected both read and unread notifications. What would you like to do with the selected $selectedCount notifications?',
+                style: TextStyle(
+                  color: isDark ? TColors.lightGrey : TColors.textSecondary,
+                  fontSize: 14,
+                  height: 1.5,
+                ),
+              ),
+
+              SizedBox(height: 24),
+
+              // Mark as Read button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Get.back();
+                    controller.markSelectedAsRead();
+                  },
+                  icon: Icon(
+                    Iconsax.tick_circle_bold,
+                    size: 18,
+                  ),
+                  label: Text(
+                    'Mark as Read',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: TColors.success,
+                    foregroundColor: TColors.white,
+                    padding: EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                ),
+              ),
+
+              SizedBox(height: 12),
+
+              // Mark as Unread button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Get.back();
+                    controller.markSelectedAsUnread();
+                  },
+                  icon: Icon(
+                    Iconsax.refresh_circle_bold,
+                    size: 18,
+                  ),
+                  label: Text(
+                    'Mark as Unread',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: TColors.warning,
+                    foregroundColor: TColors.white,
+                    padding: EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                ),
+              ),
+
+              SizedBox(height: 12),
+
+              // Cancel button
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () => Get.back(),
+                  style: OutlinedButton.styleFrom(
+                    padding: EdgeInsets.symmetric(vertical: 14),
+                    foregroundColor: isDark ? TColors.white : TColors.black,
+                    side: BorderSide(
+                      color: isDark
+                          ? TColors.darkGrey.withOpacity(0.5)
+                          : TColors.grey.withOpacity(0.5),
+                      width: 1.5,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    'Cancel',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () {
-              Get.back();
-              controller.deleteSelectedNotifications();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: TColors.error,
-            ),
-            child: Text(
-              'Delete',
-              style: TextStyle(color: TColors.white),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

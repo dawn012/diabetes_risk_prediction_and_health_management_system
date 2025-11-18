@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../data/repositories/notification/notification_repository.dart';
 import '../../../data/repositories/user/user_repository.dart';
 import '../../../common/loaders/loaders.dart';
 import '../../../utils/constants/text_strings.dart';
@@ -20,6 +21,7 @@ class ManagerManagementController extends GetxController {
   // Repositories
   final userRepository = UserRepository.instance;
   final authRepository = AuthenticationRepository.instance;
+  final notificationRepository = NotificationRepository.instance;
   final userController = UserController.instance;
 
   // Form Key for validation
@@ -39,7 +41,7 @@ class ManagerManagementController extends GetxController {
   final allManagers = <AdminModel>[].obs;
   final filteredManagers = <AdminModel>[].obs;
   final selectedManagers = <AdminModel>[].obs;
-  final showingActiveManagers = true.obs;
+  final selectedTabIndex = 0.obs; // 0: Active, 1: Banned, 2: Inactive
   final currentUserRole = ''.obs;
 
   // Sorting
@@ -126,9 +128,20 @@ class ManagerManagementController extends GetxController {
 
   void filterManagers() {
     List<AdminModel> filtered = allManagers.where((manager) {
-      bool statusMatch = showingActiveManagers.value
-          ? manager.accountAvailable
-          : !manager.accountAvailable;
+      bool statusMatch;
+      switch (selectedTabIndex.value) {
+        case 0: // Active managers
+          statusMatch = manager.accountAvailable && !manager.isDeleted;
+          break;
+        case 1: // Banned managers
+          statusMatch = !manager.accountAvailable && !manager.isDeleted;
+          break;
+        case 2: // Inactive (deleted by user) managers
+          statusMatch = manager.isDeleted;
+          break;
+        default:
+          statusMatch = true;
+      }
 
       if (!statusMatch) return false;
 
@@ -219,20 +232,10 @@ class ManagerManagementController extends GetxController {
     currentPage.value = page;
   }
 
-  void showActiveManagers() {
-    if (!showingActiveManagers.value) {
-      showingActiveManagers.value = true;
-      currentPage.value = 1;
-      filterManagers();
-    }
-  }
-
-  void showBannedManagers() {
-    if (showingActiveManagers.value) {
-      showingActiveManagers.value = false;
-      currentPage.value = 1;
-      filterManagers();
-    }
+  void changeTab(int index) {
+    selectedTabIndex.value = index;
+    currentPage.value = 1;
+    filterManagers();
   }
 
   void toggleManagerSelection(AdminModel manager, bool selected) {
@@ -626,7 +629,23 @@ class ManagerManagementController extends GetxController {
     }
 
     try {
-      await userRepository.restoreUser(manager.userId);
+      // Determine if restoring from banned or inactive
+      final isFromBanned = !manager.accountAvailable && !manager.isDeleted;
+      final isFromInactive = manager.isDeleted;
+
+      if (isFromBanned) {
+        await userRepository.restoreUser(manager.userId);
+      } else if (isFromInactive) {
+        await userRepository.restoreAccount(manager.userId);
+      }
+
+      // Send notification
+      await notificationRepository.sendSystemNotification(
+        userId: manager.userId,
+        title: 'Account Restored',
+        message: 'Your account has been restored. You can now access all features again. Welcome back!',
+      );
+
       TLoaders.successSnackBar(
         title: 'Success',
         message: 'Manager restored successfully',
@@ -688,7 +707,17 @@ class ManagerManagementController extends GetxController {
       final managersToProcess = List<AdminModel>.from(selectedManagers);
 
       for (final manager in managersToProcess) {
-        await userRepository.restoreUser(manager.userId);
+        if (!manager.accountAvailable && !manager.isDeleted) {
+          await userRepository.restoreUser(manager.userId);
+        } else if (manager.isDeleted) {
+          await userRepository.restoreAccount(manager.userId);
+        }
+
+        await notificationRepository.sendSystemNotification(
+          userId: manager.userId,
+          title: 'Account Restored',
+          message: 'Your account has been restored. You can now access all features again. Welcome back!',
+        );
       }
 
       TLoaders.successSnackBar(
@@ -699,6 +728,35 @@ class ManagerManagementController extends GetxController {
       TLoaders.errorSnackBar(
         title: 'Error',
         message: 'Failed to restore managers: $e',
+      );
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  /// Resend set password email
+  Future<void> resendSetPasswordEmail(AdminModel manager) async {
+    if (!hasPermission(['admin'])) {
+      TLoaders.errorSnackBar(
+        title: 'Permission Denied',
+        message: 'You do not have permission to send verification emails',
+      );
+      return;
+    }
+
+    try {
+      isLoading.value = true;
+
+      await authRepository.sendPasswordResetEmail(manager.email);
+
+      TLoaders.successSnackBar(
+        title: 'Success',
+        message: 'Set password email sent to ${manager.email}',
+      );
+    } catch (e) {
+      TLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to send set password email: $e',
       );
     } finally {
       isLoading.value = false;

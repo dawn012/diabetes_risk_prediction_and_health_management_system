@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../../common/widgets/dialogs/dialog.dart';
+import '../../../../services/diabetes_hive_storage_manager.dart';
 import '../../../../utils/constants/colors.dart';
 import '../../../../utils/helpers/helper_functions.dart';
 import '../../controllers/diabetes_prediction_overview_controller.dart';
+import 'height_weight_input_screen.dart';
 
 class DiabetesPredictionOverviewScreen extends StatelessWidget {
   const DiabetesPredictionOverviewScreen({super.key});
@@ -35,8 +38,6 @@ class DiabetesPredictionOverviewScreen extends StatelessWidget {
               color: darkMode ? TColors.white : TColors.black,
             ),
             onPressed: () {
-              // Use Get.until to go back to main screen
-              // Assumes main screen route name is something like '/home' or first route
               Get.until((route) => route.isFirst);
             },
             padding: EdgeInsets.only(right: 16),
@@ -45,14 +46,14 @@ class DiabetesPredictionOverviewScreen extends StatelessWidget {
         centerTitle: true,
       ),
       body: Obx(() {
-        if (controller.isLoading.value) {
+        if (controller.isLoading.value && controller.completedSteps.value == 0) {
           return Center(child: CircularProgressIndicator());
         }
 
         return SafeArea(
           child: Column(
             children: [
-              // Progress Summary Card
+              // Progress Summary Card with Loading Indicator
               Padding(
                 padding: const EdgeInsets.all(20.0),
                 child: _buildProgressCard(controller, darkMode),
@@ -173,119 +174,233 @@ class DiabetesPredictionOverviewScreen extends StatelessWidget {
           ),
         );
       }),
-      bottomNavigationBar: Obx(() => Container(
-        padding: const EdgeInsets.all(20.0),
-        decoration: BoxDecoration(
-          color: darkMode ? TColors.black : TColors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: Offset(0, -5),
-            ),
-          ],
-        ),
-        child: SafeArea(
-          child: ElevatedButton(
-            onPressed: controller.allStepsCompleted.value
-                ? () => controller.startPrediction()
-                : null,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: TColors.primary,
-              disabledBackgroundColor: darkMode ? TColors.darkerGrey : TColors.grey,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
-            child: Text(
-              'Start Prediction',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: controller.allStepsCompleted.value
-                    ? TColors.white
-                    : darkMode ? TColors.darkGrey : TColors.darkerGrey,
-              ),
-            ),
-          ),
-        ),
-      )),
-    );
-  }
+      bottomNavigationBar: Obx(() {
+        final isAllComplete = controller.completedSteps.value == 8;
+        final isPredicting = controller.isLoading.value && isAllComplete;
 
-  Widget _buildProgressCard(DiabetesPredictionOverviewController controller, bool darkMode) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [TColors.primary, TColors.accent],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: TColors.primary.withOpacity(0.3),
-            blurRadius: 15,
-            offset: Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Assessment Progress',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: TColors.white,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: TColors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Obx(() => Text(
-                  '${controller.completedSteps.value}/8',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: TColors.white,
-                  ),
-                )),
+        return Container(
+          padding: const EdgeInsets.all(20.0),
+          decoration: BoxDecoration(
+            color: darkMode ? TColors.black : TColors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: Offset(0, -5),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: Obx(() => LinearProgressIndicator(
-              value: controller.completedSteps.value / 8,
-              minHeight: 8,
-              backgroundColor: TColors.white.withOpacity(0.3),
-              valueColor: AlwaysStoppedAnimation<Color>(TColors.white),
-            )),
-          ),
-          const SizedBox(height: 12),
-          Obx(() => Text(
-            controller.allStepsCompleted.value
-                ? 'All steps completed! Ready to predict.'
-                : '${8 - controller.completedSteps.value} steps remaining',
-            style: TextStyle(
-              fontSize: 14,
-              color: TColors.white.withOpacity(0.9),
+          child: SafeArea(
+            child: ElevatedButton(
+              onPressed: (isAllComplete && !isPredicting)
+                  ? () => controller.startPrediction()
+                  : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: TColors.primary,
+                disabledBackgroundColor:
+                darkMode ? TColors.darkerGrey : TColors.grey,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              child: isPredicting
+                  ? SizedBox(
+                height: 24,
+                width: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  valueColor: AlwaysStoppedAnimation<Color>(TColors.white),
+                ),
+              )
+                  : Text(
+                'Start Prediction',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: isAllComplete
+                      ? TColors.white
+                      : darkMode
+                      ? TColors.darkGrey
+                      : TColors.darkerGrey,
+                ),
+              ),
             ),
-          )),
-        ],
-      ),
+          ),
+        );
+      }),
     );
+  }
+
+  void _showStartNewConfirmation(DiabetesPredictionOverviewController controller) {
+    TDialog.confirmDialog(
+      title: 'Start New Assessment?',
+      message: 'This will clear your current progress and start a fresh assessment. Are you sure?',
+      confirmText: 'Start New',
+      cancelText: 'Cancel',
+      icon: Icons.warning_amber_rounded,
+      iconColor: TColors.primary,
+      confirmButtonColor: TColors.primary,
+      onConfirm: () async {
+        // Clear all progress
+        await DiabetesHiveStorageManager.instance.clearPredictionProgress();
+        await DiabetesHiveStorageManager.instance.markIncomplete(true);
+
+        // Navigate to first step
+        Get.off(() => HeightWeightInputScreen());
+      },
+    );
+  }
+
+  Widget _buildProgressCard(
+      DiabetesPredictionOverviewController controller, bool darkMode) {
+    return Obx(() {
+      final isPredicting = controller.isLoading.value && controller.completedSteps.value == 8;
+
+      return Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [TColors.primary, TColors.accent],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: TColors.primary.withOpacity(0.3),
+              blurRadius: 15,
+              offset: Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Assessment Progress',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: TColors.white,
+                    ),
+                  ),
+                ),
+                Row(
+                  children: [
+                    // Start New Button
+                    InkWell(
+                      onTap: () => _showStartNewConfirmation(controller),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: TColors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: TColors.white.withOpacity(0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.refresh,
+                              size: 16,
+                              color: TColors.white,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Start New',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: TColors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Progress Counter
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: TColors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '${controller.completedSteps.value}/8',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: TColors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Show loading indicator above progress bar when predicting
+            if (isPredicting) ...[
+              Row(
+                children: [
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(TColors.white),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Analyzing your data...',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: TColors.white.withOpacity(0.9),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
+
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: LinearProgressIndicator(
+                value: controller.completedSteps.value / 8,
+                minHeight: 8,
+                backgroundColor: TColors.white.withOpacity(0.3),
+                valueColor: AlwaysStoppedAnimation<Color>(TColors.white),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              isPredicting
+                  ? 'Please wait while we process your assessment...'
+                  : controller.completedSteps.value == 8
+                  ? 'All steps completed! Ready to predict.'
+                  : '${8 - controller.completedSteps.value} steps remaining',
+              style: TextStyle(
+                fontSize: 14,
+                color: TColors.white.withOpacity(0.9),
+              ),
+            ),
+          ],
+        ),
+      );
+    });
   }
 
   Widget _buildStepTile({
@@ -305,7 +420,8 @@ class DiabetesPredictionOverviewScreen extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: darkMode ? TColors.darkerGrey.withOpacity(0.3) : TColors.softGrey,
+        color:
+        darkMode ? TColors.darkerGrey.withOpacity(0.3) : TColors.softGrey,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isCompleted ? color.withOpacity(0.5) : Colors.transparent,
@@ -371,7 +487,9 @@ class DiabetesPredictionOverviewScreen extends StatelessWidget {
                           value,
                           style: TextStyle(
                             fontSize: 14,
-                            color: darkMode ? TColors.darkGrey : TColors.darkerGrey,
+                            color: darkMode
+                                ? TColors.darkGrey
+                                : TColors.darkerGrey,
                           ),
                         ),
                       ] else if (!isCompleted) ...[

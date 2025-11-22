@@ -24,6 +24,10 @@ class DiabetesRiskController extends GetxController {
   final selectedTimeRange = 'Past 14 Days'.obs;
   final selectedTrendFilter = 'All'.obs;
 
+  // 自定义日期范围
+  final customStartDate = Rxn<DateTime>();
+  final customEndDate = Rxn<DateTime>();
+
   final predictionList = <DiabetesRiskPredictionModel>[].obs;
   final latestPrediction = Rxn<DiabetesRiskPredictionModel>();
   final isLoading = false.obs;
@@ -61,6 +65,7 @@ class DiabetesRiskController extends GetxController {
   void resetFilters() {
     selectedTimeRange.value = 'Past 14 Days';
     selectedTrendFilter.value = 'All';
+    resetCustomDateRange();
     refreshData();
   }
 
@@ -159,16 +164,46 @@ class DiabetesRiskController extends GetxController {
     totalCount.value = 0;
   }
 
+  /// 更新自定义日期范围
+  void updateCustomDateRange(DateTime? start, DateTime? end) {
+    customStartDate.value = start;
+    customEndDate.value = end;
+
+    if (start != null && end != null) {
+      // 更新选中的时间范围为自定义
+      selectedTimeRange.value = 'Custom Range';
+      refreshData();
+    }
+  }
+
+  /// 重置自定义日期范围
+  void resetCustomDateRange() {
+    customStartDate.value = null;
+    customEndDate.value = null;
+  }
+
   /// Get filtered data based on current filters
   List<DiabetesRiskPredictionModel> getFilteredData() {
     List<DiabetesRiskPredictionModel> filtered = List.from(predictionList);
 
-    final timeRangeDays = _getTimeRangeDays(selectedTimeRange.value);
-    if (timeRangeDays > 0) {
-      final cutoffDate = DateTime.now().subtract(Duration(days: timeRangeDays));
+    // 处理自定义日期范围
+    if (selectedTimeRange.value == 'Custom Range' &&
+        customStartDate.value != null &&
+        customEndDate.value != null) {
       filtered = filtered
-          .where((data) => data.predictionDateTime.isAfter(cutoffDate))
+          .where((data) =>
+      data.predictionDateTime.isAfter(customStartDate.value!.subtract(const Duration(days: 1))) &&
+          data.predictionDateTime.isBefore(customEndDate.value!.add(const Duration(days: 1))))
           .toList();
+    } else {
+      // 原有的时间范围逻辑
+      final timeRangeDays = _getTimeRangeDays(selectedTimeRange.value);
+      if (timeRangeDays > 0) {
+        final cutoffDate = DateTime.now().subtract(Duration(days: timeRangeDays));
+        filtered = filtered
+            .where((data) => data.predictionDateTime.isAfter(cutoffDate))
+            .toList();
+      }
     }
 
     return filtered;

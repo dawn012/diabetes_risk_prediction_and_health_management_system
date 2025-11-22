@@ -340,13 +340,13 @@ class UserAchievementScreen extends StatelessWidget {
               onTap: () => controller.toggleAchievement(achievement.achievementId),
               borderRadius: BorderRadius.circular(16),
               child: Padding(
-                padding: const EdgeInsets.all(TSizes.lg),
+                padding: const EdgeInsets.all(TSizes.md), // 🔥 减少内边距
                 child: Row(
                   children: [
-                    // Achievement Icon with modern design
+                    // Achievement Icon - 缩小尺寸
                     Container(
-                      width: 64,
-                      height: 64,
+                      width: 55, // 🔥 从 64 缩小到 50
+                      height: 55, // 🔥 从 64 缩小到 50
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
@@ -356,7 +356,7 @@ class UserAchievementScreen extends StatelessWidget {
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
-                        borderRadius: BorderRadius.circular(18),
+                        borderRadius: BorderRadius.circular(14), // 🔥 稍微缩小圆角
                         border: Border.all(
                           color: _getMedalColor(medalType).withOpacity(0.3),
                           width: 1,
@@ -365,43 +365,43 @@ class UserAchievementScreen extends StatelessWidget {
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
-                          // Base icon
+                          // Base icon - 缩小图标
                           Icon(
                             achievement.iconData,
                             color: isLocked
                                 ? (isDark ? Colors.grey[600] : Colors.grey[400])
                                 : _getMedalColor(medalType),
-                            size: 32,
+                            size: 28, // 🔥 从 32 缩小到 24
                           ),
                           // Lock overlay for locked achievements
                           if (isLocked)
                             Container(
                               decoration: BoxDecoration(
                                 color: Colors.black.withOpacity(0.3),
-                                borderRadius: BorderRadius.circular(18),
+                                borderRadius: BorderRadius.circular(14),
                               ),
                               child: const Icon(
                                 Icons.lock,
                                 color: Colors.white,
-                                size: 20,
+                                size: 18, // 🔥 从 20 缩小到 16
                               ),
                             ),
                           // Medal indicator for unlocked achievements
                           if (!isLocked && medalType != 'unlocked')
                             Positioned(
-                              top: 4,
-                              right: 4,
+                              top: 3, // 🔥 调整位置
+                              right: 3, // 🔥 调整位置
                               child: Container(
-                                width: 20,
-                                height: 20,
+                                width: 18, // 🔥 从 20 缩小到 16
+                                height: 18, // 🔥 从 20 缩小到 16
                                 decoration: BoxDecoration(
                                   color: _getMedalColor(medalType),
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: const Icon(
                                   Icons.emoji_events,
                                   color: Colors.white,
-                                  size: 12,
+                                  size: 12, // 🔥 从 12 缩小到 10
                                 ),
                               ),
                             ),
@@ -409,7 +409,7 @@ class UserAchievementScreen extends StatelessWidget {
                       ),
                     ),
 
-                    const SizedBox(width: TSizes.spaceBtwItems),
+                    const SizedBox(width: TSizes.sm + 5), // 🔥 减少间距
 
                     // Achievement Info
                     Expanded(
@@ -422,12 +422,14 @@ class UserAchievementScreen extends StatelessWidget {
                                 child: Text(
                                   achievement.achievementTitle,
                                   style: TextStyle(
-                                    fontSize: 18,
+                                    fontSize: 16, // 🔥 从 18 缩小到 16
                                     fontWeight: FontWeight.bold,
                                     color: isLocked
                                         ? (isDark ? Colors.grey[400] : Colors.grey[500])
                                         : isDark ? TColors.white : TColors.black,
                                   ),
+                                  maxLines: 2, // 🔥 限制标题行数
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               AnimatedRotation(
@@ -436,6 +438,7 @@ class UserAchievementScreen extends StatelessWidget {
                                 child: Icon(
                                   Icons.keyboard_arrow_down,
                                   color: isDark ? Colors.grey[600] : Colors.grey[400],
+                                  size: 20, // 🔥 明确设置大小
                                 ),
                               ),
                             ],
@@ -443,45 +446,58 @@ class UserAchievementScreen extends StatelessWidget {
 
                           const SizedBox(height: TSizes.xs),
 
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Progress',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: isDark ? Colors.grey[400] : Colors.grey,
-                                ),
-                              ),
-                              Text(
-                                progressText,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: isLocked
-                                      ? (isDark ? Colors.grey[400] : Colors.grey[500])
-                                      : TColors.primary,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
+                          // 🔥 修复进度文本溢出问题
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              return Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      'Progress',
+                                      style: TextStyle(
+                                        fontSize: 12, // 🔥 从 14 缩小到 12
+                                        color: isDark ? Colors.grey[400] : Colors.grey,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Flexible(
+                                    child: Text(
+                                      progressText,
+                                      style: TextStyle(
+                                        fontSize: 12, // 🔥 从 14 缩小到 12
+                                        color: isLocked
+                                            ? (isDark ? Colors.grey[400] : Colors.grey[500])
+                                            : TColors.primary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                      textAlign: TextAlign.right,
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
                           ),
 
-                          const SizedBox(height: TSizes.sm),
+                          const SizedBox(height: TSizes.xs),
 
                           // Modern Progress Bar
                           Stack(
                             children: [
                               Container(
-                                height: 8,
+                                height: 6, // 🔥 从 8 缩小到 6
                                 decoration: BoxDecoration(
                                   color: isDark ? TColors.darkContainer : Colors.grey[200],
-                                  borderRadius: BorderRadius.circular(4),
+                                  borderRadius: BorderRadius.circular(3),
                                 ),
                               ),
                               AnimatedContainer(
                                 duration: const Duration(milliseconds: 500),
-                                width: TDeviceUtils.getScreenWidth(context) * 0.6 * progress,
-                                height: 8,
+                                width: (TDeviceUtils.getScreenWidth(context) * 0.6) * progress,
+                                height: 6, // 🔥 从 8 缩小到 6
                                 decoration: BoxDecoration(
                                   gradient: isLocked
                                       ? LinearGradient(
@@ -495,7 +511,7 @@ class UserAchievementScreen extends StatelessWidget {
                                       TColors.primary,
                                     ],
                                   ),
-                                  borderRadius: BorderRadius.circular(4),
+                                  borderRadius: BorderRadius.circular(3),
                                 ),
                               ),
                             ],
@@ -506,25 +522,32 @@ class UserAchievementScreen extends StatelessWidget {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                isLocked
-                                    ? 'Locked'
-                                    : achievementData.currentLevel == UserAchievementLevel.none
-                                    ? 'No Level'
-                                    : '${achievementData.currentLevel.displayName} Level',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: isDark ? Colors.grey[400] : Colors.grey,
+                              Flexible(
+                                child: Text(
+                                  isLocked
+                                      ? 'Locked'
+                                      : achievementData.currentLevel == UserAchievementLevel.none
+                                      ? 'No Level'
+                                      : '${achievementData.currentLevel.displayName} Level',
+                                  style: TextStyle(
+                                    fontSize: 10, // 🔥 从 12 缩小到 10
+                                    color: isDark ? Colors.grey[400] : Colors.grey,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              Text(
-                                '${(progress * 100).toInt()}%',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: isLocked
-                                      ? (isDark ? Colors.grey[400] : Colors.grey[500])
-                                      : TColors.primary,
-                                  fontWeight: FontWeight.w600,
+                              Flexible(
+                                child: Text(
+                                  '${(progress * 100).toInt()}%',
+                                  style: TextStyle(
+                                    fontSize: 10, // 🔥 从 12 缩小到 10
+                                    color: isLocked
+                                        ? (isDark ? Colors.grey[400] : Colors.grey[500])
+                                        : TColors.primary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.right,
                                 ),
                               ),
                             ],

@@ -28,11 +28,14 @@ class WeightController extends GetxController {
 
   /// Observable states
   final selectedTimeRange = 'Past 14 Days'.obs;
-
   final selectedWeightPeriodFilter = 'All'.obs;
   final selectedWeightTrendFilter = 'All'.obs;
   final selectedBodyFatPeriodFilter = 'All'.obs;
   final selectedBodyFatTrendFilter = 'All'.obs;
+
+  // 自定义日期范围
+  final customStartDate = Rxn<DateTime>();
+  final customEndDate = Rxn<DateTime>();
 
   final isLoading = false.obs;
 
@@ -97,6 +100,7 @@ class WeightController extends GetxController {
     selectedWeightTrendFilter.value = 'All';
     selectedBodyFatPeriodFilter.value = 'All';
     selectedBodyFatTrendFilter.value = 'All';
+    resetCustomDateRange();
     refreshData();
   }
 
@@ -376,15 +380,47 @@ class WeightController extends GetxController {
     }
   }
 
+  /// 更新自定义日期范围
+  void updateCustomDateRange(DateTime? start, DateTime? end) {
+    customStartDate.value = start;
+    customEndDate.value = end;
+
+    if (start != null && end != null) {
+      // 更新选中的时间范围为自定义
+      selectedTimeRange.value = 'Custom Range';
+      refreshData();
+    }
+  }
+
+  /// 重置自定义日期范围
+  void resetCustomDateRange() {
+    customStartDate.value = null;
+    customEndDate.value = null;
+  }
+
   /// Get filtered data for weight statistics
   List<HealthDataModel> _getWeightFilteredData() {
-    final now = DateTime.now();
-    final cutoffDate = _getCutoffDate(now);
+    List<HealthDataModel> filtered = List.from(healthDataList);
 
-    var filtered = healthDataList
-        .where((data) =>
-    data.logDateTime.isAfter(cutoffDate) && data.bodyComposition.weight > 0)
-        .toList();
+    // 处理自定义日期范围
+    if (selectedTimeRange.value == 'Custom Range' &&
+        customStartDate.value != null &&
+        customEndDate.value != null) {
+      filtered = filtered
+          .where((data) =>
+      data.logDateTime.isAfter(customStartDate.value!.subtract(const Duration(days: 1))) &&
+          data.logDateTime.isBefore(customEndDate.value!.add(const Duration(days: 1))) &&
+          data.bodyComposition.weight > 0)
+          .toList();
+    } else {
+      // 原有的时间范围逻辑
+      final now = DateTime.now();
+      final cutoffDate = _getCutoffDate(now);
+      filtered = filtered
+          .where((data) =>
+      data.logDateTime.isAfter(cutoffDate) && data.bodyComposition.weight > 0)
+          .toList();
+    }
 
     if (selectedWeightPeriodFilter.value != 'All') {
       filtered = _applyMealFilter(filtered, selectedWeightPeriodFilter.value);
@@ -395,13 +431,27 @@ class WeightController extends GetxController {
 
   /// Get filtered data for weight trends
   List<HealthDataModel> _getWeightFilteredTrendsData() {
-    final now = DateTime.now();
-    final cutoffDate = _getCutoffDate(now);
+    List<HealthDataModel> filtered = List.from(healthDataList);
 
-    var filtered = healthDataList
-        .where((data) =>
-    data.logDateTime.isAfter(cutoffDate) && data.bodyComposition.weight > 0)
-        .toList();
+    // 处理自定义日期范围
+    if (selectedTimeRange.value == 'Custom Range' &&
+        customStartDate.value != null &&
+        customEndDate.value != null) {
+      filtered = filtered
+          .where((data) =>
+      data.logDateTime.isAfter(customStartDate.value!.subtract(const Duration(days: 1))) &&
+          data.logDateTime.isBefore(customEndDate.value!.add(const Duration(days: 1))) &&
+          data.bodyComposition.weight > 0)
+          .toList();
+    } else {
+      // 原有的时间范围逻辑
+      final now = DateTime.now();
+      final cutoffDate = _getCutoffDate(now);
+      filtered = filtered
+          .where((data) =>
+      data.logDateTime.isAfter(cutoffDate) && data.bodyComposition.weight > 0)
+          .toList();
+    }
 
     if (selectedWeightTrendFilter.value != 'All') {
       filtered = _applyMealFilter(filtered, selectedWeightTrendFilter.value);
@@ -412,13 +462,27 @@ class WeightController extends GetxController {
 
   /// Get filtered data for body fat statistics
   List<HealthDataModel> _getBodyFatFilteredData() {
-    final now = DateTime.now();
-    final cutoffDate = _getCutoffDate(now);
+    List<HealthDataModel> filtered = List.from(healthDataList);
 
-    var filtered = healthDataList
-        .where((data) =>
-    data.logDateTime.isAfter(cutoffDate) && data.bodyComposition.bodyFat > 0)
-        .toList();
+    // 处理自定义日期范围
+    if (selectedTimeRange.value == 'Custom Range' &&
+        customStartDate.value != null &&
+        customEndDate.value != null) {
+      filtered = filtered
+          .where((data) =>
+      data.logDateTime.isAfter(customStartDate.value!.subtract(const Duration(days: 1))) &&
+          data.logDateTime.isBefore(customEndDate.value!.add(const Duration(days: 1))) &&
+          data.bodyComposition.bodyFat > 0)
+          .toList();
+    } else {
+      // 原有的时间范围逻辑
+      final now = DateTime.now();
+      final cutoffDate = _getCutoffDate(now);
+      filtered = filtered
+          .where((data) =>
+      data.logDateTime.isAfter(cutoffDate) && data.bodyComposition.bodyFat > 0)
+          .toList();
+    }
 
     if (selectedBodyFatPeriodFilter.value != 'All') {
       filtered = _applyMealFilter(filtered, selectedBodyFatPeriodFilter.value);
@@ -429,13 +493,27 @@ class WeightController extends GetxController {
 
   /// Get filtered data for body fat trends
   List<HealthDataModel> _getBodyFatFilteredTrendsData() {
-    final now = DateTime.now();
-    final cutoffDate = _getCutoffDate(now);
+    List<HealthDataModel> filtered = List.from(healthDataList);
 
-    var filtered = healthDataList
-        .where((data) =>
-    data.logDateTime.isAfter(cutoffDate) && data.bodyComposition.bodyFat > 0)
-        .toList();
+    // 处理自定义日期范围
+    if (selectedTimeRange.value == 'Custom Range' &&
+        customStartDate.value != null &&
+        customEndDate.value != null) {
+      filtered = filtered
+          .where((data) =>
+      data.logDateTime.isAfter(customStartDate.value!.subtract(const Duration(days: 1))) &&
+          data.logDateTime.isBefore(customEndDate.value!.add(const Duration(days: 1))) &&
+          data.bodyComposition.bodyFat > 0)
+          .toList();
+    } else {
+      // 原有的时间范围逻辑
+      final now = DateTime.now();
+      final cutoffDate = _getCutoffDate(now);
+      filtered = filtered
+          .where((data) =>
+      data.logDateTime.isAfter(cutoffDate) && data.bodyComposition.bodyFat > 0)
+          .toList();
+    }
 
     if (selectedBodyFatTrendFilter.value != 'All') {
       filtered = _applyMealFilter(filtered, selectedBodyFatTrendFilter.value);

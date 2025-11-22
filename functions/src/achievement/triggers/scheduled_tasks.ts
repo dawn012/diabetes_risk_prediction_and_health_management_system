@@ -13,6 +13,150 @@ import { clearAchievementConfigCache } from "../config/achievement_config";
 const db = admin.firestore();
 
 /**
+ * 排行榜奖励分配规则
+ */
+const LEADERBOARD_REWARDS = {
+  1: 1000,      // 第1名: 1000 points
+  2: 800,       // 第2名: 800 points
+  3: 600,       // 第3名: 600 points
+  4: 400,       // 4-10名: 400 points each
+  11: 200,      // 11-50名: 200 points each
+  51: 100,      // 51-100名: 100 points each
+};
+
+/**
+ * 获取用户应得的奖励积分
+ */
+function getRewardPoints(rank: number): number {
+  if (rank === 1) return LEADERBOARD_REWARDS[1];
+  if (rank === 2) return LEADERBOARD_REWARDS[2];
+  if (rank === 3) return LEADERBOARD_REWARDS[3];
+  if (rank >= 4 && rank <= 10) return LEADERBOARD_REWARDS[4];
+  if (rank >= 11 && rank <= 50) return LEADERBOARD_REWARDS[11];
+  if (rank >= 51 && rank <= 100) return LEADERBOARD_REWARDS[51];
+  return 0;
+}
+
+/**
+ * 每月1号凌晨3点分配排行榜奖励
+ * 在保存月度快照之后执行
+ */
+export const distributeLeaderboardRewards = onSchedule(
+  {
+    schedule: "0 3 1 * *", // 每月1号 3:00 AM
+    timeZone: "Asia/Kuala_Lumpur",
+  },
+  async () => {
+    try {
+      functions.logger.log("🎁 Starting leaderboard rewards distribution...");
+
+      // 获取上个月的年份和月份
+      const now = new Date();
+      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1);
+      const year = lastMonth.getFullYear();
+      const month = lastMonth.getMonth() + 1;
+
+      functions.logger.log(`📅 Processing rewards for ${year}-${month}`);
+
+      // 从 leaderboard collection 获取上个月的前100名
+      const leaderboardSnapshot = await db
+        .collection("leaderboard")
+        .where("year", "==", year)
+        .where("month", "==", month)
+        .orderBy("rank", "asc")
+        .limit(100)
+        .get();
+
+      if (leaderboardSnapshot.empty) {
+        functions.logger.log("ℹ️ No leaderboard data found for last month");
+        return;
+      }
+
+      functions.logger.log(
+        `Found ${leaderboardSnapshot.docs.length} users in top 100`
+      );
+
+      const batch = db.batch();
+      let rewardCount = 0;
+      let totalPointsDistributed = 0;
+
+      for (const doc of leaderboardSnapshot.docs) {
+        const data = doc.data();
+        const userId = data.userId;
+        const rank = data.rank;
+        const rewardPoints = getRewardPoints(rank);
+
+        if (rewardPoints > 0) {
+          // 更新用户的 rewardPoints
+          const userRef = db.collection("users").doc(userId);
+
+          batch.update(userRef, {
+            rewardPoints: admin.firestore.FieldValue.increment(rewardPoints),
+          });
+
+          // 记录奖励分配历史（可选）
+          const rewardHistoryRef = db.collection("rewardHistory").doc();
+          batch.set(rewardHistoryRef, {
+            historyId: rewardHistoryRef.id,
+            userId: userId,
+            rewardType: "leaderboard",
+            rank: rank,
+            points: rewardPoints,
+            year: year,
+            month: month,
+            distributedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+
+          rewardCount++;
+          totalPointsDistributed += rewardPoints;
+
+          functions.logger.log(
+            `✅ User ${userId} (Rank ${rank}): +${rewardPoints} points`
+          );
+        }
+      }
+
+      // 提交批量写入
+      if (rewardCount > 0) {
+        await batch.commit();
+        functions.logger.log(
+          `🎉 Rewards distributed successfully!`
+        );
+        functions.logger.log(
+          `Total: ${rewardCount} users received ${totalPointsDistributed} points`
+        );
+      } else {
+        functions.logger.log("ℹ️ No rewards to distribute");
+      }
+    } catch (error) {
+      functions.logger.error(
+        "❌ Error distributing leaderboard rewards:",
+        error
+      );
+      throw error;
+    }
+  }
+);
+
+/**
+ * 获取奖励分配规则（供前端查询）
+ */
+export const getLeaderboardRewardRules = functions.https.onCall(async () => {
+  return {
+    success: true,
+    rules: [
+      { rank: "1st Place", points: LEADERBOARD_REWARDS[1] },
+      { rank: "2nd Place", points: LEADERBOARD_REWARDS[2] },
+      { rank: "3rd Place", points: LEADERBOARD_REWARDS[3] },
+      { rank: "4th - 10th Place", points: LEADERBOARD_REWARDS[4] },
+      { rank: "11th - 50th Place", points: LEADERBOARD_REWARDS[11] },
+      { rank: "51st - 100th Place", points: LEADERBOARD_REWARDS[51] },
+    ],
+  };
+});
+
+
+/**
  * 每月 1 号凌晨 2 点重置所有 periodic 成就并记录历史
  */
 export const monthlyAchievementReset = onSchedule(
@@ -22,7 +166,7 @@ export const monthlyAchievementReset = onSchedule(
   },
   async () => {
     try {
-      functions.logger.log("🔄 Starting monthly achievement reset...");
+      functions.logger.log("Starting monthly achievement reset...");
 
       // 第一步：记录所有用户的成就历史
       await recordAllUsersAchievementHistory();
@@ -50,7 +194,7 @@ export const monthlyAchievementReset = onSchedule(
           // 重置健康数据相关的周期性成就
           await HealthLogAchievementService.resetPeriodicAchievements(userId);
 
-          // 🆕 重置社区相关的周期性成就（只删除 periodic 的 userAchievement）
+          // 重置社区相关的周期性成就（只删除 periodic 的 userAchievement）
           await resetPeriodicCommunityAchievements(userId);
 
           resetCount++;
@@ -164,7 +308,7 @@ async function resetPeriodicCommunityAchievements(
 
       const achievement = achievementDoc.data();
 
-      // 🔧 只删除 periodic 类型的社区成就，保留 permanent 类型
+      // 只删除 periodic 类型的社区成就，保留 permanent 类型
       if (
         achievement &&
         achievement.achievementType === "periodic" &&
@@ -176,7 +320,7 @@ async function resetPeriodicCommunityAchievements(
         deletedCount++;
 
         functions.logger.log(
-          `🗑️ Deleted periodic community achievement: ${achievementId} for user ${userId}`
+          `Deleted periodic community achievement: ${achievementId} for user ${userId}`
         );
       }
     }

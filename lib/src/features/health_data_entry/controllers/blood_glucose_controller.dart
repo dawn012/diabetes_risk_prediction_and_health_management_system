@@ -28,6 +28,10 @@ class BloodGlucoseController extends GetxController {
   final selectedTrendFilter = 'All'.obs;
   final selectedComparisonFilter = 'Before vs. After Meal'.obs;
 
+  // 自定义日期范围
+  final customStartDate = Rxn<DateTime>();
+  final customEndDate = Rxn<DateTime>();
+
   final healthDataList = <HealthDataModel>[].obs;
   final lastRecord = Rxn<HealthDataModel>();
   final isLoading = false.obs;
@@ -72,6 +76,7 @@ class BloodGlucoseController extends GetxController {
     selectedPeriodFilter.value = 'All';
     selectedTrendFilter.value = 'All';
     selectedComparisonFilter.value = 'Before vs. After Meal';
+    resetCustomDateRange();
     refreshData();
   }
 
@@ -201,27 +206,57 @@ class BloodGlucoseController extends GetxController {
     totalCount.value = 0;
   }
 
+  // 更新自定义日期范围
+  void updateCustomDateRange(DateTime? start, DateTime? end) {
+    customStartDate.value = start;
+    customEndDate.value = end;
+
+    if (start != null && end != null) {
+      // 更新选中的时间范围为自定义
+      selectedTimeRange.value = 'Custom Range';
+      _calculateStatistics();
+      _updateChartsData();
+    }
+  }
+
   /// Get filtered data based on current filters
   List<HealthDataModel> getFilteredData() {
     List<HealthDataModel> filtered = List.from(healthDataList);
 
-    final timeRangeDays = _getTimeRangeDays(selectedTimeRange.value);
-    if (timeRangeDays > 0) {
-      final cutoffDate = DateTime.now().subtract(Duration(days: timeRangeDays));
+    // 处理自定义日期范围
+    if (selectedTimeRange.value == 'Custom Range' &&
+        customStartDate.value != null &&
+        customEndDate.value != null) {
       filtered = filtered
-          .where((data) => data.logDateTime.isAfter(cutoffDate))
+          .where((data) =>
+      data.logDateTime.isAfter(customStartDate.value!.subtract(const Duration(days: 1))) &&
+          data.logDateTime.isBefore(customEndDate.value!.add(const Duration(days: 1))))
           .toList();
+    } else {
+      // 原有的时间范围逻辑
+      final timeRangeDays = _getTimeRangeDays(selectedTimeRange.value);
+      if (timeRangeDays > 0) {
+        final cutoffDate = DateTime.now().subtract(Duration(days: timeRangeDays));
+        filtered = filtered
+            .where((data) => data.logDateTime.isAfter(cutoffDate))
+            .toList();
+      }
     }
 
     if (selectedPeriodFilter.value != 'All') {
       filtered = filtered
           .where((data) =>
-      data.physiologicalTimePeriod.displayName ==
-          selectedPeriodFilter.value)
+      data.physiologicalTimePeriod.displayName == selectedPeriodFilter.value)
           .toList();
     }
 
     return filtered;
+  }
+
+  // 重置自定义日期范围
+  void resetCustomDateRange() {
+    customStartDate.value = null;
+    customEndDate.value = null;
   }
 
   /// Get time range in days

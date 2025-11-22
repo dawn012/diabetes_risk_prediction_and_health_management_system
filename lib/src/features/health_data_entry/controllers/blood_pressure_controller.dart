@@ -24,11 +24,14 @@ class BloodPressureController extends GetxController {
 
   // Observable states
   final selectedTimeRange = 'Past 14 Days'.obs;
-
   final selectedBpPeriodFilter = 'All'.obs;      // 血压统计周期过滤器
   final selectedBpTrendFilter = 'All'.obs;       // 血压趋势过滤器
   final selectedPulsePeriodFilter = 'All'.obs;   // 脉搏统计周期过滤器
   final selectedPulseTrendFilter = 'All'.obs;    // 脉搏趋势过滤器
+
+  // 自定义日期范围
+  final customStartDate = Rxn<DateTime>();
+  final customEndDate = Rxn<DateTime>();
 
   final isLoading = false.obs;
 
@@ -90,6 +93,7 @@ class BloodPressureController extends GetxController {
     selectedBpTrendFilter.value = 'All';
     selectedPulsePeriodFilter.value = 'All';
     selectedPulseTrendFilter.value = 'All';
+    resetCustomDateRange();
     refreshData();
   }
 
@@ -162,12 +166,12 @@ class BloodPressureController extends GetxController {
 
     // Calculate blood pressure statistics
     if (bpFilteredData.isEmpty) {
-      systolicLowest.value = 0;
-      systolicHighest.value = 0;
-      systolicAverage.value = 0.0;
-      diastolicLowest.value = 0;
-      diastolicHighest.value = 0;
-      diastolicAverage.value = 0.0;
+      systolicLowest.value = -1;
+      systolicHighest.value = -1;
+      systolicAverage.value = -1;
+      diastolicLowest.value = -1;
+      diastolicHighest.value = -1;
+      diastolicAverage.value = -1;
       normalCount.value = 0;
       elevatedCount.value = 0;
       highCount.value = 0;
@@ -190,9 +194,9 @@ class BloodPressureController extends GetxController {
         systolicHighest.value = systolicValues.reduce((a, b) => a > b ? a : b);
         systolicAverage.value = systolicValues.reduce((a, b) => a + b) / systolicValues.length;
       } else {
-        systolicLowest.value = 0;
-        systolicHighest.value = 0;
-        systolicAverage.value = 0.0;
+        systolicLowest.value = -1;
+        systolicHighest.value = -1;
+        systolicAverage.value = -1;
       }
 
       if (diastolicValues.isNotEmpty) {
@@ -200,9 +204,9 @@ class BloodPressureController extends GetxController {
         diastolicHighest.value = diastolicValues.reduce((a, b) => a > b ? a : b);
         diastolicAverage.value = diastolicValues.reduce((a, b) => a + b) / diastolicValues.length;
       } else {
-        diastolicLowest.value = 0;
-        diastolicHighest.value = 0;
-        diastolicAverage.value = 0.0;
+        diastolicLowest.value = -1;
+        diastolicHighest.value = -1;
+        diastolicAverage.value = -1;
       }
 
       _calculateDistribution(bpFilteredData);
@@ -210,9 +214,9 @@ class BloodPressureController extends GetxController {
 
     // Calculate pulse statistics
     if (pulseFilteredData.isEmpty) {
-      pulseLowest.value = 0;
-      pulseHighest.value = 0;
-      pulseAverage.value = 0.0;
+      pulseLowest.value = -1;
+      pulseHighest.value = -1;
+      pulseAverage.value = -1;
     } else {
       final pulseValues = pulseFilteredData
           .where((d) => d.bloodPressure.pulse > 0)
@@ -225,9 +229,9 @@ class BloodPressureController extends GetxController {
         pulseHighest.value = pulseValues.reduce((a, b) => a > b ? a : b);
         pulseAverage.value = pulseValues.reduce((a, b) => a + b) / pulseValues.length;
       } else {
-        pulseLowest.value = 0;
-        pulseHighest.value = 0;
-        pulseAverage.value = 0.0;
+        pulseLowest.value = -1;
+        pulseHighest.value = -1;
+        pulseAverage.value = -1;
       }
     }
   }
@@ -356,16 +360,47 @@ class BloodPressureController extends GetxController {
     }
   }
 
+  /// 更新自定义日期范围
+  void updateCustomDateRange(DateTime? start, DateTime? end) {
+    customStartDate.value = start;
+    customEndDate.value = end;
+
+    if (start != null && end != null) {
+      // 更新选中的时间范围为自定义
+      selectedTimeRange.value = 'Custom Range';
+      refreshData();
+    }
+  }
+
+  /// 重置自定义日期范围
+  void resetCustomDateRange() {
+    customStartDate.value = null;
+    customEndDate.value = null;
+  }
+
   /// Get filtered data for blood pressure statistics
   List<HealthDataModel> _getBpFilteredData() {
-    final now = DateTime.now();
-    final cutoffDate = _getCutoffDate(now);
+    List<HealthDataModel> filtered = List.from(healthDataList);
 
-    var filtered = healthDataList
-        .where((data) =>
-    data.logDateTime.isAfter(cutoffDate) &&
-        (data.bloodPressure.systolic > 0 || data.bloodPressure.diastolic > 0))
-        .toList();
+    // 处理自定义日期范围
+    if (selectedTimeRange.value == 'Custom Range' &&
+        customStartDate.value != null &&
+        customEndDate.value != null) {
+      filtered = filtered
+          .where((data) =>
+      data.logDateTime.isAfter(customStartDate.value!.subtract(const Duration(days: 1))) &&
+          data.logDateTime.isBefore(customEndDate.value!.add(const Duration(days: 1))))
+          .toList();
+    } else {
+      // 原有的时间范围逻辑
+      final now = DateTime.now();
+      final cutoffDate = _getCutoffDate(now);
+      filtered = filtered
+          .where((data) =>
+      data.logDateTime.isAfter(cutoffDate) &&
+          (data.bloodPressure.systolic > 0 || data.bloodPressure.diastolic > 0))
+          .toList();
+    }
 
     if (selectedBpPeriodFilter.value != 'All') {
       filtered = _applyMealFilter(filtered, selectedBpPeriodFilter.value);
@@ -376,14 +411,28 @@ class BloodPressureController extends GetxController {
 
   /// Get filtered data for blood pressure trends
   List<HealthDataModel> _getBpFilteredTrendsData() {
-    final now = DateTime.now();
-    final cutoffDate = _getCutoffDate(now);
+    List<HealthDataModel> filtered = List.from(healthDataList);
 
-    var filtered = healthDataList
-        .where((data) =>
-    data.logDateTime.isAfter(cutoffDate) &&
-        (data.bloodPressure.systolic > 0 || data.bloodPressure.diastolic > 0))
-        .toList();
+    // 处理自定义日期范围
+    if (selectedTimeRange.value == 'Custom Range' &&
+        customStartDate.value != null &&
+        customEndDate.value != null) {
+      filtered = filtered
+          .where((data) =>
+      data.logDateTime.isAfter(customStartDate.value!.subtract(const Duration(days: 1))) &&
+          data.logDateTime.isBefore(customEndDate.value!.add(const Duration(days: 1))) &&
+          (data.bloodPressure.systolic > 0 || data.bloodPressure.diastolic > 0))
+          .toList();
+    } else {
+      // 原有的时间范围逻辑
+      final now = DateTime.now();
+      final cutoffDate = _getCutoffDate(now);
+      filtered = filtered
+          .where((data) =>
+      data.logDateTime.isAfter(cutoffDate) &&
+          (data.bloodPressure.systolic > 0 || data.bloodPressure.diastolic > 0))
+          .toList();
+    }
 
     if (selectedBpTrendFilter.value != 'All') {
       filtered = _applyMealFilter(filtered, selectedBpTrendFilter.value);
@@ -394,13 +443,27 @@ class BloodPressureController extends GetxController {
 
   /// Get filtered data for pulse statistics
   List<HealthDataModel> _getPulseFilteredData() {
-    final now = DateTime.now();
-    final cutoffDate = _getCutoffDate(now);
+    List<HealthDataModel> filtered = List.from(healthDataList);
 
-    var filtered = healthDataList
-        .where((data) =>
-    data.logDateTime.isAfter(cutoffDate) && data.bloodPressure.pulse > 0)
-        .toList();
+    // 处理自定义日期范围
+    if (selectedTimeRange.value == 'Custom Range' &&
+        customStartDate.value != null &&
+        customEndDate.value != null) {
+      filtered = filtered
+          .where((data) =>
+      data.logDateTime.isAfter(customStartDate.value!.subtract(const Duration(days: 1))) &&
+          data.logDateTime.isBefore(customEndDate.value!.add(const Duration(days: 1))) &&
+          data.bloodPressure.pulse > 0)
+          .toList();
+    } else {
+      // 原有的时间范围逻辑
+      final now = DateTime.now();
+      final cutoffDate = _getCutoffDate(now);
+      filtered = filtered
+          .where((data) =>
+      data.logDateTime.isAfter(cutoffDate) && data.bloodPressure.pulse > 0)
+          .toList();
+    }
 
     if (selectedPulsePeriodFilter.value != 'All') {
       filtered = _applyMealFilter(filtered, selectedPulsePeriodFilter.value);
@@ -411,13 +474,27 @@ class BloodPressureController extends GetxController {
 
   /// Get filtered data for pulse trends
   List<HealthDataModel> _getPulseFilteredTrendsData() {
-    final now = DateTime.now();
-    final cutoffDate = _getCutoffDate(now);
+    List<HealthDataModel> filtered = List.from(healthDataList);
 
-    var filtered = healthDataList
-        .where((data) =>
-    data.logDateTime.isAfter(cutoffDate) && data.bloodPressure.pulse > 0)
-        .toList();
+    // 处理自定义日期范围
+    if (selectedTimeRange.value == 'Custom Range' &&
+        customStartDate.value != null &&
+        customEndDate.value != null) {
+      filtered = filtered
+          .where((data) =>
+      data.logDateTime.isAfter(customStartDate.value!.subtract(const Duration(days: 1))) &&
+          data.logDateTime.isBefore(customEndDate.value!.add(const Duration(days: 1))) &&
+          data.bloodPressure.pulse > 0)
+          .toList();
+    } else {
+      // 原有的时间范围逻辑
+      final now = DateTime.now();
+      final cutoffDate = _getCutoffDate(now);
+      filtered = filtered
+          .where((data) =>
+      data.logDateTime.isAfter(cutoffDate) && data.bloodPressure.pulse > 0)
+          .toList();
+    }
 
     if (selectedPulseTrendFilter.value != 'All') {
       filtered = _applyMealFilter(filtered, selectedPulseTrendFilter.value);

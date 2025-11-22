@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
-import '../../../../../common/widgets/images/t_circular_image.dart';
 import '../../../../../utils/constants/colors.dart';
-import '../../../../../utils/constants/image_strings.dart';
 import '../../../../../utils/constants/sizes.dart';
 import '../../../../../utils/constants/text_strings.dart';
 import '../../../../../utils/helpers/helper_functions.dart';
 import '../../../../personalization/controllers/user_controller.dart';
+import '../../../../personalization/views/widgets/avatar_with_frame.dart';
 import '../../../controllers/comment_controller.dart';
 
 class CommentTextField extends StatelessWidget {
@@ -16,7 +15,6 @@ class CommentTextField extends StatelessWidget {
 
   final String? parentCommentId;
 
-  // Character limits
   static const int maxCommentLength = 250;
   static const int maxReplyLength = 250;
 
@@ -59,7 +57,6 @@ class CommentTextField extends StatelessWidget {
           return Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Character counter (show when near limit or editing)
               if (isNearLimit || isEditing)
                 Padding(
                   padding: const EdgeInsets.only(bottom: TSizes.xs),
@@ -80,22 +77,16 @@ class CommentTextField extends StatelessWidget {
                   ),
                 ),
 
-              // Input row
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // User profile image
-                  TCircularImage(
-                    image: user.profileImg.isNotEmpty ? user.profileImg : TImages.user,
-                    width: 32,
-                    height: 32,
-                    padding: 0,
-                    backgroundColor: isDark ? TColors.darkGrey : TColors.lightGrey,
-                    isNetworkImage: user.profileImg.isNotEmpty,
+                  AvatarWithFrame(
+                    profileImageUrl: user.profileImg,
+                    avatarSize: 28,
+                    frameSize: 36,
                   ),
                   const SizedBox(width: TSizes.sm),
 
-                  // Text input field
                   Expanded(
                     child: Container(
                       constraints: const BoxConstraints(maxHeight: 100),
@@ -120,7 +111,6 @@ class CommentTextField extends StatelessWidget {
                         minLines: 1,
                         maxLength: maxLength,
                         buildCounter: (context, {required currentLength, required isFocused, maxLength}) {
-                          // Hide the default counter
                           return null;
                         },
                         inputFormatters: [
@@ -146,9 +136,7 @@ class CommentTextField extends StatelessWidget {
 
                   const SizedBox(width: TSizes.xs),
 
-                  // Submit/Cancel buttons
                   if (isEditing) ...[
-                    // Cancel button
                     IconButton(
                       onPressed: controller.cancelEdit,
                       icon: Icon(
@@ -159,7 +147,6 @@ class CommentTextField extends StatelessWidget {
                     const SizedBox(width: TSizes.xs),
                   ],
 
-                  // Submit button
                   IconButton(
                     onPressed: (controller.isButtonEnabled.value && !isOverLimit)
                         ? () => controller.handleSubmit(parentCommentId: parentCommentId)

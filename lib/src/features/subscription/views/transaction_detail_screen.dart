@@ -155,6 +155,8 @@ class TransactionDetailScreen extends StatelessWidget {
 
             // Help Section
             _buildHelpSection(darkMode),
+
+            const SizedBox(height: TSizes.spaceBtwSections),
           ],
         ),
       ),

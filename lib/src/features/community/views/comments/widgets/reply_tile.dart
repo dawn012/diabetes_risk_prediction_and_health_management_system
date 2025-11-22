@@ -3,14 +3,13 @@ import 'package:get/get.dart';
 
 import '../../../../../common/loaders/circular_loader.dart';
 import '../../../../../common/widgets/bottom_sheets/comment_bottom_sheet.dart';
-import '../../../../../common/widgets/images/t_circular_image.dart';
 import '../../../../../utils/constants/colors.dart';
-import '../../../../../utils/constants/image_strings.dart';
 import '../../../../../utils/constants/sizes.dart';
 import '../../../../../utils/extensions/date_time_extension.dart';
 import '../../../../../utils/helpers/helper_functions.dart';
 import '../../../../authentication/models/user_model.dart';
 import '../../../../personalization/controllers/user_controller.dart';
+import '../../../../personalization/views/widgets/avatar_with_frame.dart';
 import '../../../controllers/comment_controller.dart';
 import '../../../models/reply_model.dart';
 
@@ -74,17 +73,13 @@ class ReplyTile extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Reply header
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TCircularImage(
-              image: user.profileImg.isNotEmpty ? user.profileImg : TImages.user,
-              width: 28,
-              height: 28,
-              padding: 0,
-              backgroundColor: isDark ? TColors.darkGrey : TColors.lightGrey,
-              isNetworkImage: user.profileImg.isNotEmpty,
+            AvatarWithFrame(
+              profileImageUrl: user.profileImg,
+              avatarSize: 24,
+              frameSize: 32,
             ),
             const SizedBox(width: TSizes.sm),
             Expanded(
@@ -129,7 +124,6 @@ class ReplyTile extends StatelessWidget {
                 ],
               ),
             ),
-            // Options menu
             IconButton(
               onPressed: () => _showReplyOptions(context),
               icon: Icon(
@@ -145,7 +139,6 @@ class ReplyTile extends StatelessWidget {
 
         const SizedBox(height: TSizes.spaceBtwItems),
 
-        // Reply actions
         Padding(
           padding: const EdgeInsets.only(left: 30),
           child: GestureDetector(
@@ -183,12 +176,10 @@ class ReplyTile extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        TCircularImage(
-          image: TImages.user,
-          width: 28,
-          height: 28,
-          padding: 0,
-          backgroundColor: isDark ? TColors.darkGrey : TColors.lightGrey,
+        AvatarWithFrame(
+          profileImageUrl: '',
+          avatarSize: 24,
+          frameSize: 32,
         ),
         const SizedBox(width: TSizes.xs),
         Expanded(
@@ -247,7 +238,6 @@ class ReplyTile extends StatelessWidget {
                 icon: Icons.flag_outlined,
                 iconColor: TColors.warning,
                 onTap: () {
-                  // TODO: Implement report functionality
                   Navigator.pop(context);
                 },
               ),

@@ -13,6 +13,8 @@ class FirebaseFieldNames {
   static const String totalScore = 'totalScore';
   static const String lastScoreUpdateTime = 'lastScoreUpdateTime';
   static const String isVerify = 'isVerify';
+  static const String rewardPoints = 'rewardPoints';
+  static const String currentAvatarFrame = 'currentAvatarFrame';
   static const String loginAttempt = 'loginAttempt';
   static const String lastAttemptTime = 'lastAttemptTime';
   static const String accountAvailable = 'accountAvailable';
@@ -38,9 +40,17 @@ class FirebaseFieldNames {
   static const String hasChangedDateOfBirth = "hasChangedDateOfBirth";
   static const String updatedAt = "updatedAt";
 
-  static const String friends = 'friends';
-  static const String sentRequests = 'sentRequests';
-  static const String receivedRequests = 'receivedRequests';
+  ///-- Reward
+  static const String rewardId = 'rewardId';
+  static const String rewardType = 'rewardType';
+  static const String icon = 'icon';
+  static const String costPoints = 'costPoints';
+  static const String availableQuantity = 'availableQuantity';
+
+  ///-- User Reward
+  static const String pointsSpent = 'pointsSpent';
+  static const String redeemedAt = 'redeemedAt';
+  static const String notes = 'notes';
 
   ///-- Health Data
   static const String logId = 'logId';

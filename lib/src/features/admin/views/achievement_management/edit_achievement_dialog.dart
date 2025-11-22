@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:icons_plus/icons_plus.dart';
 
 import '../../../../utils/constants/admin_colors.dart';
 import '../../../../utils/constants/enums.dart';
 import '../../../../utils/helpers/helper_functions.dart';
+import '../../../../utils/validators/achievement_validator.dart';
 import '../../../achievement/models/achievement_model.dart';
 import '../../controllers/achievement_management_controller.dart';
 
@@ -53,17 +55,7 @@ class EditAchievementDialog extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Title Field
-                        _buildTextField(
-                          label: 'Achievement Title',
-                          controller: controller.editTitleController,
-                          darkMode: darkMode,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter achievement title';
-                            }
-                            return null;
-                          },
-                        ),
+                        _buildTitleField(darkMode),
 
                         SizedBox(height: 20),
 
@@ -73,12 +65,7 @@ class EditAchievementDialog extends StatelessWidget {
                           controller: controller.editDescriptionController,
                           darkMode: darkMode,
                           maxLines: 3,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter description';
-                            }
-                            return null;
-                          },
+                          validator: (value) => AchievementValidator.validateDescription(value),
                         ),
 
                         SizedBox(height: 20),
@@ -150,12 +137,77 @@ class EditAchievementDialog extends StatelessWidget {
     );
   }
 
+  Widget _buildTitleField(bool darkMode) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Achievement Title',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: TAdminColors.getOnSurfaceColor(darkMode),
+          ),
+        ),
+        SizedBox(height: 8),
+        TextFormField(
+          controller: controller.editTitleController,
+          validator: (value) {
+            final basicError = AchievementValidator.validateAchievementTitle(value);
+            if (basicError != null) return basicError;
+
+            // duplication error
+            if (controller.editTitleDuplicationError.value.isNotEmpty) {
+              return controller.editTitleDuplicationError.value;
+            }
+
+            return null;
+          },
+          style: TextStyle(
+            color: TAdminColors.getOnSurfaceColor(darkMode),
+          ),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: TAdminColors.getSurfaceVariantColor(darkMode),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: TAdminColors.getBorderColor(darkMode),
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: TAdminColors.getBorderColor(darkMode),
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: TAdminColors.primary,
+                width: 2,
+              ),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: TAdminColors.error,
+              ),
+            ),
+            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildTextField({
     required String label,
     required TextEditingController controller,
     required bool darkMode,
     int maxLines = 1,
     String? Function(String?)? validator,
+    Function(String)? onChanged,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -173,6 +225,7 @@ class EditAchievementDialog extends StatelessWidget {
           controller: controller,
           maxLines: maxLines,
           validator: validator,
+          onChanged: onChanged,
           style: TextStyle(
             color: TAdminColors.getOnSurfaceColor(darkMode),
           ),
@@ -718,36 +771,42 @@ class EditAchievementDialog extends StatelessWidget {
                     ],
                   ),
                   SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildLevelField(
-                          label: 'Criteria',
-                          value: level.criteria.toString(),
-                          onChanged: (value) {
-                            final intValue = int.tryParse(value);
-                            if (intValue != null) {
-                              controller.updateLevelCriteria(index, intValue);
-                            }
-                          },
-                          darkMode: darkMode,
+                  Container(
+                    height: 110,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: _buildLevelField(
+                            label: 'Criteria',
+                            value: level.criteria.toString(),
+                            onChanged: (value) {
+                              final intValue = int.tryParse(value);
+                              if (intValue != null) {
+                                controller.updateLevelCriteria(index, intValue);
+                              }
+                            },
+                            darkMode: darkMode,
+                            validator: (value) => AchievementValidator.validateCriteria(int.tryParse(value ?? '')),
+                          ),
                         ),
-                      ),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: _buildLevelField(
-                          label: 'Points',
-                          value: level.points.toString(),
-                          onChanged: (value) {
-                            final intValue = int.tryParse(value);
-                            if (intValue != null) {
-                              controller.updateLevelPoints(index, intValue);
-                            }
-                          },
-                          darkMode: darkMode,
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: _buildLevelField(
+                            label: 'Points',
+                            value: level.points.toString(),
+                            onChanged: (value) {
+                              final intValue = int.tryParse(value);
+                              if (intValue != null) {
+                                controller.updateLevelPoints(index, intValue);
+                              }
+                            },
+                            darkMode: darkMode,
+                            validator: (value) => AchievementValidator.validatePoints(int.tryParse(value ?? '')),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -763,6 +822,7 @@ class EditAchievementDialog extends StatelessWidget {
     required String value,
     required Function(String) onChanged,
     required bool darkMode,
+    String? Function(String?)? validator,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -780,6 +840,11 @@ class EditAchievementDialog extends StatelessWidget {
           initialValue: value,
           keyboardType: TextInputType.number,
           onChanged: onChanged,
+          validator: validator,
+          inputFormatters: [
+            // Only allow numbers
+            FilteringTextInputFormatter.digitsOnly,
+          ],
           style: TextStyle(
             color: TAdminColors.getOnSurfaceColor(darkMode),
           ),
@@ -802,6 +867,12 @@ class EditAchievementDialog extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide(
                 color: TAdminColors.primary,
+              ),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(
+                color: TAdminColors.error,
               ),
             ),
             contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),

@@ -20,11 +20,13 @@ import '../../../utils/helpers/network_manager.dart';
 import '../../../utils/helpers/web_image_helper.dart';
 import '../../../utils/popups/full_screen_loader.dart';
 import '../../authentication/models/user_model.dart';
+import 'avatar_frame_controller.dart';
 
 class UserController extends GetxController {
   static UserController get instance => Get.find();
 
   final profileLoading = false.obs;
+  final isAvatarFrameLoading = false.obs;
 
   // final isChecked = false.obs;
   // Rx<UserModel> user = UserModel.empty().obs;
@@ -45,10 +47,34 @@ class UserController extends GetxController {
       profileLoading.value = true;
       final user = await userRepository.fetchUserDetails();
       this.user(user);
+
+      // 同步加载头像框信息
+      await _loadAvatarFrameData();
     } catch (e) {
       user(UserModel.empty());
     } finally {
       profileLoading.value = false;
+    }
+  }
+
+  /// 加载头像框数据
+  Future<void> _loadAvatarFrameData() async {
+    try {
+      isAvatarFrameLoading.value = true;
+
+      // 确保 AvatarFrameController 已初始化
+      if (!Get.isRegistered<AvatarFrameController>()) {
+        Get.put(AvatarFrameController());
+      }
+
+      final avatarFrameController = Get.find<AvatarFrameController>();
+      await avatarFrameController.fetchUserAvatarFrames();
+
+    } catch (e) {
+      print('Avatar frame controller not ready: $e');
+      // 可以选择静默失败，因为头像框不是核心功能
+    } finally {
+      isAvatarFrameLoading.value = false;
     }
   }
 

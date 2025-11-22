@@ -7,13 +7,13 @@ import '../../../../../utils/helpers/export_helper.dart';
 import '../../../../../utils/helpers/helper_functions.dart';
 import 'chart_export_button.dart';
 
-// Data models
+// Data models (unchanged)
 class ChartBarData {
   final String label;
   final double value;
   final List<StackData>? stackData;
-  final DateTime? startDate;    // 时间段的开始日期
-  final DateTime? endDate;      // 时间段的结束日期
+  final DateTime? startDate;
+  final DateTime? endDate;
 
   ChartBarData({
     required this.label,
@@ -44,7 +44,6 @@ class LegendItem {
   });
 }
 
-// Main chart widget with export functionality
 class ActivityBarChart extends StatelessWidget {
   final List<ChartBarData> data;
   final bool isWeekView;
@@ -77,7 +76,6 @@ class ActivityBarChart extends StatelessWidget {
     this.trendFilter,
   });
 
-  // Global key for chart capture
   final GlobalKey _chartKey = GlobalKey();
 
   @override
@@ -85,121 +83,88 @@ class ActivityBarChart extends StatelessWidget {
     final darkMode = THelperFunctions.isDarkMode(context);
     final hasValidData = !showNoData && data.isNotEmpty && data.any((item) => item.value > 0);
 
-    // Check if we should show "No Data"
     if (showNoData || (data.isNotEmpty && data.every((item) => item.value == 0))) {
-      return Column(
-        children: [
-          // Header with export button
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Legend
-              if (showLegend && legendItems.isNotEmpty)
-                Expanded(
-                  child: Wrap(
-                    spacing: TSizes.md,
-                    runSpacing: TSizes.xs,
-                    children: legendItems
-                        .map((item) => _buildLegendItem(item, darkMode))
-                        .toList(),
-                  ),
-                ),
-
-              // Export Button
-              ChartExportButton(
-                exportData: _buildExportData(),
-                tooltip: 'Export $title',
-              ),
-            ],
-          ),
-
-          if (showLegend && legendItems.isNotEmpty)
-            const SizedBox(height: TSizes.md),
-
-          // Goal line text
-          if (goalValue != null) ...[
-            Row(
-              children: [
-                Container(
-                  width: 20,
-                  height: 2,
-                  child: CustomPaint(
-                    painter: DashedLinePainter(color: TColors.primary),
-                  ),
-                ),
-                const SizedBox(width: TSizes.xs),
-                Text(
-                  'Daily Goal: ${goalValue!.toInt()} ${unit ?? 'steps'}',
-                  style: TextStyle(
-                    color: TColors.primary,
-                    fontSize: TSizes.fontSizeSm,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: TSizes.md),
-          ],
-
-          // No Data Message
-          SizedBox(
-            height: 200,
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.bar_chart,
-                    size: 48,
-                    color: TColors.textSecondary,
-                  ),
-                  const SizedBox(height: TSizes.md),
-                  Text(
-                    'No Data',
-                    style: TextStyle(
-                      color: TColors.textSecondary,
-                      fontSize: TSizes.fontSizeLg,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      );
+      return _buildNoDataView(darkMode);
     }
 
     return Column(
       children: [
-        // Header with Legend and Export
-        Row(
-          children: [
-            // Legend
-            if (showLegend && legendItems.isNotEmpty)
-              Expanded(
-                child: Wrap(
-                  spacing: TSizes.md,
-                  runSpacing: TSizes.xs,
-                  children: legendItems
-                      .map((item) => _buildLegendItem(item, darkMode))
-                      .toList(),
-                ),
-              ),
-
-            // Export Button
-            ChartExportButton(
-              exportData: _buildExportData(),
-              tooltip: 'Export $title',
-            ),
-          ],
-        ),
-
+        _buildHeader(darkMode),
         if (showLegend && legendItems.isNotEmpty)
           const SizedBox(height: TSizes.md),
+        _buildGoalText(),
+        _buildChart(darkMode),
+      ],
+    );
+  }
 
-        // Goal line text (only for steps)
-        if (goalValue != null && unit == 'steps') ...[
-          Row(children: [
+  Widget _buildNoDataView(bool darkMode) {
+    return Column(
+      children: [
+        _buildHeader(darkMode),
+        if (showLegend && legendItems.isNotEmpty)
+          const SizedBox(height: TSizes.md),
+        if (goalValue != null) ...[
+          _buildGoalText(),
+          const SizedBox(height: TSizes.md),
+        ],
+        SizedBox(
+          height: 200,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.bar_chart,
+                  size: 48,
+                  color: TColors.textSecondary,
+                ),
+                const SizedBox(height: TSizes.md),
+                Text(
+                  'No Data',
+                  style: TextStyle(
+                    color: TColors.textSecondary,
+                    fontSize: TSizes.fontSizeLg,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHeader(bool darkMode) {
+    return Row(
+      children: [
+        if (showLegend && legendItems.isNotEmpty)
+          Expanded(
+            child: Wrap(
+              spacing: TSizes.md,
+              runSpacing: TSizes.xs,
+              children: legendItems
+                  .map((item) => _buildLegendItem(item, darkMode))
+                  .toList(),
+            ),
+          ),
+        ChartExportButton(
+          exportData: _buildExportData(),
+          tooltip: 'Export $title',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGoalText() {
+    if (goalValue == null) return const SizedBox.shrink();
+
+    return Column(
+      children: [
+        const SizedBox(height: TSizes.md),
+        Row(
+          children: [
             Container(
               width: 20,
               height: 2,
@@ -209,202 +174,188 @@ class ActivityBarChart extends StatelessWidget {
             ),
             const SizedBox(width: TSizes.xs),
             Text(
-              'Daily Goal: ${goalValue!.toInt()} ${unit ?? 'steps'}',
+              unit == 'steps'
+                  ? 'Daily Goal: ${goalValue!.toInt()} $unit'
+                  : 'Weekly goal: ${goalValue!.toInt()} $unit',
               style: TextStyle(
                 color: TColors.primary,
                 fontSize: TSizes.fontSizeSm,
               ),
             ),
-          ]),
-          const SizedBox(height: TSizes.md),
-        ],
+          ],
+        ),
+      ],
+    );
+  }
 
-        // Weekly goal line text (for exercise)
-        if (goalValue != null && unit == 'min') ...[
-          Row(
-            children: [
-              Container(
-                width: 20,
-                height: 2,
-                child: CustomPaint(
-                  painter: DashedLinePainter(color: TColors.primary),
-                ),
-              ),
-              const SizedBox(width: TSizes.xs),
-              Text(
-                'Weekly goal: ${goalValue!.toInt()} ${unit ?? 'min'}',
-                style: TextStyle(
-                  color: TColors.primary,
-                  fontSize: TSizes.fontSizeSm,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: TSizes.md),
-        ],
-
-        // Chart - 这是主要的图表显示部分
-        SizedBox(
-          height: 200,
-          child: Padding(
-            padding: const EdgeInsets.only(
-              top: TSizes.md,
-              right: TSizes.md,
-            ),
-            child: RepaintBoundary(
-              key: _chartKey,
-              child: BarChart(
-                BarChartData(
-                  alignment: BarChartAlignment.spaceAround,
-                  maxY: maxValue,
-                  barTouchData: BarTouchData(
-                    enabled: true,
-                    touchTooltipData: BarTouchTooltipData(
-                      getTooltipColor: (group) =>
-                      darkMode ? TColors.darkContainer : Colors.white,
-                      tooltipBorder: BorderSide(
-                        color: darkMode
-                            ? TColors.borderPrimary
-                            : TColors.borderSecondary,
-                      ),
-                      getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                        if (group.x.toInt() >= 0 &&
-                            group.x.toInt() < data.length) {
-                          final chartData = data[group.x.toInt()];
-                          if (chartData.stackData != null &&
-                              chartData.stackData!.isNotEmpty) {
-                            // Stacked bar tooltip
-                            return BarTooltipItem(
-                              '${chartData.label}\n',
-                              TextStyle(
-                                color: darkMode ? TColors.white : TColors.black,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              children: chartData.stackData!
-                                  .map((stackItem) => TextSpan(
-                                text:
-                                '${stackItem.value.toInt()} ${unit ?? 'min'}\n',
-                                style: TextStyle(
-                                  color: stackItem.color,
-                                  fontWeight: FontWeight.normal,
-                                ),
-                              ))
-                                  .toList(),
-                            );
-                          } else {
-                            // Single bar tooltip
-                            return BarTooltipItem(
-                              '${chartData.label}\n${chartData.value.toInt()} ${unit ?? 'steps'}',
-                              TextStyle(
-                                color: darkMode ? TColors.white : TColors.black,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            );
-                          }
-                        }
-                        return null;
-                      },
-                    ),
-                  ),
-                  titlesData: FlTitlesData(
-                    show: true,
-                    rightTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false)),
-                    topTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false)),
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        getTitlesWidget: (double value, TitleMeta meta) {
-                          if (value.toInt() >= 0 && value.toInt() < data.length) {
-                            return Padding(
-                              padding: const EdgeInsets.only(top: TSizes.xs),
-                              child: Text(
-                                data[value.toInt()].label,
-                                style: TextStyle(
-                                  color: darkMode
-                                      ? TColors.white
-                                      : TColors.textPrimary,
-                                  fontSize: TSizes.fontSizeSm,
-                                ),
-                              ),
-                            );
-                          }
-                          return const Text('');
-                        },
-                        reservedSize: 30,
-                      ),
-                    ),
-                    leftTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 60,
-                        interval: maxValue / 4,
-                        getTitlesWidget: (double value, TitleMeta meta) {
-                          return Padding(
-                            padding: const EdgeInsets.only(right: TSizes.xs),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  value.toInt().toString(),
-                                  style: TextStyle(
-                                    color: darkMode
-                                        ? TColors.white
-                                        : TColors.textPrimary,
-                                    fontSize: TSizes.fontSizeSm,
-                                  ),
-                                  textAlign: TextAlign.right,
-                                ),
-                                if (value == 0) // Show unit label only at bottom
-                                  Text(
-                                    unit ?? '',
-                                    style: TextStyle(
-                                      color: darkMode
-                                          ? TColors.textSecondary
-                                          : TColors.textSecondary,
-                                      fontSize: TSizes.fontSizeSm,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                  borderData: FlBorderData(show: false),
-                  gridData: FlGridData(
-                    show: true,
-                    drawVerticalLine: false,
-                    horizontalInterval: maxValue / 4,
-                    getDrawingHorizontalLine: (value) {
-                      return FlLine(
-                        color: darkMode ? TColors.darkGrey : TColors.grey,
-                        strokeWidth: 1,
-                      );
-                    },
-                  ),
-                  extraLinesData: ExtraLinesData(
-                    horizontalLines: goalValue != null
-                        ? [
-                      HorizontalLine(
-                        y: goalValue!,
-                        color: TColors.primary,
-                        strokeWidth: 2,
-                        dashArray: [5, 5],
-                      ),
-                    ]
-                        : [],
-                  ),
-                  barGroups: _generateBarGroups(),
-                ),
-              ),
+  Widget _buildChart(bool darkMode) {
+    return SizedBox(
+      height: 200,
+      child: Padding(
+        padding: const EdgeInsets.only(
+          top: TSizes.lg,
+          right: TSizes.md,
+        ),
+        child: RepaintBoundary(
+          key: _chartKey,
+          child: BarChart(
+            BarChartData(
+              alignment: BarChartAlignment.spaceAround,
+              maxY: maxValue,
+              barTouchData: _buildBarTouchData(darkMode),
+              titlesData: _buildTitlesData(darkMode),
+              borderData: FlBorderData(show: false),
+              gridData: _buildGridData(darkMode),
+              extraLinesData: _buildExtraLinesData(),
+              barGroups: _generateBarGroups(),
             ),
           ),
         ),
-      ],
+      ),
+    );
+  }
+
+  BarTouchData _buildBarTouchData(bool darkMode) {
+    return BarTouchData(
+      enabled: true,
+      touchTooltipData: BarTouchTooltipData(
+        getTooltipColor: (group) =>
+        darkMode ? TColors.darkContainer : Colors.white,
+        tooltipBorder: BorderSide(
+          color: darkMode
+              ? TColors.borderPrimary
+              : TColors.borderSecondary,
+        ),
+        getTooltipItem: (group, groupIndex, rod, rodIndex) {
+          if (group.x.toInt() >= 0 && group.x.toInt() < data.length) {
+            final chartData = data[group.x.toInt()];
+            if (chartData.stackData != null && chartData.stackData!.isNotEmpty) {
+              return BarTooltipItem(
+                '${chartData.label}\n',
+                TextStyle(
+                  color: darkMode ? TColors.white : TColors.black,
+                  fontWeight: FontWeight.bold,
+                ),
+                children: chartData.stackData!
+                    .map((stackItem) => TextSpan(
+                  text: '${stackItem.value.toInt()} ${unit ?? 'min'}\n',
+                  style: TextStyle(
+                    color: stackItem.color,
+                    fontWeight: FontWeight.normal,
+                  ),
+                ))
+                    .toList(),
+              );
+            } else {
+              return BarTooltipItem(
+                '${chartData.label}\n${chartData.value.toInt()} ${unit ?? 'steps'}',
+                TextStyle(
+                  color: darkMode ? TColors.white : TColors.black,
+                  fontWeight: FontWeight.bold,
+                ),
+              );
+            }
+          }
+          return null;
+        },
+      ),
+    );
+  }
+
+  FlTitlesData _buildTitlesData(bool darkMode) {
+    return FlTitlesData(
+      show: true,
+      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+      bottomTitles: AxisTitles(
+        sideTitles: SideTitles(
+          showTitles: true,
+          getTitlesWidget: (double value, TitleMeta meta) {
+            if (value.toInt() >= 0 && value.toInt() < data.length) {
+              return Padding(
+                padding: const EdgeInsets.only(top: TSizes.xs),
+                child: Text(
+                  data[value.toInt()].label,
+                  style: TextStyle(
+                    color: darkMode ? TColors.white : TColors.textPrimary,
+                    fontSize: isWeekView ? 11 : 10, // 减小字体大小
+                    fontWeight: FontWeight.w400,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              );
+            }
+            return const Text('');
+          },
+          reservedSize: 32, // 增加底部空间
+          interval: 1, // 确保每个标签都显示
+        ),
+      ),
+      leftTitles: AxisTitles(
+        sideTitles: SideTitles(
+          showTitles: true,
+          reservedSize: 60,
+          interval: maxValue / 4,
+          getTitlesWidget: (double value, TitleMeta meta) {
+            return Padding(
+              padding: const EdgeInsets.only(right: TSizes.xs),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    value.toInt().toString(),
+                    style: TextStyle(
+                      color: darkMode ? TColors.white : TColors.textPrimary,
+                      fontSize: TSizes.fontSizeSm,
+                    ),
+                    textAlign: TextAlign.right,
+                  ),
+                  if (value == 0)
+                    Text(
+                      unit ?? '',
+                      style: TextStyle(
+                        color: darkMode
+                            ? TColors.textSecondary
+                            : TColors.textSecondary,
+                        fontSize: TSizes.fontSizeSm,
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  FlGridData _buildGridData(bool darkMode) {
+    return FlGridData(
+      show: true,
+      drawVerticalLine: false,
+      horizontalInterval: maxValue / 4,
+      getDrawingHorizontalLine: (value) {
+        return FlLine(
+          color: darkMode ? TColors.darkGrey : TColors.grey,
+          strokeWidth: 1,
+        );
+      },
+    );
+  }
+
+  ExtraLinesData _buildExtraLinesData() {
+    return ExtraLinesData(
+      horizontalLines: goalValue != null
+          ? [
+        HorizontalLine(
+          y: goalValue!,
+          color: TColors.primary,
+          strokeWidth: 2,
+          dashArray: [5, 5],
+        ),
+      ]
+          : [],
     );
   }
 
@@ -437,39 +388,19 @@ class ActivityBarChart extends StatelessWidget {
       final index = entry.key;
       final chartData = entry.value;
 
-      if (chartData.stackData != null && chartData.stackData!.isNotEmpty) {
-        // Stacked bar (same day, different intensities)
-        double currentY = 0;
-        final barRods = <BarChartRodData>[];
+      // 根据视图类型调整柱宽
+      final barWidth = isWeekView ? 24.0 : 18.0;
 
-        for (final stackItem in chartData.stackData!) {
-          barRods.add(BarChartRodData(
-            fromY: currentY,
-            toY: currentY + stackItem.value,
-            color: stackItem.color,
-            width: isWeekView ? 20 : 16,
-            borderRadius: currentY == 0
-                ? const BorderRadius.only(
-              bottomLeft: Radius.circular(2),
-              bottomRight: Radius.circular(2),
-            )
-                : stackItem == chartData.stackData!.last
-                ? const BorderRadius.only(
-              topLeft: Radius.circular(2),
-              topRight: Radius.circular(2),
-            )
-                : BorderRadius.zero,
-          ));
-          currentY += stackItem.value;
-        }
+      if (chartData.stackData != null && chartData.stackData!.isNotEmpty) {
+        double currentY = 0;
 
         return BarChartGroupData(
           x: index,
           barRods: [
             BarChartRodData(
-              toY: currentY,
+              toY: chartData.value,
               color: Colors.transparent,
-              width: isWeekView ? 20 : 16,
+              width: barWidth,
               rodStackItems: chartData.stackData!.map((stackItem) {
                 final startY = chartData.stackData!
                     .take(chartData.stackData!.indexOf(stackItem))
@@ -481,17 +412,16 @@ class ActivityBarChart extends StatelessWidget {
           ],
         );
       } else {
-        // Single bar
         return BarChartGroupData(
           x: index,
           barRods: [
             BarChartRodData(
               toY: chartData.value,
               color: singleColor ?? TColors.primary,
-              width: isWeekView ? 20 : 16,
+              width: barWidth,
               borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(2),
-                topRight: Radius.circular(2),
+                topLeft: Radius.circular(4),
+                topRight: Radius.circular(4),
               ),
             ),
           ],
@@ -500,19 +430,9 @@ class ActivityBarChart extends StatelessWidget {
     }).toList();
   }
 
-  /// Build export data from chart data
   ChartExportData _buildExportData() {
     final exportData = <Map<String, dynamic>>[];
 
-    debugPrint('=== Chart Data Debug ===');
-    debugPrint('isWeekView: $isWeekView');
-    debugPrint('data length: ${data.length}');
-    for (int i = 0; i < data.length; i++) {
-      debugPrint('Data $i - label: "${data[i].label}", value: ${data[i].value}');
-      debugPrint('Data $i - startDate: ${data[i].startDate}, endDate: ${data[i].endDate}');
-    }
-
-    // 计算总计
     double totalValue = 0;
     double totalLowIntensity = 0;
     double totalModerateIntensity = 0;
@@ -522,17 +442,13 @@ class ActivityBarChart extends StatelessWidget {
       final chartData = data[i];
       final Map<String, dynamic> row = {};
 
-      // 使用传入的日期信息生成正确的 Period 格式
       if (isWeekView) {
-        // 周视图: Sun (10/26), Mon (10/27) 等
         row['Period'] = _getWeeklyExportPeriodLabel(i, chartData);
       } else {
-        // 月视图: Week 1 (10/26 - 11/1), Week 2 (11/2 - 11/8) 等
         row['Period'] = _getMonthlyExportPeriodLabel(i, chartData);
       }
 
       if (chartData.stackData != null && chartData.stackData!.isNotEmpty) {
-        // Stacked data - add each stack as separate column
         double rowTotalValue = 0;
         for (int j = 0; j < chartData.stackData!.length; j++) {
           final stackItem = chartData.stackData![j];
@@ -542,7 +458,6 @@ class ActivityBarChart extends StatelessWidget {
           row[legendLabel] = '${stackItem.value.toInt()} ${unit ?? ''}';
           rowTotalValue += stackItem.value;
 
-          // 累加各强度类型的总计
           if (legendLabel.toLowerCase().contains('low')) {
             totalLowIntensity += stackItem.value;
           } else if (legendLabel.toLowerCase().contains('moderate')) {
@@ -554,17 +469,14 @@ class ActivityBarChart extends StatelessWidget {
         row['Total'] = '${rowTotalValue.toInt()} ${unit ?? ''}';
         totalValue += rowTotalValue;
 
-        // Goal Progress 计算
         if (goalValue != null) {
           final progress = (rowTotalValue / goalValue! * 100).toStringAsFixed(1);
           row['Goal Progress'] = '$progress%';
         }
       } else {
-        // Single value data
         row['Value'] = '${chartData.value.toInt()} ${unit ?? ''}';
         totalValue += chartData.value;
 
-        // Goal Progress 计算
         if (goalValue != null) {
           final progress = (chartData.value / goalValue! * 100).toStringAsFixed(1);
           row['Goal Progress'] = '$progress%';
@@ -574,12 +486,10 @@ class ActivityBarChart extends StatelessWidget {
       exportData.add(row);
     }
 
-    // 添加总计行
     if (exportData.isNotEmpty) {
       final totalRow = <String, dynamic>{'Period': 'TOTAL'};
 
       if (legendItems.isNotEmpty) {
-        // 如果有图例项，添加各强度类型的总计
         for (final legend in legendItems) {
           if (legend.label.toLowerCase().contains('low')) {
             totalRow[legend.label] = '${totalLowIntensity.toInt()} ${unit ?? ''}';
@@ -593,23 +503,12 @@ class ActivityBarChart extends StatelessWidget {
 
       totalRow['Total'] = '${totalValue.toInt()} ${unit ?? ''}';
 
-      // 总计行的 Goal Progress 计算
       if (goalValue != null) {
         final totalProgress = (totalValue / goalValue! * 100).toStringAsFixed(1);
         totalRow['Goal Progress'] = '$totalProgress%';
       }
 
       exportData.add(totalRow);
-    }
-
-    // 调试信息：检查导出的数据
-    debugPrint('=== Export Data Debug ===');
-    debugPrint('Title: $title');
-    debugPrint('Time Range: ${_getFormattedTimeRange()}');
-    debugPrint('Data count: ${exportData.length}');
-    if (exportData.isNotEmpty) {
-      debugPrint('First row Period: ${exportData.first['Period']}');
-      debugPrint('First row keys: ${exportData.first.keys.toList()}');
     }
 
     return ChartExportData(
@@ -623,57 +522,43 @@ class ActivityBarChart extends StatelessWidget {
     );
   }
 
-  /// 生成周视图导出的 Period 标签（使用传入的日期）
   String _getWeeklyExportPeriodLabel(int index, ChartBarData chartData) {
     if (chartData.startDate != null) {
-      // 使用传入的日期，格式: "Mon (10/28)"
       final days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       final dayName = days[chartData.startDate!.weekday % 7];
       return '$dayName (${chartData.startDate!.month}/${chartData.startDate!.day})';
     }
-
-    // 回退到原来的逻辑
     return chartData.label;
   }
 
-  /// 生成月视图导出的 Period 标签（使用传入的日期）
   String _getMonthlyExportPeriodLabel(int index, ChartBarData chartData) {
     if (chartData.startDate != null && chartData.endDate != null) {
-      // 导出也使用简化的开始日期，与图表显示保持一致
       return '${chartData.startDate!.month}/${chartData.startDate!.day}';
     }
-
-    // 回退到原来的逻辑
     return chartData.label;
   }
 
-  /// 格式化时间范围，添加年份
   String _getFormattedTimeRange() {
     if (timeRange.isEmpty) return '';
 
-    // 检查是否已经包含年份
     if (timeRange.contains(RegExp(r'\d{4}'))) {
       return timeRange;
     }
 
     final currentYear = DateTime.now().year;
 
-    // 处理不同的时间范围格式
     if (timeRange.contains('-')) {
-      // 格式如: "10/26 - 11/1"
       final parts = timeRange.split(' - ');
       if (parts.length == 2) {
         return '${parts[0]}/$currentYear - ${parts[1]}/$currentYear';
       }
     } else if (timeRange.contains(' to ')) {
-      // 格式如: "Oct 26 to Nov 1"
       final parts = timeRange.split(' to ');
       if (parts.length == 2) {
         return '${parts[0]} $currentYear to ${parts[1]} $currentYear';
       }
     }
 
-    // 如果无法解析，直接添加年份
     return '$timeRange $currentYear';
   }
 }

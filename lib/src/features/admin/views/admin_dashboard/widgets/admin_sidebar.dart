@@ -131,80 +131,22 @@ class AdminSidebar extends StatelessWidget {
             child: Obx(() {
               print('Obx rebuilding: ${controller.selectedIndex.value}');
               print('User role: ${controller.userRole.value}');
+              print('Menu items count: ${controller.menuItems.length}');
 
               return ListView(
                 padding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                children: [
-                  // Dashboard - 所有角色都有
-                  _buildMenuItem(
-                    context: context,
-                    icon: Iconsax.element_3_bold,
-                    title: 'Dashboard',
-                    index: 0,
-                    isSelected: controller.selectedIndex.value == 0,
-                    isDark: darkMode,
-                    isExpanded: controller.sidebarExpanded.value,
-                    onTap: () => controller.selectMenuItem(0),
-                  ),
+                children: controller.menuItems.map((item) {
+                  final index = item['index'] as int;
+                  final title = item['title'] as String;
+                  final icon = item['icon'] as String;
+                  final type = item['type'] as String;
 
-                  // User Management - 只有 admin 和 user manager 能看到
-                  if (controller.canAccessUserManagement())
-                    _buildMenuItem(
+                  // Handle expandable menu items (Analytics)
+                  if (type == 'expandable') {
+                    return _buildExpandableMenuItem(
                       context: context,
-                      icon: Iconsax.people_bold,
-                      title: 'User Management',
-                      index: 1,
-                      isSelected: controller.selectedIndex.value == 1,
-                      isDark: darkMode,
-                      isExpanded: controller.sidebarExpanded.value,
-                      onTap: () => controller.selectMenuItem(1),
-                    ),
-
-                  // Manager Management - 只有 admin 能看到
-                  if (controller.isAdmin)
-                    _buildMenuItem(
-                      context: context,
-                      icon: Iconsax.people_bold,
-                      title: 'Manager Management',
-                      index: 2,
-                      isSelected: controller.selectedIndex.value == 2,
-                      isDark: darkMode,
-                      isExpanded: controller.sidebarExpanded.value,
-                      onTap: () => controller.selectMenuItem(2),
-                    ),
-
-                  // Community - 只有 admin 和 community manager 能看到
-                  if (controller.canAccessCommunityManagement())
-                    _buildMenuItem(
-                      context: context,
-                      icon: Iconsax.messages_3_bold,
-                      title: 'Community',
-                      index: 3,
-                      isSelected: controller.selectedIndex.value == 3,
-                      isDark: darkMode,
-                      isExpanded: controller.sidebarExpanded.value,
-                      onTap: () => controller.selectMenuItem(3),
-                    ),
-
-                  // Achievement - 只有 admin 和 achievement manager 能看到
-                  if (controller.canAccessAchievementManagement())
-                    _buildMenuItem(
-                      context: context,
-                      icon: Iconsax.award_bold,
-                      title: 'Achievement',
-                      index: 4,
-                      isSelected: controller.selectedIndex.value == 4,
-                      isDark: darkMode,
-                      isExpanded: controller.sidebarExpanded.value,
-                      onTap: () => controller.selectMenuItem(4),
-                    ),
-
-                  // Analytics (Expandable) - 所有角色都有，但内容不同
-                  if (controller.canAccessUserAnalytics() || controller.isAdmin)
-                    _buildExpandableMenuItem(
-                      context: context,
-                      icon: Iconsax.chart_bold,
-                      title: 'Analytics',
+                      icon: controller.getIconData(icon),
+                      title: title,
                       isDark: darkMode,
                       isExpanded: controller.sidebarExpanded.value,
                       isMenuExpanded: controller.analyticsExpanded.value,
@@ -216,11 +158,11 @@ class AdminSidebar extends StatelessWidget {
                             context: context,
                             icon: Iconsax.receipt_text_bold,
                             title: 'Transaction Reports',
-                            index: 51,
-                            isSelected: controller.selectedIndex.value == 51,
+                            index: 61,
+                            isSelected: controller.selectedIndex.value == 61,
                             isDark: darkMode,
                             isExpanded: controller.sidebarExpanded.value,
-                            onTap: () => controller.selectMenuItem(51),
+                            onTap: () => controller.selectMenuItem(61),
                           ),
 
                         // User Analytics - admin 和 user manager 能看到
@@ -229,11 +171,11 @@ class AdminSidebar extends StatelessWidget {
                             context: context,
                             icon: Iconsax.people_bold,
                             title: 'User Analytics',
-                            index: 52,
-                            isSelected: controller.selectedIndex.value == 52,
+                            index: 62,
+                            isSelected: controller.selectedIndex.value == 62,
                             isDark: darkMode,
                             isExpanded: controller.sidebarExpanded.value,
-                            onTap: () => controller.selectMenuItem(52),
+                            onTap: () => controller.selectMenuItem(62),
                           ),
 
                         // // Performance Reports - 只有 admin 能看到
@@ -242,27 +184,28 @@ class AdminSidebar extends StatelessWidget {
                         //     context: context,
                         //     icon: Iconsax.trend_up_bold,
                         //     title: 'Performance Reports',
-                        //     index: 53,
-                        //     isSelected: controller.selectedIndex.value == 53,
+                        //     index: 63,
+                        //     isSelected: controller.selectedIndex.value == 63,
                         //     isDark: darkMode,
                         //     isExpanded: controller.sidebarExpanded.value,
-                        //     onTap: () => controller.selectMenuItem(53),
+                        //     onTap: () => controller.selectMenuItem(63),
                         //   ),
                       ],
-                    ),
+                    );
+                  }
 
-                  // Profile - 所有角色都有
-                  _buildMenuItem(
+                  // Handle regular menu items
+                  return _buildMenuItem(
                     context: context,
-                    icon: Iconsax.user_bold,
-                    title: 'Profile',
-                    index: 6,
-                    isSelected: controller.selectedIndex.value == 6,
+                    icon: controller.getIconData(icon),
+                    title: title,
+                    index: index,
+                    isSelected: controller.selectedIndex.value == index,
                     isDark: darkMode,
                     isExpanded: controller.sidebarExpanded.value,
-                    onTap: () => controller.selectMenuItem(6),
-                  ),
-                ],
+                    onTap: () => controller.selectMenuItem(index),
+                  );
+                }).toList(),
               );
             }),
           ),
@@ -312,15 +255,38 @@ class AdminSidebar extends StatelessWidget {
                     ),
                     child: Row(
                       children: [
-                        CircleAvatar(
-                          radius: 20,
-                          backgroundColor: TAdminColors.primary,
-                          child: Icon(
-                            Iconsax.user_bold,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
+                        // 头像部分
+                        Obx(() {
+                          final userController = UserController.instance;
+                          final profileImg = userController.user.value.profileImg;
+                          final username = userController.user.value.username;
+
+                          // 如果有头像，显示头像图片
+                          if (profileImg.isNotEmpty) {
+                            return CircleAvatar(
+                              radius: 20,
+                              backgroundImage: NetworkImage(profileImg),
+                              backgroundColor: TAdminColors.getSurfaceVariantColor(darkMode),
+                            );
+                          }
+                          // 如果没有头像，使用用户名的第一个字母
+                          else {
+                            return CircleAvatar(
+                              radius: 20,
+                              backgroundColor: TAdminColors.primary,
+                              child: Text(
+                                username.isNotEmpty
+                                    ? username.substring(0, 1).toUpperCase()
+                                    : 'U', // 默认显示 'U'
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            );
+                          }
+                        }),
                         SizedBox(width: 12),
                         Expanded(
                           child: Column(

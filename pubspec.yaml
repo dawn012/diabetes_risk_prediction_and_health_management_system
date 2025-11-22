@@ -70,6 +70,7 @@ dependencies:
   video_compress: ^3.1.4
   video_thumbnail: ^0.5.6
   camera: ^0.10.3+2
+  cached_network_image: ^3.4.1
 
   #-- STATE MANAGEMENT PACKAGES
   get: ^4.6.6

@@ -43,9 +43,6 @@ class ChartExportData {
 class ExportHelper {
   ExportHelper._();
 
-  /// 简单的拒绝次数记录
-  static final Map<Permission, int> _denialCount = {};
-
   /// Export chart data as PDF or CSV
   static Future<void> exportChart({
     required ChartExportData exportData,
@@ -61,10 +58,10 @@ class ExportHelper {
         return;
       }
 
-      // Request storage permission with proper dialog
-      final hasPermission = await _requestStoragePermissionWithDialog();
+      // Request storage permission using system dialog
+      final hasPermission = await _requestStoragePermission();
       if (!hasPermission) {
-        return; // User denied permission or dialog was cancelled
+        return; // User denied permission
       }
 
       if (exportType == ExportType.pdf) {
@@ -80,8 +77,8 @@ class ExportHelper {
     }
   }
 
-  /// Request storage permission with user dialog
-  static Future<bool> _requestStoragePermissionWithDialog() async {
+  /// Request storage permission using system dialog
+  static Future<bool> _requestStoragePermission() async {
     if (Platform.isIOS) {
       // iOS doesn't need explicit permission for app documents
       return true;
@@ -93,135 +90,103 @@ class ExportHelper {
       final androidInfo = await deviceInfo.androidInfo;
       final sdkInt = androidInfo.version.sdkInt;
 
-      Permission targetPermission;
-
       debugPrint('Android SDK version: $sdkInt');
 
-      // Android 13+ (API 33+) uses different permissions
+      Permission targetPermission;
+
+      // Android 13+ (API 33+) uses granular media permissions
       if (sdkInt >= 33) {
-        // For Android 13+, we need photos permission for media files
+        // For Android 13+, we use scoped storage - no permission needed for app-specific directory
+        // But we'll use storage permission for compatibility
         targetPermission = Permission.photos;
       } else if (sdkInt >= 30) {
-        // For Android 11-12, we need manageExternalStorage or use scoped storage
-        targetPermission = Permission.manageExternalStorage;
+        // For Android 11-12 (API 30-32)
+        // Try storage permission first (for scoped storage)
+        targetPermission = Permission.storage;
       } else {
-        // For older Android versions
+        // For Android 10 and below (API 29-)
         targetPermission = Permission.storage;
       }
 
-      debugPrint('Android SDK version: $targetPermission');
+      debugPrint('Target permission: $targetPermission');
 
       // Check current permission status
       PermissionStatus status = await targetPermission.status;
 
       if (status.isGranted) {
+        debugPrint('Permission already granted');
         return true;
       }
 
-      // Show explanation dialog first
-      bool shouldRequest = await _showPermissionExplanationDialog();
-      if (!shouldRequest) {
+      if (status.isDenied) {
+        // Request permission - this will show system dialog
+        debugPrint('Requesting permission...');
+        status = await targetPermission.request();
+
+        if (status.isGranted) {
+          debugPrint('Permission granted after request');
+          return true;
+        } else if (status.isPermanentlyDenied) {
+          debugPrint('Permission permanently denied');
+          await _showOpenSettingsDialog();
+          return false;
+        } else {
+          debugPrint('Permission denied');
+          TLoaders.warningSnackBar(
+            title: 'Permission Required',
+            message: 'Storage permission is needed to export files.',
+          );
+          return false;
+        }
+      }
+
+      if (status.isPermanentlyDenied) {
+        debugPrint('Permission permanently denied - opening settings');
+        await _showOpenSettingsDialog();
         return false;
       }
 
-      // Request permission
-      status = await targetPermission.request();
-
-      if (status.isGranted) {
-        return true;
-      } else {
-        // 检查是否是第一次拒绝还是已经拒绝过
-        final shouldOpenSettings = await _checkIfShouldOpenSettings(targetPermission);
-        await _showPermissionDeniedDialog(shouldOpenSettings);
-        return false;
+      // For Android 11+, if permission is restricted, we can still use app-specific directory
+      if (sdkInt >= 30 && (status.isRestricted || status.isLimited)) {
+        debugPrint('Permission restricted/limited - using app-specific storage');
+        return true; // We can still use getExternalStorageDirectory()
       }
+
+      return false;
     }
 
     return false;
   }
 
-  /// 检查是否需要引导用户去设置
-  static Future<bool> _checkIfShouldOpenSettings(Permission permission) async {
-    final status = await permission.status;
-
-    // 如果是永久拒绝或者已经拒绝过多次，引导去设置
-    if (status.isPermanentlyDenied) {
-      return true;
-    }
-
-    // 如果已经拒绝过一次，就引导去设置
-    return status.isDenied && await _hasBeenDeniedBefore(permission);
-  }
-
-  static Future<bool> _hasBeenDeniedBefore(Permission permission) async {
-    final status = await permission.status;
-    if (status.isDenied) {
-      _denialCount[permission] = (_denialCount[permission] ?? 0) + 1;
-      return _denialCount[permission]! > 1; // 如果拒绝超过1次，引导去设置
-    }
-    return false;
-  }
-
-  /// Show permission explanation dialog
-  static Future<bool> _showPermissionExplanationDialog() async {
-    return await Get.dialog<bool>(
-      AlertDialog(
-        title: const Text('Storage Permission Required'),
-        content: const Text(
-          'This app needs storage permission to save exported files to your device. '
-              'The files will be saved to your Downloads folder and you can share them with other apps.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(result: false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Get.back(result: true),
-            style: ElevatedButton.styleFrom(
-                padding: EdgeInsets.symmetric(horizontal: 10)),
-            child: const Text('Grant Permission', style: TextStyle(
-                fontSize: 12
-            ),),
-          ),
-        ],
-      ),
-    ) ??
-        false;
-  }
-
-  /// Show permission denied dialog
-  static Future<void> _showPermissionDeniedDialog(
-      bool shouldOpenSettings) async {
+  /// Show dialog to guide user to open app settings
+  static Future<void> _showOpenSettingsDialog() async {
     await Get.dialog(
       AlertDialog(
         title: const Text('Permission Required'),
-        content: Text(
-          shouldOpenSettings
-              ? 'Storage permission has been permanently denied. Please go to app settings to enable it manually.'
-              : 'Storage permission is required to export files. Please try again and grant the permission.',
+        content: const Text(
+          'Storage permission has been denied. Please enable it in app settings to export files.',
         ),
         actions: [
           TextButton(
             onPressed: () => Get.back(),
-            child: const Text('OK'),
+            child: const Text('Cancel'),
           ),
-          if (shouldOpenSettings)
-            ElevatedButton(
-              onPressed: () {
-                Get.back();
-                // 添加延迟确保对话框完全关闭
-                Future.delayed(const Duration(milliseconds: 300), () {
-                  openAppSettings();
-                });
-              },
-              style: ElevatedButton.styleFrom(
-                  padding: EdgeInsets.symmetric(horizontal: 10)),
-              child: const Text(
-                'Open Settings',
-                style: TextStyle(fontSize: 12),
-              ),
+          ElevatedButton(
+            onPressed: () {
+              Get.back();
+              // Add delay to ensure dialog is fully closed
+              Future.delayed(const Duration(milliseconds: 300), () {
+                openAppSettings();
+              });
+            },
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
             ),
+            child: const Text(
+              'Open Settings',
+              style: TextStyle(fontSize: 12),
+            ),
+          ),
         ],
       ),
       barrierDismissible: false,
@@ -247,10 +212,10 @@ class ExportHelper {
       // Create PDF document
       final pdf = pw.Document();
 
-      // 生成表格页面
+      // Generate table pages
       final tablePages = _buildDataTablePages(exportData.data);
 
-      // 第一页（包含标题、图表和第一页表格）
+      // First page (includes title, chart, and first page of table)
       pdf.addPage(
         pw.Page(
           pageFormat: PdfPageFormat.a4,
@@ -307,13 +272,13 @@ class ExportHelper {
                 ),
                 pw.SizedBox(height: 10),
 
-                // 显示第一页表格或无数据信息
+                // Display first page of table or no data message
                 if (exportData.data.isNotEmpty)
                   tablePages.first
                 else
                   pw.Text('No data available'),
 
-                // 如果有多页，显示继续提示
+                // If there are multiple pages, show continuation indicator
                 if (tablePages.length > 1) ...[
                   pw.SizedBox(height: 10),
                   pw.Text(
@@ -335,7 +300,7 @@ class ExportHelper {
         ),
       );
 
-      // 添加额外的页面用于显示剩余的表格数据
+      // Add additional pages for remaining table data
       for (int i = 1; i < tablePages.length; i++) {
         pdf.addPage(
           pw.Page(
@@ -410,7 +375,7 @@ class ExportHelper {
     }
   }
 
-  /// Build data table for PDF - 支持多页显示
+  /// Build data table for PDF - supports multiple pages
   static List<pw.Widget> _buildDataTablePages(List<Map<String, dynamic>> data) {
     if (data.isEmpty) {
       debugPrint('PDF Table: No data available');
@@ -420,13 +385,13 @@ class ExportHelper {
     // Get headers from first data entry
     final headers = data.first.keys.toList();
 
-    // 在PDF表格生成前添加调试信息
+    // Add debug info before generating PDF table
     debugPrint("📊 PDF TABLE DEBUG - Headers: $headers");
     if (data.isNotEmpty) {
       debugPrint("📊 PDF TABLE DEBUG - First row: ${data.first}");
     }
 
-    // 每页显示的行数
+    // Rows per page
     const rowsPerPage = 25;
     final totalPages = (data.length / rowsPerPage).ceil();
     final List<pw.Widget> pages = [];
@@ -438,11 +403,11 @@ class ExportHelper {
           : data.length;
       final pageData = data.sublist(startIndex, endIndex);
 
-      // 动态计算列宽
+      // Dynamically calculate column widths
       final columnWidths = <int, pw.FlexColumnWidth>{};
       for (int i = 0; i < headers.length; i++) {
         if (i == 0) {
-          columnWidths[i] = const pw.FlexColumnWidth(1.5); // 日期时间列宽一些
+          columnWidths[i] = const pw.FlexColumnWidth(1.5); // Date/time column wider
         } else {
           columnWidths[i] = const pw.FlexColumnWidth(1);
         }
@@ -512,7 +477,7 @@ class ExportHelper {
       return buffer.toString();
     }
 
-    // 在CSV生成前添加调试信息
+    // Add debug info before CSV generation
     debugPrint("📊 CSV DEBUG - Headers: ${exportData.data.first.keys.toList()}");
     if (exportData.data.isNotEmpty) {
       debugPrint("📊 CSV DEBUG - First row: ${exportData.data.first}");
@@ -546,14 +511,17 @@ class ExportHelper {
     Directory? directory;
 
     if (Platform.isAndroid) {
-      // Try to get external storage directory first
-      try {
-        directory = Directory('/storage/emulated/0/Download');
-        if (!await directory.exists()) {
-          directory = await getExternalStorageDirectory();
+      // Use app-specific external storage directory (doesn't require permission on Android 10+)
+      directory = await getExternalStorageDirectory();
+
+      if (directory != null) {
+        // Create a more accessible path within app's external storage
+        // This will be something like: /storage/emulated/0/Android/data/your.package/files/
+        final appDir = Directory('${directory.path}/Exports');
+        if (!await appDir.exists()) {
+          await appDir.create(recursive: true);
         }
-      } catch (e) {
-        directory = await getExternalStorageDirectory();
+        directory = appDir;
       }
     } else {
       directory = await getApplicationDocumentsDirectory();
@@ -568,12 +536,14 @@ class ExportHelper {
 
     await file.writeAsBytes(await pdf.save());
 
+    debugPrint('PDF saved to: ${file.path}');
+
     TLoaders.successSnackBar(
       title: 'PDF Exported',
-      message: 'File saved to: ${file.path}',
+      message: 'File saved successfully',
     );
 
-    // Share file
+    // Share file - this is the best way to let users save it to Downloads or other locations
     await Share.shareXFiles([XFile(file.path)], text: 'Health Data Export');
   }
 
@@ -582,14 +552,15 @@ class ExportHelper {
     Directory? directory;
 
     if (Platform.isAndroid) {
-      // Try to get external storage directory first
-      try {
-        directory = Directory('/storage/emulated/0/Download');
-        if (!await directory.exists()) {
-          directory = await getExternalStorageDirectory();
+      // Use app-specific external storage directory
+      directory = await getExternalStorageDirectory();
+
+      if (directory != null) {
+        final appDir = Directory('${directory.path}/Exports');
+        if (!await appDir.exists()) {
+          await appDir.create(recursive: true);
         }
-      } catch (e) {
-        directory = await getExternalStorageDirectory();
+        directory = appDir;
       }
     } else {
       directory = await getApplicationDocumentsDirectory();
@@ -604,9 +575,11 @@ class ExportHelper {
 
     await file.writeAsString(content);
 
+    debugPrint('CSV saved to: ${file.path}');
+
     TLoaders.successSnackBar(
       title: 'CSV Exported',
-      message: 'File saved to: ${file.path}',
+      message: 'File saved successfully',
     );
 
     // Share file
@@ -684,7 +657,7 @@ class ExportHelper {
             }
                 : null,
             style: ElevatedButton.styleFrom(
-                padding: EdgeInsets.symmetric(horizontal: 10)),
+                padding: const EdgeInsets.symmetric(horizontal: 10)),
             child: const Text(
               'Export CSV',
               style: TextStyle(fontSize: 12),
@@ -701,7 +674,7 @@ class ExportHelper {
             }
                 : null,
             style: ElevatedButton.styleFrom(
-                padding: EdgeInsets.symmetric(horizontal: 10)),
+                padding: const EdgeInsets.symmetric(horizontal: 10)),
             child: const Text(
               'Export PDF',
               style: TextStyle(fontSize: 12),
@@ -718,7 +691,7 @@ class ExportHelper {
   }) async {
     try {
       // Check if user has necessary permissions
-      final hasPermission = await _requestStoragePermissionWithDialog();
+      final hasPermission = await _requestStoragePermission();
       if (!hasPermission) {
         return;
       }
@@ -1019,13 +992,14 @@ class ExportHelper {
     Directory? directory;
 
     if (Platform.isAndroid) {
-      try {
-        directory = Directory('/storage/emulated/0/Download');
-        if (!await directory.exists()) {
-          directory = await getExternalStorageDirectory();
+      directory = await getExternalStorageDirectory();
+
+      if (directory != null) {
+        final appDir = Directory('${directory.path}/Receipts');
+        if (!await appDir.exists()) {
+          await appDir.create(recursive: true);
         }
-      } catch (e) {
-        directory = await getExternalStorageDirectory();
+        directory = appDir;
       }
     } else {
       directory = await getApplicationDocumentsDirectory();
@@ -1040,9 +1014,11 @@ class ExportHelper {
 
     await file.writeAsBytes(await pdf.save());
 
+    debugPrint('Receipt saved to: ${file.path}');
+
     TLoaders.successSnackBar(
       title: 'Receipt Downloaded',
-      message: 'Receipt saved to: ${file.path}',
+      message: 'Receipt saved successfully',
     );
 
     // Share file

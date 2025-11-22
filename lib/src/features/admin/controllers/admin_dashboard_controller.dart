@@ -1,4 +1,6 @@
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:icons_plus/icons_plus.dart';
 
 import '../../../data/repositories/authentication/authentication_repository.dart';
 
@@ -30,7 +32,8 @@ class AdminDashboardController extends GetxController {
         'icon': 'dashboard',
         'title': 'Dashboard',
         'index': 0,
-        'roles': ['admin', 'user manager', 'community manager', 'achievement manager']
+        'type': 'menu',
+        'roles': ['admin', 'user manager', 'community manager', 'achievement manager', 'reward manager']
       },
     ];
 
@@ -38,33 +41,42 @@ class AdminDashboardController extends GetxController {
     switch (role) {
       case 'admin':
         items.addAll([
-          {'icon': 'user_management', 'title': 'User Management', 'index': 1, 'roles': ['admin']},
-          {'icon': 'manager_management', 'title': 'Manager Management', 'index': 2, 'roles': ['admin']},
-          {'icon': 'community', 'title': 'Community Management', 'index': 3, 'roles': ['admin']},
-          {'icon': 'achievement', 'title': 'Achievement Management', 'index': 4, 'roles': ['admin']},
-          {'icon': 'analytics', 'title': 'Analytics', 'index': 5, 'roles': ['admin']},
-          {'icon': 'settings', 'title': 'Settings', 'index': 6, 'roles': ['admin']},
+          {'icon': 'user_management', 'title': 'User Management', 'index': 1, 'type': 'menu', 'roles': ['admin']},
+          {'icon': 'manager_management', 'title': 'Manager Management', 'index': 2, 'type': 'menu', 'roles': ['admin']},
+          {'icon': 'community', 'title': 'Community Management', 'index': 3, 'type': 'menu', 'roles': ['admin']},
+          {'icon': 'achievement', 'title': 'Achievement Management', 'index': 4, 'type': 'menu', 'roles': ['admin']},
+          {'icon': 'reward', 'title': 'Reward Management', 'index': 5, 'type': 'menu', 'roles': ['admin']},
+          {'icon': 'analytics', 'title': 'Analytics', 'index': 6, 'type': 'expandable', 'roles': ['admin']},
+          {'icon': 'profile', 'title': 'Profile', 'index': 7, 'type': 'menu', 'roles': ['admin']},
         ]);
         break;
 
       case 'user manager':
         items.addAll([
-          {'icon': 'user_management', 'title': 'User Management', 'index': 1, 'roles': ['user manager']},
-          {'icon': 'analytics', 'title': 'User Analytics', 'index': 5, 'roles': ['user manager']},
+          {'icon': 'user_management', 'title': 'User Management', 'index': 1, 'type': 'menu', 'roles': ['user manager']},
+          {'icon': 'analytics', 'title': 'Analytics', 'index': 6, 'type': 'expandable', 'roles': ['user manager']},
+          {'icon': 'profile', 'title': 'Profile', 'index': 7, 'type': 'menu', 'roles': ['user manager']},
         ]);
         break;
 
       case 'community manager':
         items.addAll([
-          {'icon': 'community', 'title': 'Community Management', 'index': 3, 'roles': ['community manager']},
-          {'icon': 'analytics', 'title': 'Community Analytics', 'index': 5, 'roles': ['community manager']},
+          {'icon': 'community', 'title': 'Community Management', 'index': 3, 'type': 'menu', 'roles': ['community manager']},
+          {'icon': 'profile', 'title': 'Profile', 'index': 7, 'type': 'menu', 'roles': ['community manager']},
         ]);
         break;
 
       case 'achievement manager':
         items.addAll([
-          {'icon': 'achievement', 'title': 'Achievement Management', 'index': 4, 'roles': ['achievement manager']},
-          {'icon': 'analytics', 'title': 'Achievement Analytics', 'index': 5, 'roles': ['achievement manager']},
+          {'icon': 'achievement', 'title': 'Achievement Management', 'index': 4, 'type': 'menu', 'roles': ['achievement manager']},
+          {'icon': 'profile', 'title': 'Profile', 'index': 7, 'type': 'menu', 'roles': ['achievement manager']},
+        ]);
+        break;
+
+      case 'reward manager':
+        items.addAll([
+          {'icon': 'reward', 'title': 'Reward Management', 'index': 5, 'type': 'menu', 'roles': ['reward manager']},
+          {'icon': 'profile', 'title': 'Profile', 'index': 7, 'type': 'menu', 'roles': ['reward manager']},
         ]);
         break;
     }
@@ -74,6 +86,29 @@ class AdminDashboardController extends GetxController {
       final roles = item['roles'] as List<String>;
       return roles.contains(role);
     }).toList();
+  }
+
+  /// Convert icon string to IconData
+  IconData getIconData(String iconName) {
+    switch (iconName) {
+      case 'dashboard':
+        return Iconsax.element_3_bold;
+      case 'user_management':
+      case 'manager_management':
+        return Iconsax.people_bold;
+      case 'community':
+        return Iconsax.messages_3_bold;
+      case 'achievement':
+        return Iconsax.award_bold;
+      case 'reward':
+        return Iconsax.gift_bold;
+      case 'analytics':
+        return Iconsax.chart_bold;
+      case 'profile':
+        return Iconsax.user_bold;
+      default:
+        return Iconsax.element_3_bold;
+    }
   }
 
   /// Toggle sidebar expansion
@@ -96,22 +131,23 @@ class AdminDashboardController extends GetxController {
   /// Select menu item with enhanced logic for analytics submenu
   void selectMenuItem(int index) {
     // Handle main menu items
-    if (index < 50) {
+    if (index < 60) {
       selectedIndex.value = index;
 
       // If selecting Analytics main item, toggle submenu
-      if (index == 5 && sidebarExpanded.value) {
+      if (index == 6 && sidebarExpanded.value) {
         toggleAnalyticsMenu();
         return;
       }
 
       // Close analytics submenu when selecting other items
-      if (index != 5) {
+      if (index != 6) {
         analyticsExpanded.value = false;
       }
     }
-    // Handle analytics submenu items (50-59)
-    else if (index >= 50 && index < 60) {
+
+    // Handle analytics submenu items (60-69)
+    else if (index >= 60 && index < 70) {
       selectedIndex.value = index;
 
       // Ensure analytics menu is expanded when selecting submenu
@@ -137,14 +173,16 @@ class AdminDashboardController extends GetxController {
       case 4:
         return 'Achievement Management';
       case 5:
-        return 'Analytics';
-      case 51:
-        return 'Transaction Reports';
-      case 52:
-        return 'User Analytics';
-      case 53:
-        return 'Performance Reports';
+        return 'Reward Management';
       case 6:
+        return 'Analytics';
+      case 61:
+        return 'Transaction Reports';
+      case 62:
+        return 'User Analytics';
+      case 63:
+        return 'Performance Reports';
+      case 7:
         return 'Profile';
       default:
         return 'Dashboard';
@@ -154,11 +192,11 @@ class AdminDashboardController extends GetxController {
   /// Check if analytics submenu should be shown for specific roles
   bool shouldShowAnalyticsSubmenu(int subIndex) {
     switch (subIndex) {
-      case 41: // Transaction Reports
+      case 61: // Transaction Reports
         return isAdmin; // Only admin can see transaction reports
-      case 42: // User Analytics
+      case 62: // User Analytics
         return isAdmin || isUserManager;
-      case 43: // Performance Reports
+      case 63: // Performance Reports
         return isAdmin;
       default:
         return false;
@@ -171,16 +209,16 @@ class AdminDashboardController extends GetxController {
 
     if (isAdmin) {
       subItems.addAll([
-        {'icon': 'receipt_text', 'title': 'Transaction Reports', 'index': 41},
-        {'icon': 'people', 'title': 'User Analytics', 'index': 42},
-        {'icon': 'trend_up', 'title': 'Performance Reports', 'index': 43},
+        {'icon': 'receipt_text', 'title': 'Transaction Reports', 'index': 61},
+        {'icon': 'people', 'title': 'User Analytics', 'index': 62},
+        {'icon': 'trend_up', 'title': 'Performance Reports', 'index': 63},
       ]);
     } else if (isUserManager) {
-      subItems.add({'icon': 'people', 'title': 'User Analytics', 'index': 42});
+      subItems.add({'icon': 'people', 'title': 'User Analytics', 'index': 62});
     } else if (isCommunityManager) {
-      subItems.add({'icon': 'messages_3', 'title': 'Community Analytics', 'index': 42});
+      subItems.add({'icon': 'messages_3', 'title': 'Community Analytics', 'index': 62});
     } else if (isAchievementManager) {
-      subItems.add({'icon': 'award', 'title': 'Achievement Analytics', 'index': 42});
+      subItems.add({'icon': 'award', 'title': 'Achievement Analytics', 'index': 62});
     }
 
     return subItems;
@@ -193,6 +231,7 @@ class AdminDashboardController extends GetxController {
   bool get isUserManager => userRole.value == 'user manager';
   bool get isCommunityManager => userRole.value == 'community manager';
   bool get isAchievementManager => userRole.value == 'achievement manager';
+  bool get isRewardManager => userRole.value == 'reward manager';
 
   bool canAccessUserManagement() {
     return isAdmin || isUserManager;
@@ -204,6 +243,10 @@ class AdminDashboardController extends GetxController {
 
   bool canAccessAchievementManagement() {
     return isAdmin || isAchievementManager;
+  }
+
+  bool canAccessRewardManagement() {
+    return isAdmin || isRewardManager;
   }
 
   bool canAccessSettings() {

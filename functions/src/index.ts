@@ -18,6 +18,7 @@ import * as reminder from "./reminder/reminder";
 import * as reminderNotification from "./reminder/reminder_notification";
 import * as user from "./user/weight_sync";
 import * as emailFunctions from "./user/send_email";
+import * as manager from "./user/create_manager";
 import {analyzeMealPhotos} from "./fatsecret/meal_analysis";
 
 // 导出 authentication 函数
@@ -64,6 +65,10 @@ export const {
   sendBatchUserBannedEmails,
   sendBatchUserRestoredEmails
 } = emailFunctions;
+
+export const {
+  createManager
+} = manager
 
 export { analyzeMealPhotos };
 

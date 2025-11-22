@@ -6,6 +6,8 @@ import 'base_account_model.dart';
 class UserModel extends BaseAccountModel {
   int totalScore;
   int lastScoreUpdateTime;
+  int rewardPoints;
+  String? currentAvatarFrame;
   final UserProfileModel profile;
 
   UserModel({
@@ -19,8 +21,11 @@ class UserModel extends BaseAccountModel {
     required super.isVerify,
     required super.accountAvailable,
     super.isDeleted,
+    super.lastActive,
     this.totalScore = 0,
     this.lastScoreUpdateTime = 0,
+    this.rewardPoints = 0,
+    this.currentAvatarFrame,
     UserProfileModel? profile,
   }) : profile = profile ?? UserProfileModel.empty();
 
@@ -37,8 +42,11 @@ class UserModel extends BaseAccountModel {
       isVerify: false,
       accountAvailable: true,
       isDeleted: false,
+      lastActive: 0,
       totalScore: 0,
       lastScoreUpdateTime: 0,
+      rewardPoints: 0,
+      currentAvatarFrame: null,
       profile: UserProfileModel.empty(),
     );
   }
@@ -55,8 +63,11 @@ class UserModel extends BaseAccountModel {
     bool? isVerify,
     bool? accountAvailable,
     bool? isDeleted,
+    int? lastActive,
     int? totalScore,
     int? lastScoreUpdateTime,
+    int? rewardPoints,
+    String? currentAvatarFrame,
     UserProfileModel? profile,
   }) {
     return UserModel(
@@ -70,8 +81,11 @@ class UserModel extends BaseAccountModel {
       isVerify: isVerify ?? this.isVerify,
       accountAvailable: accountAvailable ?? this.accountAvailable,
       isDeleted: isDeleted ?? this.isDeleted,
+      lastActive: lastActive ?? this.lastActive,
       totalScore: totalScore ?? this.totalScore,
       lastScoreUpdateTime: lastScoreUpdateTime ?? this.lastScoreUpdateTime,
+      rewardPoints: rewardPoints ?? this.rewardPoints,
+      currentAvatarFrame: currentAvatarFrame ?? this.currentAvatarFrame,
       profile: profile ?? this.profile,
     );
   }
@@ -102,8 +116,11 @@ class UserModel extends BaseAccountModel {
       isVerify: data[FirebaseFieldNames.isVerify] ?? false,
       accountAvailable: data[FirebaseFieldNames.accountAvailable] ?? true,
       isDeleted: data[FirebaseFieldNames.isDeleted] ?? false,
+      lastActive: data[FirebaseFieldNames.lastActive] ?? 0,
       totalScore: data[FirebaseFieldNames.totalScore] ?? 0,
       lastScoreUpdateTime: data[FirebaseFieldNames.lastScoreUpdateTime] ?? 0,
+      rewardPoints: data[FirebaseFieldNames.rewardPoints] ?? 0,
+      currentAvatarFrame: data[FirebaseFieldNames.currentAvatarFrame],
       profile: profile,
     );
   }
@@ -114,6 +131,8 @@ class UserModel extends BaseAccountModel {
     map.addAll({
       FirebaseFieldNames.totalScore: totalScore,
       FirebaseFieldNames.lastScoreUpdateTime: lastScoreUpdateTime,
+      FirebaseFieldNames.rewardPoints: rewardPoints,
+      FirebaseFieldNames.currentAvatarFrame: currentAvatarFrame,
       FirebaseFieldNames.profile: profile.toJson(),
     });
     return map;

@@ -471,7 +471,7 @@ class AchievementManagementScreen extends StatelessWidget {
       children: [
         // View Details Button
         IconButton(
-          onPressed: () => _showAchievementDetailDialog(achievement, controller),
+          onPressed: () => controller.openViewAchievementDetailDialog(achievement),
           icon: const Icon(Iconsax.eye_bold, size: 16),
           tooltip: 'View Details',
           style: IconButton.styleFrom(
@@ -540,17 +540,5 @@ class AchievementManagementScreen extends StatelessWidget {
         ],
       ],
     );
-  }
-
-  void _showAchievementDetailDialog(AchievementModel achievement, AchievementManagementController controller) {
-    Get.dialog(AchievementDetailDialog(
-      achievement: achievement,
-      controller: controller,
-    ));
-  }
-
-  void _showCompletionDetails(AchievementModel achievement, AchievementManagementController controller) {
-    // TODO: Show completion details dialog
-    controller.showCompletionBreakdown(achievement);
   }
 }

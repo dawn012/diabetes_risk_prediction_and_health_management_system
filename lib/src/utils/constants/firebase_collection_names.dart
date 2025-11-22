@@ -10,6 +10,8 @@ class FirebaseCollectionNames {
   static const String achievements = 'achievements';
   static const String userAchievements = 'userAchievements';
   static const String leaderboard = 'leaderboard';
+  static const String rewards = 'rewards';
+  static const String userRewards = 'userRewards';
   static const String subscriptionPlans = 'subscriptionPlans';
   static const String userSubscriptions = 'userSubscriptions';
   static const String payments = 'payments';

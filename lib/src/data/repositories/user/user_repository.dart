@@ -355,6 +355,29 @@ class UserRepository extends GetxController {
     }
   }
 
+  /// Get only regular users (userType = 'user')
+  Future<List<UserModel>> getRegularUsers() async {
+    try {
+      final documentSnapshot = await _db
+          .collection(FirebaseCollectionNames.users)
+          .where(FirebaseFieldNames.userType, isEqualTo: 'user')
+          .get();
+
+      final list = documentSnapshot.docs
+          .map((document) => UserModel.fromSnapshot(document))
+          .toList();
+      return list;
+    } on FirebaseException catch (e) {
+      throw TFirebaseException(e.code).message;
+    } on FormatException catch (_) {
+      throw const TFormatException();
+    } on PlatformException catch (e) {
+      throw TPlatformException(e.code).message;
+    } catch (e) {
+      throw TTexts.commonErrorMessage;
+    }
+  }
+
   /// Get users by status (active/banned)
   Future<List<UserModel>> getUsersByStatus(bool isActive) async {
     try {

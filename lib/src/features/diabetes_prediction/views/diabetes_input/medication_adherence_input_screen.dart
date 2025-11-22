@@ -227,6 +227,7 @@ class MedicationAdherenceInputScreen extends StatelessWidget {
                               Colors.blue,
                             ],
                             darkMode: darkMode,
+                            useWrap: true,
                           ),
                         ],
                       ),
@@ -235,51 +236,51 @@ class MedicationAdherenceInputScreen extends StatelessWidget {
                     const SizedBox(height: 32),
 
                     // Reasons for Missing Medication (if adherence < 100%)
-                    Obx(() {
-                      if (controller.adherencePercentage.value < 100) {
-                        return InputContainer(
-                          darkMode: darkMode,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Common reasons for missing medication',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w600,
-                                  color: darkMode ? TColors.white : TColors.black,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Select what applies to you (optional)',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: darkMode ? TColors.darkGrey : TColors.darkerGrey,
-                                ),
-                              ),
-
-                              const SizedBox(height: 20),
-
-                              // Reason chips
-                              Wrap(
-                                spacing: 12,
-                                runSpacing: 12,
-                                children: [
-                                  _buildReasonChip('Forgetfulness', Icons.psychology, controller, darkMode),
-                                  _buildReasonChip('Side effects', Icons.warning, controller, darkMode),
-                                  _buildReasonChip('Cost concerns', Icons.attach_money, controller, darkMode),
-                                  _buildReasonChip('Busy schedule', Icons.schedule, controller, darkMode),
-                                  _buildReasonChip('Feeling better', Icons.sentiment_satisfied, controller, darkMode),
-                                  _buildReasonChip('Complex regimen', Icons.blur_on, controller, darkMode),
-                                ],
-                              ),
-                            ],
-                          ),
-                        );
-                      }
-                      return const SizedBox.shrink();
-                    }),
+                    // Obx(() {
+                    //   if (controller.adherencePercentage.value < 100) {
+                    //     return InputContainer(
+                    //       darkMode: darkMode,
+                    //       child: Column(
+                    //         crossAxisAlignment: CrossAxisAlignment.start,
+                    //         children: [
+                    //           Text(
+                    //             'Common reasons for missing medication',
+                    //             style: TextStyle(
+                    //               fontSize: 18,
+                    //               fontWeight: FontWeight.w600,
+                    //               color: darkMode ? TColors.white : TColors.black,
+                    //             ),
+                    //           ),
+                    //           const SizedBox(height: 8),
+                    //           Text(
+                    //             'Select what applies to you (optional)',
+                    //             style: TextStyle(
+                    //               fontSize: 14,
+                    //               color: darkMode ? TColors.darkGrey : TColors.darkerGrey,
+                    //             ),
+                    //           ),
+                    //
+                    //           const SizedBox(height: 20),
+                    //
+                    //           // Reason chips
+                    //           Wrap(
+                    //             spacing: 12,
+                    //             runSpacing: 12,
+                    //             children: [
+                    //               _buildReasonChip('Forgetfulness', Icons.psychology, controller, darkMode),
+                    //               _buildReasonChip('Side effects', Icons.warning, controller, darkMode),
+                    //               _buildReasonChip('Cost concerns', Icons.attach_money, controller, darkMode),
+                    //               _buildReasonChip('Busy schedule', Icons.schedule, controller, darkMode),
+                    //               _buildReasonChip('Feeling better', Icons.sentiment_satisfied, controller, darkMode),
+                    //               _buildReasonChip('Complex regimen', Icons.blur_on, controller, darkMode),
+                    //             ],
+                    //           ),
+                    //         ],
+                    //       ),
+                    //     );
+                    //   }
+                    //   return const SizedBox.shrink();
+                    // }),
                   ],
                 );
               }

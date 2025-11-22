@@ -105,7 +105,7 @@ class MediaPicker {
               subtitle: option.subtitle,
               onTap: () => Get.back(result: option),
             )),
-            const SizedBox(height: 10),
+            // const SizedBox(height: 30),
           ],
         ),
       ),

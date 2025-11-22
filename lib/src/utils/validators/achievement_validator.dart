@@ -11,10 +11,10 @@ class AchievementValidator {
       return 'Please enter the achievement title.';
     }
     if (value.trim().length < 3) {
-      return 'Title must be at least 3 characters';
+      return 'Title must be at least 3 characters.';
     }
     if (value.trim().length > 100) {
-      return 'Title must not exceed 100 characters';
+      return 'Title must not exceed 100 characters.';
     }
     return null;
   }
@@ -25,10 +25,10 @@ class AchievementValidator {
       return 'Please enter the achievement description.';
     }
     if (value.trim().length < 10) {
-      return 'Description must be at least 10 characters';
+      return 'Description must be at least 10 characters.';
     }
     if (value.trim().length > 500) {
-      return 'Description must not exceed 500 characters';
+      return 'Description must not exceed 500 characters.';
     }
     return null;
   }
@@ -44,10 +44,10 @@ class AchievementValidator {
   /// Validate achievement levels list
   static String? validateLevels(List<dynamic>? levels) {
     if (levels == null || levels.isEmpty) {
-      return 'Achievement must have at least one level';
+      return 'Achievement must have at least one level.';
     }
     if (levels.length > 3) {
-      return 'Achievement cannot have more than 3 levels (Bronze, Silver, Gold)';
+      return 'Achievement cannot have more than 3 levels (Bronze, Silver, Gold).';
     }
     return null;
   }
@@ -68,10 +68,10 @@ class AchievementValidator {
       return 'Please enter the criteria value.';
     }
     if (criteria < 1) {
-      return 'Criteria must be at least 1';
+      return 'Criteria must be at least 1.';
     }
     if (criteria > 1000000) {
-      return 'Criteria cannot exceed 1,000,000';
+      return 'Criteria cannot exceed 1,000,000.';
     }
     return null;
   }
@@ -82,7 +82,7 @@ class AchievementValidator {
       return 'Please enter the criteria unit.';
     }
     if (unit.trim().length > 50) {
-      return 'Unit must not exceed 50 characters';
+      return 'Unit must not exceed 50 characters.';
     }
     return null;
   }
@@ -93,10 +93,10 @@ class AchievementValidator {
       return 'Please enter the points value.';
     }
     if (points < 0) {
-      return 'Points cannot be negative';
+      return 'Points cannot be negative.';
     }
     if (points > 100000) {
-      return 'Points cannot exceed 100,000';
+      return 'Points cannot exceed 100,000.';
     }
     return null;
   }
@@ -110,11 +110,11 @@ class AchievementValidator {
       final nextCriteria = levels[i + 1]['criteria'] as int?;
 
       if (currentCriteria == null || nextCriteria == null) {
-        return 'All levels must have valid criteria values';
+        return 'All levels must have valid criteria values.';
       }
 
       if (currentCriteria >= nextCriteria) {
-        return 'Each level must require more than the previous level';
+        return 'Each level must require more than the previous level.';
       }
     }
     return null;
@@ -127,7 +127,7 @@ class AchievementValidator {
       for (final level in levels) {
         final points = level['points'] as int?;
         if (points != null && points != 0) {
-          return 'Permanent achievements must have 0 points for all levels';
+          return 'Permanent achievements must have 0 points for all levels.';
         }
       }
     }
@@ -139,7 +139,7 @@ class AchievementValidator {
   /// Validate user achievement ID
   static String? validateUserAchievementId(String? id) {
     if (id == null || id.trim().isEmpty) {
-      return 'User achievement ID is required';
+      return 'User achievement ID is required.';
     }
     return null;
   }
@@ -147,7 +147,7 @@ class AchievementValidator {
   /// Validate achievement ID reference
   static String? validateAchievementId(String? id) {
     if (id == null || id.trim().isEmpty) {
-      return 'Achievement ID is required';
+      return 'Achievement ID is required.';
     }
     return null;
   }
@@ -155,7 +155,7 @@ class AchievementValidator {
   /// Validate current level
   static String? validateCurrentLevel(UserAchievementLevel? level) {
     if (level == null) {
-      return 'Current level is required';
+      return 'Current level is required.';
     }
     return null;
   }
@@ -163,10 +163,10 @@ class AchievementValidator {
   /// Validate current count
   static String? validateCurrentCount(int? count) {
     if (count == null) {
-      return 'Current count is required';
+      return 'Current count is required.';
     }
     if (count < 0) {
-      return 'Current count cannot be negative';
+      return 'Current count cannot be negative.';
     }
     return null;
   }
@@ -174,7 +174,7 @@ class AchievementValidator {
   /// Validate achievement status
   static String? validateStatus(AchievementStatus? status) {
     if (status == null) {
-      return 'Status is required';
+      return 'Status is required.';
     }
     return null;
   }
@@ -182,11 +182,11 @@ class AchievementValidator {
   /// Validate started date
   static String? validateStartedAt(DateTime? date) {
     if (date == null) {
-      return 'Started date is required';
+      return 'Started date is required.';
     }
     final now = DateTime.now();
     if (date.isAfter(now)) {
-      return 'Started date cannot be in the future';
+      return 'Started date cannot be in the future.';
     }
     return null;
   }
@@ -196,14 +196,14 @@ class AchievementValidator {
       DateTime? completedAt, DateTime? startedAt, AchievementStatus? status) {
     if (status == AchievementStatus.completed) {
       if (completedAt == null) {
-        return 'Completed date is required for completed achievements';
+        return 'Completed date is required for completed achievements.';
       }
       if (startedAt != null && completedAt.isBefore(startedAt)) {
-        return 'Completed date must be after started date';
+        return 'Completed date must be after started date.';
       }
       final now = DateTime.now();
       if (completedAt.isAfter(now)) {
-        return 'Completed date cannot be in the future';
+        return 'Completed date cannot be in the future.';
       }
     }
     return null;
@@ -218,7 +218,7 @@ class AchievementValidator {
       if (achievementLevels.isNotEmpty) {
         final firstLevelCriteria = achievementLevels[0]['criteria'] as int?;
         if (firstLevelCriteria != null && currentCount >= firstLevelCriteria) {
-          return 'Count meets criteria but level is still "none"';
+          return 'Count meets criteria but level is still "none".';
         }
       }
       return null;
@@ -231,12 +231,12 @@ class AchievementValidator {
     );
 
     if (matchingLevel == null) {
-      return 'Current level does not exist in achievement levels';
+      return 'Current level does not exist in achievement levels.';
     }
 
     final criteria = matchingLevel['criteria'] as int?;
     if (criteria != null && currentCount < criteria) {
-      return 'Count is less than required criteria for current level';
+      return 'Count is less than required criteria for current level.';
     }
 
     return null;

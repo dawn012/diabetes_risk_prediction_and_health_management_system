@@ -88,6 +88,11 @@ class TFormatter {
     return DateFormat('dd MMM yyyy HH:mm').format(date);
   }
 
+  static String formatHistoryDateTime(DateTime? date) {
+    date ??= DateTime.now();
+    return DateFormat('MMM dd, yyyy hh:mm a').format(date);
+  }
+
   static String formatFullDate(DateTime date) {
     final months = [
       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',

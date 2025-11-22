@@ -36,6 +36,7 @@ class DeepLinkService extends GetxService {
 
   /// Initialize Deep Link listener
   void _initializeDeepLinkListener() {
+    print('🔗 Deep link listener started');
     _linkSubscription = _appLinks.uriLinkStream.listen(
           (Uri? uri) {
         if (uri != null) {
@@ -97,6 +98,8 @@ class DeepLinkService extends GetxService {
   /// Handle HTTPS links (App Links / Universal Links)
   Future<void> _handleHttpsDeepLink(Uri uri) async {
     final pathSegments = uri.pathSegments;
+
+    print("Deep link activated: $pathSegments");
     if (pathSegments.isEmpty) return;
 
     // 处理所有类型的 HTTPS 链接
@@ -304,7 +307,7 @@ class DeepLinkService extends GetxService {
 
   /// Generate post HTTPS link (App Links / Universal Links)
   String generatePostDeepLink(String postId) {
-    return 'https://diatrack.app/community/post/$postId';
+    return 'https://diabetes-health-system.web.app/community/post/$postId';
   }
 
   /// Generate post custom scheme link (fallback)

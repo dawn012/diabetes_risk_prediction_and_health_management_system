@@ -3,7 +3,6 @@ import 'package:get/get.dart';
 import 'package:icons_plus/icons_plus.dart';
 
 import '../../../../utils/constants/colors.dart';
-import '../../../../utils/constants/sizes.dart';
 import '../../../../utils/helpers/helper_functions.dart';
 import '../../controllers/diabetes_assessment_start_controller.dart';
 
@@ -34,13 +33,18 @@ class DiabetesAssessmentStartScreen extends StatelessWidget {
         ],
       ),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView( // 添加滚动
           padding: const EdgeInsets.fromLTRB(24.0, 16.0, 24.0, 24.0),
-          child: Column(
-            children: [
-              // Header
-              Expanded(
-                child: Column(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: MediaQuery.of(context).size.height -
+                  MediaQuery.of(context).padding.top -
+                  kToolbarHeight, // 考虑AppBar和SafeArea高度
+            ),
+            child: Column(
+              children: [
+                // Header
+                Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     // Icon
@@ -128,100 +132,100 @@ class DiabetesAssessmentStartScreen extends StatelessWidget {
                     const SizedBox(height: 16),
                   ],
                 ),
-              ),
 
-              // Buttons
-              Obx(() {
-                if (controller.isLoading.value) {
-                  return Center(child: CircularProgressIndicator());
-                }
+                // Buttons
+                Obx(() {
+                  if (controller.isLoading.value) {
+                    return Center(child: CircularProgressIndicator());
+                  }
 
-                return Column(
-                  children: [
-                    // Continue button (if incomplete)
-                    if (controller.hasIncomplete.value) ...[
-                      SizedBox(
-                        width: double.infinity,
-                        height: 56,
-                        child: ElevatedButton(
-                          onPressed: () => controller.continueAssessment(),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: TColors.primary,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
+                  return Column(
+                    children: [
+                      // Continue button (if incomplete)
+                      if (controller.hasIncomplete.value) ...[
+                        SizedBox(
+                          width: double.infinity,
+                          height: 56,
+                          child: ElevatedButton(
+                            onPressed: () => controller.continueAssessment(),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: TColors.primary,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
                             ),
-                          ),
-                          child: Text(
-                            'Continue Assessment',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: TColors.white,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 56,
-                        child: OutlinedButton(
-                          onPressed: () => controller.startNewAssessment(),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: TColors.primary,
-                            side: BorderSide(color: TColors.primary, width: 2),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                          child: Text(
-                            'Start New',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
+                            child: Text(
+                              'Continue Assessment',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: TColors.white,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ] else ...[
-                      SizedBox(
-                        width: double.infinity,
-                        height: 56,
-                        child: ElevatedButton(
-                          onPressed: () => controller.startAssessment(),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: TColors.primary,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 56,
+                          child: OutlinedButton(
+                            onPressed: () => controller.startNewAssessment(),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: TColors.primary,
+                              side: BorderSide(color: TColors.primary, width: 2),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
                             ),
-                          ),
-                          child: Text(
-                            'Let\'s Start',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: TColors.white,
+                            child: Text(
+                              'Start New',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ),
+                      ] else ...[
+                        SizedBox(
+                          width: double.infinity,
+                          height: 56,
+                          child: ElevatedButton(
+                            onPressed: () => controller.startAssessment(),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: TColors.primary,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            child: Text(
+                              'Let\'s Start',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: TColors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+
+                      const SizedBox(height: 16),
+
+                      // Info text
+                      Text(
+                        'By continuing, you agree that this is not a medical diagnosis',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: darkMode ? TColors.darkGrey : TColors.darkerGrey,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
                     ],
-
-                    const SizedBox(height: 16),
-
-                    // Info text
-                    Text(
-                      'By continuing, you agree that this is not a medical diagnosis',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: darkMode ? TColors.darkGrey : TColors.darkerGrey,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                );
-              }),
-            ],
+                  );
+                }),
+              ],
+            ),
           ),
         ),
       ),

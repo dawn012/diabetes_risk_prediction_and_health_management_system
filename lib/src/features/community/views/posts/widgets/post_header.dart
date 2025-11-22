@@ -3,14 +3,13 @@ import 'package:get/get.dart';
 
 import '../../../../../common/loaders/circular_loader.dart';
 import '../../../../../common/widgets/dialogs/dialog.dart';
-import '../../../../../common/widgets/images/t_circular_image.dart';
 import '../../../../../utils/constants/colors.dart';
-import '../../../../../utils/constants/image_strings.dart';
 import '../../../../../utils/constants/sizes.dart';
 import '../../../../../utils/extensions/date_time_extension.dart';
 import '../../../../../utils/helpers/helper_functions.dart';
 import '../../../../authentication/models/user_model.dart';
 import '../../../../personalization/controllers/user_controller.dart';
+import '../../../../personalization/views/widgets/avatar_with_frame.dart';
 import '../../../controllers/post_controller.dart';
 import '../../../controllers/post_share_utils.dart';
 import '../../../models/post_model.dart';
@@ -56,16 +55,14 @@ class PostHeader extends StatelessWidget {
   Widget _buildHeader(BuildContext context, UserModel user, PostController postController, bool isDark) {
     final currentUserId = UserController.instance.user.value.userId;
     final isOwnPost = currentUserId == post.posterId;
+    final isEdited = post.updatedAt.isAfter(post.createdAt);
 
     return Row(
       children: [
-        TCircularImage(
-          image: user.profileImg.isNotEmpty ? user.profileImg : TImages.user,
-          width: 48,
-          height: 48,
-          padding: 0,
-          backgroundColor: isDark ? TColors.darkGrey : TColors.lightGrey,
-          isNetworkImage: user.profileImg.isNotEmpty,
+        AvatarWithFrame(
+          profileImageUrl: user.profileImg,
+          avatarSize: 40,  // 头像大小
+          frameSize: 50,   // 头像框大小
         ),
         const SizedBox(width: TSizes.md),
         Expanded(
@@ -74,11 +71,16 @@ class PostHeader extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Text(
-                    user.username.isNotEmpty ? user.username : "Anonymous",
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: isDark ? TColors.white : TColors.textPrimary,
-                      fontWeight: FontWeight.w600,
+                  Expanded(
+                    child: Text(
+                      user.username.isNotEmpty ? user.username : "Anonymous",
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: isDark ? TColors.white : TColors.textPrimary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ),
                   const SizedBox(width: TSizes.xs),
@@ -95,7 +97,7 @@ class PostHeader extends StatelessWidget {
                       post.postType.shortLabel,
                       style: TextStyle(
                         color: post.postType.color,
-                        fontSize: 10,
+                        fontSize: 9,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -115,7 +117,7 @@ class PostHeader extends StatelessWidget {
                         'Your Post',
                         style: TextStyle(
                           color: TColors.primary,
-                          fontSize: 10,
+                          fontSize: 9,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -125,8 +127,9 @@ class PostHeader extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                post.createdAt.fromNow(),
+                "${post.updatedAt.fromNow()}${isEdited ? " (edited)" : ""}",
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontSize: 12,
                   color: isDark ? TColors.darkGrey : TColors.textSecondary,
                 ),
               ),
@@ -143,7 +146,6 @@ class PostHeader extends StatelessWidget {
             ),
             tooltip: 'Edit Post',
           ),
-          const SizedBox(width: TSizes.xs),
         ],
         IconButton(
           onPressed: () => _showPostOptions(context, isOwnPost, postController, isDark),
@@ -162,12 +164,11 @@ class PostHeader extends StatelessWidget {
 
     return Row(
       children: [
-        TCircularImage(
-          image: TImages.user,
-          width: 48,
-          height: 48,
-          padding: 0,
-          backgroundColor: isDark ? TColors.darkGrey : TColors.lightGrey,
+        // 错误状态下也使用 AvatarWithFrame
+        AvatarWithFrame(
+          profileImageUrl: '', // 空字符串会显示默认用户图标
+          avatarSize: 40,
+          frameSize: 50,
         ),
         const SizedBox(width: TSizes.md),
         Expanded(

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:intl/intl.dart';
 
 import '../../../../common/widgets/appbar/appbar.dart';
 import '../../../../utils/constants/colors.dart';
@@ -17,6 +16,7 @@ import 'widgets/health_statistics_table.dart';
 import 'widgets/health_distribution_chart.dart';
 import 'widgets/health_trends_chart.dart';
 import 'widgets/period_filter.dart';
+import 'widgets/range_date_picker.dart';
 
 class BloodPressureAnalyticsScreen extends StatelessWidget {
   const BloodPressureAnalyticsScreen({super.key});
@@ -55,10 +55,24 @@ class BloodPressureAnalyticsScreen extends StatelessWidget {
         child: Column(
           children: [
             /// Time Range Selector
-            Obx(() => HealthAnalyticsTimeRangeSelector(
-              selectedTimeRange: controller.selectedTimeRange.value,
-              onTap: () => _showTimeRangePicker(context, controller, darkMode),
-            )),
+            Obx(() {
+              String displayText = controller.selectedTimeRange.value;
+
+              // 为自定义范围添加日期信息
+              if (controller.selectedTimeRange.value == 'Custom Range' &&
+                  controller.customStartDate.value != null &&
+                  controller.customEndDate.value != null) {
+                final start = controller.customStartDate.value!;
+                final end = controller.customEndDate.value!;
+                displayText =
+                'Custom Range (${start.day}/${start.month}/${start.year % 100} - ${end.day}/${end.month}/${end.year % 100})';
+              }
+
+              return HealthAnalyticsTimeRangeSelector(
+                selectedTimeRange: displayText,
+                onTap: () => _showTimeRangePicker(context, controller, darkMode),
+              );
+            }),
 
             /// Last Record Info
             Obx(() => _buildLastRecordInfo(context, controller, darkMode)),
@@ -454,11 +468,115 @@ class BloodPressureAnalyticsScreen extends StatelessWidget {
   }
 
   /// Show Time Range Picker
-  void _showTimeRangePicker(BuildContext context, BloodPressureController controller, bool darkMode) {
-    final timeRanges = ['Past 7 Days', 'Past 14 Days', 'Past 30 Days', 'Past 60 Days', 'Past 90 Days', 'Custom Range'];
+  void _showTimeRangePicker(
+      BuildContext context, BloodPressureController controller, bool darkMode) {
+    final timeRanges = [
+      'Past 7 Days',
+      'Past 14 Days',
+      'Past 30 Days',
+      'Past 60 Days',
+      'Past 90 Days',
+      'Custom Range'
+    ];
+
+    Get.bottomSheet(
+      ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            color: darkMode ? TColors.dark : Colors.white,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(TSizes.cardRadiusLg),
+              topRight: Radius.circular(TSizes.cardRadiusLg),
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              /// 固定 Header
+              Container(
+                padding: const EdgeInsets.all(TSizes.defaultSpace),
+                decoration: BoxDecoration(
+                  color: TColors.primary,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(TSizes.cardRadiusLg),
+                    topRight: Radius.circular(TSizes.cardRadiusLg),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Text(
+                      'Select Time Range',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              /// 可滚动列表
+              Expanded(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+                    ...timeRanges.map((range) => ListTile(
+                      title: Text(
+                        range,
+                        style: TextStyle(
+                          color: darkMode ? TColors.white : TColors.black,
+                          fontWeight: range == controller.selectedTimeRange.value
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        ),
+                      ),
+                      selected: range == controller.selectedTimeRange.value,
+                      selectedTileColor: TColors.primary.withOpacity(0.1),
+                      onTap: () {
+                        if (range == 'Custom Range') {
+                          // 显示自定义日期范围选择器
+                          _showCustomDateRangePicker(context, controller, darkMode);
+                        } else {
+                          controller.resetCustomDateRange();
+                          controller.updateTimeRange(range);
+                          Get.back();
+                        }
+                      },
+                      trailing: range == controller.selectedTimeRange.value
+                          ? const Icon(Icons.check, color: TColors.primary)
+                          : null,
+                    )).toList(),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: TSizes.defaultSpace),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 显示自定义日期范围选择器
+  void _showCustomDateRangePicker(
+      BuildContext context, BloodPressureController controller, bool darkMode) {
+    DateTime? startDate = controller.customStartDate.value;
+    DateTime? endDate = controller.customEndDate.value;
+
+    // 设置默认日期范围（最近30天）
+    final defaultEndDate = DateTime.now();
+    final defaultStartDate = defaultEndDate.subtract(const Duration(days: 30));
+
+    startDate ??= defaultStartDate;
+    endDate ??= defaultEndDate;
 
     Get.bottomSheet(
       Container(
+        height: MediaQuery.of(context).size.height * 0.80,
         decoration: BoxDecoration(
           color: darkMode ? TColors.dark : Colors.white,
           borderRadius: const BorderRadius.only(
@@ -467,11 +585,13 @@ class BloodPressureAnalyticsScreen extends StatelessWidget {
           ),
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
             /// Header
             Container(
-              padding: const EdgeInsets.all(TSizes.defaultSpace),
+              padding: const EdgeInsets.symmetric(
+                horizontal: TSizes.md,
+                vertical: TSizes.sm,
+              ),
               decoration: BoxDecoration(
                 color: TColors.primary,
                 borderRadius: const BorderRadius.only(
@@ -481,41 +601,121 @@ class BloodPressureAnalyticsScreen extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Text(
-                    'Select Time Range',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () {
+                      Get.back(); // 返回时间范围选择
+                    },
+                  ),
+                  const SizedBox(width: TSizes.sm),
+                  Expanded(
+                    child: Text(
+                      'Select Date Range',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      controller.updateCustomDateRange(startDate, endDate);
+                      Get.back(); // 关闭自定义日期选择
+                      Get.back(); // 关闭时间范围选择
+                    },
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: TSizes.sm),
+                    ),
+                    child: const Text(
+                      'Apply',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
 
-            /// Time Range Options
-            ...timeRanges.map((range) => ListTile(
-              title: Text(
-                range,
-                style: TextStyle(
-                  color: darkMode ? TColors.white : TColors.black,
-                  fontWeight: range == controller.selectedTimeRange.value ? FontWeight.bold : FontWeight.normal,
-                ),
+            /// Selected Dates Display
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: TSizes.md,
+                vertical: TSizes.sm,
               ),
-              selected: range == controller.selectedTimeRange.value,
-              selectedTileColor: TColors.primary.withOpacity(0.1),
-              onTap: () {
-                controller.updateTimeRange(range);
-                Get.back();
-              },
-              trailing: range == controller.selectedTimeRange.value
-                  ? const Icon(Icons.check, color: TColors.primary)
-                  : null,
-            )).toList(),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Start Date',
+                        style: TextStyle(
+                          color: darkMode ? TColors.grey : TColors.darkGrey,
+                          fontSize: 11,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        startDate != null
+                            ? '${startDate.day}/${startDate.month}/${startDate.year}'
+                            : 'Not selected',
+                        style: TextStyle(
+                          color: darkMode ? TColors.white : TColors.black,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'End Date',
+                        style: TextStyle(
+                          color: darkMode ? TColors.grey : TColors.darkGrey,
+                          fontSize: 11,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        endDate != null
+                            ? '${endDate.day}/${endDate.month}/${endDate.year}'
+                            : 'Not selected',
+                        style: TextStyle(
+                          color: darkMode ? TColors.white : TColors.black,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
 
-            const SizedBox(height: TSizes.defaultSpace),
+            /// Date Range Picker
+            Expanded(
+              child: RangeDatePicker(
+                startDate: startDate,
+                endDate: endDate,
+                onDateRangeChanged: (DateTime start, DateTime end) {
+                  startDate = start;
+                  endDate = end;
+                },
+                darkMode: darkMode,
+              ),
+            ),
           ],
         ),
       ),
+      isDismissible: true,
+      isScrollControlled: true,
     );
   }
 }

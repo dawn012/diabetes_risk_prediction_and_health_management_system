@@ -36,35 +36,22 @@ class TransactionReportScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Header
                     _buildHeader(controller, darkMode, isTablet),
                     const SizedBox(height: 24),
-
-                    // Filters
                     _buildFiltersSection(controller, darkMode, isTablet),
                     const SizedBox(height: 24),
 
-                    // Charts Section
                     Obx(() {
                       if (controller.isLoading.value) {
                         return _buildLoadingState(darkMode);
                       }
 
-                      if (controller.transactions.isEmpty) {
-                        return _buildEmptyState(darkMode);
-                      }
-
                       return Column(
                         children: [
-                          // Chart Controls
                           _buildChartControls(controller, darkMode, isTablet),
                           const SizedBox(height: 16),
-
-                          // Charts Container
                           _buildChartsContainer(controller, darkMode, isTablet),
                           const SizedBox(height: 24),
-
-                          // Data Table
                           _buildDataTable(controller, darkMode, isTablet),
                         ],
                       );
@@ -105,7 +92,6 @@ class TransactionReportScreen extends StatelessWidget {
             ],
           ),
         ),
-        // Export Button
         Obx(() => AdminChartExportButton(
           exportData: ChartExportData(
             title: 'Transaction Report - ${controller.getReportTitle()}',
@@ -144,20 +130,17 @@ class TransactionReportScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          // Period Selection
           Wrap(
             spacing: isTablet ? 24 : 16,
             runSpacing: 16,
             crossAxisAlignment: WrapCrossAlignment.end,
             children: [
-              // Report Period
               Obx(() => AdminPeriodSelector(
                 selectedPeriod: controller.selectedPeriod.value,
                 onPeriodChanged: (period) => controller.setPeriod(period),
                 darkMode: darkMode,
               )),
 
-              // Year Selector
               Obx(() => AdminDropdown<int>(
                 label: 'Year',
                 value: controller.selectedYear.value,
@@ -168,7 +151,6 @@ class TransactionReportScreen extends StatelessWidget {
                 width: isTablet ? 150 : 120,
               )),
 
-              // Month Selector (conditional)
               Obx(() {
                 if (controller.selectedPeriod.value == ReportPeriod.monthly) {
                   return AdminDropdown<int>(
@@ -188,7 +170,6 @@ class TransactionReportScreen extends StatelessWidget {
 
           const SizedBox(height: 16),
 
-          // Apply Button
           Row(
             children: [
               Obx(() => SizedBox(
@@ -236,7 +217,6 @@ class TransactionReportScreen extends StatelessWidget {
           ),
         ),
 
-        // Chart Type Toggle
         Obx(() => AdminChartTypeToggle(
           selectedType: controller.chartType.value,
           onTypeChanged: (type) => controller.setChartType(type),
@@ -257,7 +237,6 @@ class TransactionReportScreen extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // Chart Title & Stats
           Row(
             children: [
               Expanded(
@@ -297,7 +276,6 @@ class TransactionReportScreen extends StatelessWidget {
           ),
           const SizedBox(height: 24),
 
-          // Chart
           Expanded(
             child: Obx(() => controller.chartType.value == ChartType.line
                 ? AdminLineChart(
@@ -314,6 +292,7 @@ class TransactionReportScreen extends StatelessWidget {
               trendFilter: controller.selectedYear.value.toString(),
               horizontalInterval: controller.calculateHorizontalInterval(),
               leftTitleInterval: controller.calculateLeftTitleInterval(),
+              showEmptyState: controller.transactions.isEmpty,
             )
                 : AdminBarChart(
               barGroups: controller.getBarChartData(),
@@ -327,6 +306,7 @@ class TransactionReportScreen extends StatelessWidget {
               chartKey: controller.chartKey,
               periodFilter: controller.selectedPeriod.value.name,
               trendFilter: controller.selectedYear.value.toString(),
+              showEmptyState: controller.transactions.isEmpty,
             )
             ),
           ),
@@ -368,81 +348,101 @@ class TransactionReportScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          // Table
-          Obx(() => SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              headingRowColor: WidgetStateColor.resolveWith(
-                    (states) => TAdminColors.getTableHeaderColor(darkMode),
+          Obx(() {
+            final tableData = controller.getTableData();
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                headingRowColor: WidgetStateColor.resolveWith(
+                      (states) => TAdminColors.getTableHeaderColor(darkMode),
+                ),
+                dataRowColor: WidgetStateColor.resolveWith(
+                      (states) => states.contains(WidgetState.hovered)
+                      ? TAdminColors.getTableRowHoverColor(darkMode)
+                      : TAdminColors.getTableRowColor(darkMode),
+                ),
+                columns: [
+                  DataColumn(
+                    label: Text(
+                      controller.selectedPeriod.value == ReportPeriod.monthly ? 'Week' : 'Month',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: TAdminColors.getOnSurfaceColor(darkMode),
+                      ),
+                    ),
+                  ),
+                  DataColumn(
+                    label: Text(
+                      'Transactions',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: TAdminColors.getOnSurfaceColor(darkMode),
+                      ),
+                    ),
+                  ),
+                  DataColumn(
+                    label: Text(
+                      'Revenue (RM)',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: TAdminColors.getOnSurfaceColor(darkMode),
+                      ),
+                    ),
+                  ),
+                ],
+                rows: tableData.isEmpty
+                    ? [
+                  DataRow(
+                    cells: [
+                      DataCell(
+                        Text(
+                          'No records found',
+                          style: TextStyle(
+                            color: TAdminColors.getOnSurfaceVariantColor(darkMode),
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ),
+                      DataCell(Text('-')),
+                      DataCell(Text('-')),
+                    ],
+                  ),
+                ]
+                    : tableData.map((data) {
+                  return DataRow(
+                    cells: [
+                      DataCell(
+                        Text(
+                          data['period'].toString(),
+                          style: TextStyle(
+                            color: TAdminColors.getOnSurfaceColor(darkMode),
+                          ),
+                        ),
+                      ),
+                      DataCell(
+                        Text(
+                          data['count'].toString(),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            color: TAdminColors.primary,
+                          ),
+                        ),
+                      ),
+                      DataCell(
+                        Text(
+                          'RM ${data['revenue'].toStringAsFixed(2)}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            color: TAdminColors.success,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
               ),
-              dataRowColor: WidgetStateColor.resolveWith(
-                    (states) => states.contains(WidgetState.hovered)
-                    ? TAdminColors.getTableRowHoverColor(darkMode)
-                    : TAdminColors.getTableRowColor(darkMode),
-              ),
-              columns: [
-                DataColumn(
-                  label: Text(
-                    controller.selectedPeriod.value == ReportPeriod.monthly ? 'Week' : 'Month',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: TAdminColors.getOnSurfaceColor(darkMode),
-                    ),
-                  ),
-                ),
-                DataColumn(
-                  label: Text(
-                    'Transactions',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: TAdminColors.getOnSurfaceColor(darkMode),
-                    ),
-                  ),
-                ),
-                DataColumn(
-                  label: Text(
-                    'Revenue (RM)',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: TAdminColors.getOnSurfaceColor(darkMode),
-                    ),
-                  ),
-                ),
-              ],
-              rows: controller.getTableData().map((data) {
-                return DataRow(
-                  cells: [
-                    DataCell(
-                      Text(
-                        data['period'].toString(),
-                        style: TextStyle(
-                          color: TAdminColors.getOnSurfaceColor(darkMode),
-                        ),
-                      ),
-                    ),
-                    DataCell(
-                      Text(
-                        data['count'].toString(),
-                        style: TextStyle(
-                          fontWeight: FontWeight.w500,
-                          color: TAdminColors.primary,
-                        ),
-                      ),
-                    ),
-                    DataCell(
-                      Text(
-                        'RM ${data['revenue'].toStringAsFixed(2)}',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w500,
-                          color: TAdminColors.success,
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              }).toList(),
-            ),
-          )),
+            );
+          }),
         ],
       ),
     );
@@ -464,64 +464,6 @@ class TransactionReportScreen extends StatelessWidget {
             CircularProgressIndicator(color: TAdminColors.primary),
             SizedBox(height: 16),
             Text('Loading transaction data...'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyState(bool darkMode) {
-    return Container(
-      height: 600,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: TAdminColors.getSurfaceColor(darkMode),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: TAdminColors.getBorderColor(darkMode)),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: TAdminColors.primary.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Iconsax.chart_fail_bold,
-                size: 64,
-                color: TAdminColors.primary,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'No Transaction Data Found',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: TAdminColors.getOnSurfaceColor(darkMode),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'No successful transactions were found for the selected period.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                color: TAdminColors.getOnSurfaceVariantColor(darkMode),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Try adjusting your filters or selecting a different time period.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: TAdminColors.getOnSurfaceVariantColor(darkMode),
-              ),
-            ),
           ],
         ),
       ),

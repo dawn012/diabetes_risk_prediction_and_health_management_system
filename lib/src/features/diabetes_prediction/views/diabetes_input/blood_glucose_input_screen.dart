@@ -3,7 +3,6 @@ import 'package:get/get.dart';
 import 'dart:math' as math;
 
 import '../../../../utils/constants/colors.dart';
-import '../../../../utils/constants/health_data_range.dart';
 import '../../../../utils/helpers/helper_functions.dart';
 import '../../controllers/diabetes_blood_glucose_controller.dart';
 import 'widgets/diabetes_prediction_input_screen.dart';

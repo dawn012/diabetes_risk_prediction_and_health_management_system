@@ -18,6 +18,10 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
 
+    <!-- For Android 11+ (API 30+) - Manage External Storage -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
+
     <!-- 媒体位置权限 (可选，如果需要读取照片地理位置信息) -->
     <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
 
@@ -55,7 +59,8 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:theme="@style/NormalTheme"
-        android:allowBackup="false">
+        android:allowBackup="false"
+        android:requestLegacyExternalStorage="true">
 
         <!-- Firebase FCM 配置 -->
         <meta-data
@@ -90,9 +95,9 @@
                  while the Flutter UI initializes. After that, this theme continues
                  to determine the Window background behind the Flutter UI. -->
             <meta-data
-              android:name="io.flutter.embedding.android.NormalTheme"
-              android:resource="@style/NormalTheme"
-              />
+                android:name="io.flutter.embedding.android.NormalTheme"
+                android:resource="@style/NormalTheme"
+                />
 
             <meta-data
                 android:name="com.google.android.gms.wallet.api.enabled"
@@ -123,6 +128,26 @@
                     android:scheme="https"
                     android:host="diabetes-health-system.web.app"
                     android:pathPrefix="/" />
+            </intent-filter>
+
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="diabetes-health-system.firebaseapp.com"
+                    android:pathPrefix="/" />
+            </intent-filter>
+
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="diatrack.app"
+                    android:pathPrefix="/community" />
             </intent-filter>
 
             <!-- PayPal Return URLs -->
@@ -202,3 +227,208 @@
         </intent>
     </queries>
 </manifest>
+
+<!--<manifest xmlns:android="http://schemas.android.com/apk/res/android"-->
+<!--    package="com.example.diabetes_risk_prediction_and_health_management_system"-->
+<!--    xmlns:tools="http://schemas.android.com/tools">-->
+
+<!--    &lt;!&ndash; 网络权限 &ndash;&gt;-->
+<!--    <uses-permission android:name="android.permission.INTERNET"/>-->
+<!--    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>-->
+<!--    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>-->
+
+<!--    &lt;!&ndash; For Android 13+ (API 33+) 媒体权限 &ndash;&gt;-->
+<!--    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />-->
+<!--    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />-->
+<!--    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />-->
+
+<!--    &lt;!&ndash; For Android 12 and below 媒体权限 &ndash;&gt;-->
+<!--    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"-->
+<!--        android:maxSdkVersion="32" />-->
+<!--    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"-->
+<!--        android:maxSdkVersion="32" />-->
+
+<!--    &lt;!&ndash; 媒体位置权限 (可选，如果需要读取照片地理位置信息) &ndash;&gt;-->
+<!--    <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />-->
+
+<!--    &lt;!&ndash; 相机与麦克风权限 &ndash;&gt;-->
+<!--    <uses-permission android:name="android.permission.CAMERA" />-->
+<!--    <uses-permission android:name="android.permission.RECORD_AUDIO" />-->
+<!--    <uses-feature android:name="android.hardware.camera.autofocus"/>-->
+
+<!--    &lt;!&ndash; 步数追踪权限 &ndash;&gt;-->
+<!--    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />-->
+<!--    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />-->
+
+<!--    &lt;!&ndash; 声明摄像头是可选功能，应用可以在没有摄像头的设备上安装和运行 &ndash;&gt;-->
+<!--    <uses-feature android:name="android.hardware.camera" android:required="false" />-->
+<!--    &lt;!&ndash; 同样，将麦克风也声明为可选 &ndash;&gt;-->
+<!--    <uses-feature android:name="android.hardware.microphone" android:required="false" />-->
+
+<!--    <queries>-->
+<!--        <provider android:authorities="com.facebook.katana.provider.PlatformProvider" />-->
+<!--    </queries>-->
+
+<!--    &lt;!&ndash; 允许查询浏览器（用于 Custom Tabs） &ndash;&gt;-->
+<!--    <queries>-->
+<!--        <intent>-->
+<!--            <action android:name="android.support.customtabs.action.CustomTabsService" />-->
+<!--        </intent>-->
+<!--        <intent>-->
+<!--            <action android:name="android.intent.action.VIEW" />-->
+<!--            <data android:scheme="https" />-->
+<!--        </intent>-->
+<!--    </queries>-->
+
+<!--    <application-->
+<!--        android:label="diabetes_risk_prediction_and_health_management_system"-->
+<!--        android:name="${applicationName}"-->
+<!--        android:icon="@mipmap/ic_launcher"-->
+<!--        android:theme="@style/NormalTheme"-->
+<!--        android:allowBackup="false">-->
+
+<!--        &lt;!&ndash; Firebase FCM 配置 &ndash;&gt;-->
+<!--        <meta-data-->
+<!--            android:name="com.google.firebase.messaging.default_notification_channel_id"-->
+<!--            android:value="payment_reminders" />-->
+
+<!--        <meta-data-->
+<!--            android:name="com.google.firebase.messaging.default_notification_icon"-->
+<!--            android:resource="@mipmap/ic_launcher" />-->
+
+<!--        <meta-data-->
+<!--            android:name="com.google.firebase.messaging.default_notification_color"-->
+<!--            android:resource="@color/notification_color" />-->
+
+<!--        &lt;!&ndash; Add this receiver &ndash;&gt;-->
+<!--        <receiver-->
+<!--            android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver"-->
+<!--            android:exported="false"-->
+<!--            android:enabled="true" />-->
+
+<!--        <activity-->
+<!--            android:name=".MainActivity"-->
+<!--            android:exported="true"-->
+<!--            android:launchMode="singleTop"-->
+<!--            android:taskAffinity=""-->
+<!--            android:theme="@style/LaunchTheme"-->
+<!--            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"-->
+<!--            android:hardwareAccelerated="true"-->
+<!--            android:windowSoftInputMode="adjustResize">-->
+<!--            &lt;!&ndash; Specifies an Android theme to apply to this Activity as soon as-->
+<!--                 the Android process has started. This theme is visible to the user-->
+<!--                 while the Flutter UI initializes. After that, this theme continues-->
+<!--                 to determine the Window background behind the Flutter UI. &ndash;&gt;-->
+<!--            <meta-data-->
+<!--              android:name="io.flutter.embedding.android.NormalTheme"-->
+<!--              android:resource="@style/NormalTheme"-->
+<!--              />-->
+
+<!--            <meta-data-->
+<!--                android:name="com.google.android.gms.wallet.api.enabled"-->
+<!--                android:value="true" />-->
+
+<!--            <intent-filter>-->
+<!--                <action android:name="android.intent.action.MAIN"/>-->
+<!--                <category android:name="android.intent.category.LAUNCHER"/>-->
+<!--            </intent-filter>-->
+
+<!--            &lt;!&ndash; Deep Link: Custom Scheme (diatrack://) &ndash;&gt;-->
+<!--            <intent-filter>-->
+<!--                <action android:name="android.intent.action.VIEW" />-->
+<!--                <category android:name="android.intent.category.DEFAULT" />-->
+<!--                <category android:name="android.intent.category.BROWSABLE" />-->
+
+<!--                &lt;!&ndash; Custom scheme for deep links &ndash;&gt;-->
+<!--                <data android:scheme="diatrack" />-->
+<!--            </intent-filter>-->
+
+<!--            &lt;!&ndash; App Links: HTTPS (https://diatrack.app) &ndash;&gt;-->
+<!--            <intent-filter android:autoVerify="true">-->
+<!--                <action android:name="android.intent.action.VIEW" />-->
+<!--                <category android:name="android.intent.category.DEFAULT" />-->
+<!--                <category android:name="android.intent.category.BROWSABLE" />-->
+<!--                &lt;!&ndash; https://diabetes-health-system.web.app/community/post/{postId} &ndash;&gt;-->
+<!--                <data-->
+<!--                    android:scheme="https"-->
+<!--                    android:host="diabetes-health-system.web.app"-->
+<!--                    android:pathPrefix="/" />-->
+<!--            </intent-filter>-->
+
+<!--            &lt;!&ndash; PayPal Return URLs &ndash;&gt;-->
+<!--            <intent-filter android:autoVerify="true">-->
+<!--                <action android:name="android.intent.action.VIEW"/>-->
+<!--                <category android:name="android.intent.category.DEFAULT"/>-->
+<!--                <category android:name="android.intent.category.BROWSABLE"/>-->
+
+<!--                &lt;!&ndash; PayPal success/cancel paths &ndash;&gt;-->
+<!--                <data-->
+<!--                    android:scheme="https"-->
+<!--                    android:host="diatrack.app"-->
+<!--                    android:pathPrefix="/payment"/>-->
+<!--            </intent-filter>-->
+
+<!--            &lt;!&ndash; PayPal deep link for return URL &ndash;&gt;-->
+<!--            <intent-filter>-->
+<!--                <action android:name="android.intent.action.VIEW"/>-->
+<!--                <category android:name="android.intent.category.DEFAULT"/>-->
+<!--                <category android:name="android.intent.category.BROWSABLE"/>-->
+
+<!--                &lt;!&ndash; PayPal return URLs &ndash;&gt;-->
+<!--                <data-->
+<!--                    android:scheme="diatrack"-->
+<!--                    android:host="payment"-->
+<!--                    android:pathPrefix="/paypal-success"/>-->
+<!--                <data-->
+<!--                    android:scheme="diatrack"-->
+<!--                    android:host="payment"-->
+<!--                    android:pathPrefix="/paypal-cancel"/>-->
+<!--            </intent-filter>-->
+
+<!--        </activity>-->
+<!--        &lt;!&ndash; Don't delete the meta-data below.-->
+<!--             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java &ndash;&gt;-->
+<!--        <meta-data-->
+<!--            android:name="flutterEmbedding"-->
+<!--            android:value="2" />-->
+
+<!--        &lt;!&ndash; FACEBOOK CONFIGURATIONS &ndash;&gt;-->
+
+<!--        <meta-data android:name="com.facebook.sdk.ApplicationId" android:value="@string/facebook_app_id"/>-->
+<!--        <meta-data android:name="com.facebook.sdk.ClientToken" android:value="@string/facebook_client_token"/>-->
+
+<!--        <activity android:name="com.facebook.FacebookActivity"-->
+<!--            android:configChanges=-->
+<!--                "keyboard|keyboardHidden|screenLayout|screenSize|orientation"-->
+<!--            android:label="@string/app_name" />-->
+<!--        <activity-->
+<!--            android:name="com.facebook.CustomTabActivity"-->
+<!--            android:exported="true">-->
+<!--            <intent-filter>-->
+<!--                <action android:name="android.intent.action.VIEW" />-->
+<!--                <category android:name="android.intent.category.DEFAULT" />-->
+<!--                <category android:name="android.intent.category.BROWSABLE" />-->
+<!--                <data android:scheme="@string/fb_login_protocol_scheme" />-->
+<!--            </intent-filter>-->
+<!--        </activity>-->
+
+<!--        &lt;!&ndash; FACEBOOK CONFIGURATIONS END HERE&ndash;&gt;-->
+
+<!--    </application>-->
+<!--    &lt;!&ndash; Required to query activities that can process text, see:-->
+<!--         https://developer.android.com/training/package-visibility and-->
+<!--         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.-->
+
+<!--         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. &ndash;&gt;-->
+<!--    <queries>-->
+<!--        <intent>-->
+<!--            <action android:name="android.intent.action.PROCESS_TEXT"/>-->
+<!--            <data android:mimeType="text/plain"/>-->
+<!--        </intent>-->
+
+<!--        <intent>-->
+<!--            <action android:name="android.settings.APPLICATION_DETAILS_SETTINGS" />-->
+<!--            <data android:scheme="package" />-->
+<!--        </intent>-->
+<!--    </queries>-->
+<!--</manifest>-->

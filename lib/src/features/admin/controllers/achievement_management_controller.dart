@@ -9,6 +9,7 @@ import '../../../utils/constants/enums.dart';
 import '../../achievement/models/achievement_level_model.dart';
 import '../../achievement/models/achievement_model.dart';
 import '../../achievement/models/user_achievement_model.dart';
+import '../views/achievement_management/achievement_detail_dialog.dart';
 import '../views/achievement_management/edit_achievement_dialog.dart';
 
 class AchievementManagementController extends GetxController {
@@ -39,6 +40,7 @@ class AchievementManagementController extends GetxController {
   final isEditingAchievement = false.obs;
   final editingAchievement = Rx<AchievementModel?>(null);
   final editCustomIconCodePoint = Rx<int?>(null); // Track custom icon
+  final editTitleDuplicationError = ''.obs;
 
   // Preset icons for quick selection
   final List<int> editPresetIcons = [
@@ -180,6 +182,46 @@ class AchievementManagementController extends GetxController {
       title: 'Success',
       message: 'Achievements refreshed successfully',
     );
+  }
+
+  /// Check for title duplication
+  String? checkTitleDuplication(String currentAchievementId) {
+    final title = editTitleController.text.trim();
+
+    if (title.isNotEmpty && title != editingAchievement.value?.achievementTitle) {
+      final isDuplicate = allAchievements.any((achievement) =>
+      achievement.achievementId != currentAchievementId &&
+          achievement.achievementTitle.toLowerCase() == title.toLowerCase());
+
+      if (isDuplicate) {
+        return 'Achievement title already exists.';
+      }
+    }
+    return null;
+  }
+
+  /// Validate edit form including duplication check
+  bool validateEditForm(AchievementModel originalAchievement) {
+    // Clear previous duplication error
+    editTitleDuplicationError.value = '';
+
+    bool hasFormErrors = false;
+
+    // 1. 检查表单基础验证
+    if (!editFormKey.currentState!.validate()) {
+      hasFormErrors = true;
+    }
+
+    // 2. 检查标题重复（同时进行）
+    final duplicationError = checkTitleDuplication(originalAchievement.achievementId);
+    if (duplicationError != null) {
+      editTitleDuplicationError.value = duplicationError;
+      hasFormErrors = true;
+    }
+
+    editFormKey.currentState!.validate();
+
+    return !hasFormErrors;
   }
 
   // Get paginated data for current page
@@ -474,6 +516,24 @@ class AchievementManagementController extends GetxController {
     }
   }
 
+  // Open view achievement detail dialog
+  void openViewAchievementDetailDialog(AchievementModel achievement) {
+    if (!hasPermission) {
+      TLoaders.errorSnackBar(
+        title: 'Permission Denied',
+        message: 'You do not have permission to view achievement details',
+      );
+      return;
+    }
+
+    Get.dialog(
+      AchievementDetailDialog(
+        achievement: achievement,
+        controller: this,
+      ),
+    );
+  }
+
   // Open edit achievement dialog
   void openEditAchievementDialog(AchievementModel achievement) {
     if (!hasPermission) {
@@ -549,7 +609,7 @@ class AchievementManagementController extends GetxController {
 
   // Handle save edit
   Future<void> handleSaveEdit(AchievementModel originalAchievement) async {
-    if (!editFormKey.currentState!.validate()) {
+    if (!validateEditForm(originalAchievement)) {
       return;
     }
 

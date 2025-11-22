@@ -520,6 +520,8 @@ class DiabetesHiveStorageManager extends GetxService {
       'medicationAdherence': medicationCategory, // 分类值
       'dietHealthy': dietHealthy, // 0 or 1
 
+      // 'mealPhotos': _convertMealPhotosForExport(cache.mealPhotos!),
+
       // 元数据
       'glucoseUnit': cache.glucoseUnit,
       'assessmentDate': cache.lastUpdated.toIso8601String(),

@@ -101,7 +101,7 @@ class VideoHelper {
       final thumbnailPath = await vt.VideoThumbnail.thumbnailFile(
         video: videoFile.path,
         thumbnailPath: tempDir,
-        imageFormat: vt.ImageFormat.JPEG,
+        imageFormat: vt.ImageFormat.WEBP,
         maxWidth: 300, // 设置最大宽度
         quality: 75,
       );

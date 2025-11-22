@@ -116,25 +116,134 @@ class MediaGridWidget extends StatelessWidget {
   }
 
   Widget _buildNetworkThumbnail(PostMediaItem mediaItem) {
-    // 如果你有 cached_network_image 包，使用它
-    // 否则使用 Image.network
+    print('=== DEBUG NETWORK THUMBNAIL ===');
+    print('Media ID: ${mediaItem.id}');
+    print('Media Type: ${mediaItem.type}');
+    print('Is Video: ${mediaItem.isVideo}');
+    print('Existing URL: ${mediaItem.existingUrl}');
+
+    // 🔥 关键修复：对于视频，使用与 Post List 相同的逻辑
+    if (mediaItem.isVideo && mediaItem.existingUrl != null) {
+      final thumbnailUrl = _generateThumbnailUrl(mediaItem.existingUrl!);
+      print('🎥 Video - Generated thumbnail URL: $thumbnailUrl');
+
+      if (thumbnailUrl != null) {
+        return _buildNetworkImageWithFallback(thumbnailUrl);
+      } else {
+        print('❌ Failed to generate thumbnail URL');
+      }
+    }
+
+    // 如果是图片，使用原始URL
+    if (mediaItem.isImage && mediaItem.existingUrl != null) {
+      print('🖼️ Image - Using original URL: ${mediaItem.existingUrl}');
+      return _buildNetworkImageWithFallback(mediaItem.existingUrl!);
+    }
+
+    print('❌ No suitable URL found');
+    return _buildErrorThumbnail();
+  }
+
+  /// 🔥 复制 Post List 中的缩略图生成逻辑
+  String? _generateThumbnailUrl(String videoUrl) {
+    try {
+      print('🔄 Generating thumbnail URL from: $videoUrl');
+
+      if (!videoUrl.contains('firebasestorage.googleapis.com')) {
+        print('❌ Not a Firebase Storage URL');
+        return null;
+      }
+
+      final uri = Uri.parse(videoUrl);
+      final pathSegments = uri.pathSegments;
+
+      final oIndex = pathSegments.indexOf('o');
+      if (oIndex == -1 || oIndex + 1 >= pathSegments.length) {
+        print('❌ Could not find "o" in path segments');
+        return null;
+      }
+
+      final encodedPath = pathSegments[oIndex + 1];
+      final decodedPath = Uri.decodeComponent(encodedPath);
+      print('Decoded path: $decodedPath');
+
+      final segments = decodedPath.split('/');
+      if (segments.length < 3 || !segments.last.contains('.')) {
+        print('❌ Invalid path structure');
+        return null;
+      }
+
+      final fileNameWithExt = segments.last;
+      final dotIndex = fileNameWithExt.lastIndexOf('.');
+      if (dotIndex == -1) {
+        print('❌ No file extension found');
+        return null;
+      }
+
+      final fileName = fileNameWithExt.substring(0, dotIndex);
+      print('Extracted filename: $fileName');
+
+      final thumbnailPath = 'community/thumbnails/$fileName.webp';
+      final encodedThumbPath = Uri.encodeComponent(thumbnailPath);
+
+      final thumbnailUrl = 'https://firebasestorage.googleapis.com/v0/b/diabetes-health-system.firebasestorage.app/o/$encodedThumbPath?alt=media';
+
+      print('✅ Generated thumbnail URL: $thumbnailUrl');
+      return thumbnailUrl;
+
+    } catch (e) {
+      print('❌ Error generating thumbnail URL: $e');
+      return null;
+    }
+  }
+
+  Widget _buildNetworkImageWithFallback(String imageUrl) {
+    print('🔄 Loading network image: $imageUrl');
+
     return Image.network(
-      mediaItem.existingUrl!,
+      imageUrl,
       fit: BoxFit.cover,
       loadingBuilder: (context, child, loadingProgress) {
-        if (loadingProgress == null) return child;
+        if (loadingProgress == null) {
+          print('✅ Image loaded successfully: $imageUrl');
+          return child;
+        }
+        print('⏳ Loading image... ${loadingProgress.cumulativeBytesLoaded}/${loadingProgress.expectedTotalBytes}');
+        return _buildLoadingIndicator();
+      },
+      errorBuilder: (context, error, stackTrace) {
+        print('❌ IMAGE LOAD ERROR:');
+        print('URL: $imageUrl');
+        print('Error: $error');
+
         return Container(
           color: Colors.grey[200],
-          child: Center(
-            child: CircularProgressIndicator(
-              value: loadingProgress.expectedTotalBytes != null
-                  ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                  : null,
-            ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, color: Colors.grey[500], size: 24),
+              SizedBox(height: 8),
+              Text(
+                'Load Failed\n$imageUrl',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 8,
+                ),
+              ),
+            ],
           ),
         );
       },
-      errorBuilder: (context, error, stackTrace) => _buildErrorThumbnail(),
+    );
+  }
+
+  Widget _buildLoadingIndicator() {
+    return Center(
+      child: CircularProgressIndicator(
+        color: Colors.blue,
+        strokeWidth: 2,
+      ),
     );
   }
 

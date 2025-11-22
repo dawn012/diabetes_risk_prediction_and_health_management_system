@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'package:icons_plus/icons_plus.dart';
 
 import '../../../common/loaders/circular_loader.dart';
 import '../../../common/widgets/tab_selector/custom_tab_selector.dart';
@@ -8,8 +9,10 @@ import '../../../utils/constants/colors.dart';
 import '../../../utils/constants/enums.dart';
 import '../../../utils/constants/sizes.dart';
 import '../../../utils/helpers/helper_functions.dart';
+import '../../personalization/views/widgets/avatar_with_frame.dart';
 import '../controllers/leaderboard_controller.dart';
 import '../models/leaderboard_model.dart';
+import 'leaderboard_rewards_info_screen.dart';
 
 class LeaderboardScreen extends StatelessWidget {
   const LeaderboardScreen({Key? key}) : super(key: key);
@@ -37,6 +40,13 @@ class LeaderboardScreen extends StatelessWidget {
           ),
         ),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: Icon(Iconsax.award_bold, color: Colors.white),
+            onPressed: () => Get.to(() => const LeaderboardRewardsInfoScreen()),
+            tooltip: 'Reward Rules',
+          ),
+        ],
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -52,14 +62,11 @@ class LeaderboardScreen extends StatelessWidget {
       ),
       body: Column(
         children: [
-          // Tab Section
           Obx(() => CustomTabSelector(
             tabs: const ["This Month", "Last Month"],
             selectedIndex: controller.selectedTab.value,
             onChanged: (index) => controller.changeTab(index),
           )),
-
-          // Auto-refresh indicator (只在 This Month 显示)
           Obx(() {
             if (controller.selectedTab.value == 0) {
               return Padding(
@@ -87,8 +94,6 @@ class LeaderboardScreen extends StatelessWidget {
               return SizedBox.shrink();
             }
           }),
-
-          // Content with PageView for swipe
           Obx(() {
             if (controller.isLoading.value) {
               return Expanded(
@@ -117,29 +122,25 @@ class LeaderboardScreen extends StatelessWidget {
 
   Widget _buildLeaderboardContent(LeaderboardController controller, bool isDark, int tabIndex) {
     return Obx(() {
-      // 如果榜单为空，显示空状态
       if (controller.leaderboardData.isEmpty && controller.currentUserRankData.value == null) {
         return _buildEmptyLeaderboard(isDark);
       }
 
       return Column(
         children: [
-          // Top 3 Section
           if (controller.leaderboardData.length >= 3)
             _buildTopThreeSection(controller, isDark),
 
           SizedBox(height: 20),
-
-          // Leaderboard List with fixed minimum height
           Expanded(
             child: Container(
               margin: EdgeInsets.symmetric(horizontal: TSizes.defaultSpace),
               constraints: BoxConstraints(
-                minHeight: 400, // 设置最小高度
+                minHeight: 400,
               ),
               decoration: BoxDecoration(
                 color: isDark ? TColors.cardDark : Colors.white,
-                borderRadius: BorderRadius.circular(20), // 全部圆角
+                borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
                     color: (isDark ? Colors.black : Colors.black)
@@ -152,8 +153,6 @@ class LeaderboardScreen extends StatelessWidget {
               child: Column(
                 children: [
                   SizedBox(height: TSizes.defaultSpace),
-
-                  // Leaderboard List
                   Expanded(
                     child: NotificationListener<ScrollNotification>(
                       onNotification: (scrollInfo) {
@@ -162,7 +161,6 @@ class LeaderboardScreen extends StatelessWidget {
                       },
                       child: Stack(
                         children: [
-                          // Main list
                           AnimationLimiter(
                             child: ListView.separated(
                               controller: tabIndex == 0
@@ -198,8 +196,6 @@ class LeaderboardScreen extends StatelessWidget {
                               },
                             ),
                           ),
-
-                          // Sticky current user at bottom
                           if (_shouldShowCurrentUserAtBottom(controller))
                             Obx(() {
                               final currentUser = controller.currentUserRankData.value!;
@@ -221,8 +217,6 @@ class LeaderboardScreen extends StatelessWidget {
               ),
             ),
           ),
-
-          // 底部留一点空间，让圆角更明显
           SizedBox(height: TSizes.defaultSpace),
         ],
       );
@@ -245,7 +239,6 @@ class LeaderboardScreen extends StatelessWidget {
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w600,
-              color: isDark ? Colors.grey[400] : Colors.grey[600],
             ),
           ),
           SizedBox(height: TSizes.sm),
@@ -279,20 +272,11 @@ class LeaderboardScreen extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          // Second place
           if (topThree.length > 1)
-            Expanded(
-              child: _buildTopUser(topThree[1], 2, isDark),
-            ),
-          // First place (with crown)
-          Expanded(
-            child: _buildTopUser(topThree[0], 1, isDark),
-          ),
-          // Third place
+            Expanded(child: _buildTopUser(topThree[1], 2, isDark)),
+          Expanded(child: _buildTopUser(topThree[0], 1, isDark)),
           if (topThree.length > 2)
-            Expanded(
-              child: _buildTopUser(topThree[2], 3, isDark),
-            ),
+            Expanded(child: _buildTopUser(topThree[2], 3, isDark)),
         ],
       ),
     );
@@ -317,47 +301,17 @@ class LeaderboardScreen extends StatelessWidget {
 
     return Column(
       children: [
-        // Crown for first place only
         if (position == 1) ...[
-          Icon(
-            Icons.emoji_events,
-            color: TColors.gold,
-            size: 32,
-          ),
+          Icon(Icons.emoji_events, color: TColors.gold, size: 32),
           SizedBox(height: 8),
         ] else
           SizedBox(height: 40),
-
-        // Profile Picture with colored border
-        Container(
-          width: (position == 1) ? 85 : 65,
-          height: (position == 1) ? 85 : 65,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: borderColor, width: 3),
-          ),
-          child: CircleAvatar(
-            radius: (position == 1) ? 42 : 32,
-            backgroundColor: isDark ? Colors.grey[800] : Colors.grey[200],
-            backgroundImage: data.user.profileImg.isNotEmpty
-                ? NetworkImage(data.user.profileImg)
-                : null,
-            child: data.user.profileImg.isEmpty
-                ? Text(
-              data.user.userName[0].toUpperCase(),
-              style: TextStyle(
-                fontSize: (position == 1) ? 22 : 18,
-                fontWeight: FontWeight.bold,
-                color: TColors.primary,
-              ),
-            )
-                : null,
-          ),
+        AvatarWithFrame(
+          profileImageUrl: data.user.profileImg,
+          avatarSize: position == 1 ? 70 : 50,
+          frameSize: position == 1 ? 85 : 65,
         ),
-
         SizedBox(height: 8),
-
-        // Rank circle
         Container(
           width: 24,
           height: 24,
@@ -376,14 +330,9 @@ class LeaderboardScreen extends StatelessWidget {
             ),
           ),
         ),
-
         SizedBox(height: 6),
-
-        // Username
         ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: (position == 1) ? 100 : 80,
-          ),
+          constraints: BoxConstraints(maxWidth: (position == 1) ? 100 : 80),
           child: Text(
             data.user.userName,
             style: TextStyle(
@@ -396,10 +345,7 @@ class LeaderboardScreen extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
         ),
-
         SizedBox(height: 2),
-
-        // Points
         Text(
           '${data.user.totalScore} pts.',
           style: TextStyle(
@@ -451,17 +397,13 @@ class LeaderboardScreen extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Rank change indicator
           Container(
             width: 20,
             child: _buildRankChangeIndicator(data),
           ),
-
           SizedBox(width: 8),
-
-          // Rank number
           Container(
-            width: 30,
+            width: 25,
             child: Text(
               '${data.currentRank}',
               style: TextStyle(
@@ -475,31 +417,13 @@ class LeaderboardScreen extends StatelessWidget {
               ),
             ),
           ),
-
-          SizedBox(width: 12),
-
-          // Profile Picture
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: isDark ? Colors.grey[800] : Colors.grey[200],
-            backgroundImage: data.user.profileImg.isNotEmpty
-                ? NetworkImage(data.user.profileImg)
-                : null,
-            child: data.user.profileImg.isEmpty
-                ? Text(
-              data.user.userName[0].toUpperCase(),
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: TColors.primary,
-              ),
-            )
-                : null,
+          SizedBox(width: 4),
+          AvatarWithFrame(
+            profileImageUrl: data.user.profileImg,
+            avatarSize: 36,
+            frameSize: 44,
           ),
-
           SizedBox(width: 12),
-
-          // User Info
           Expanded(
             child: Row(
               children: [
@@ -540,10 +464,7 @@ class LeaderboardScreen extends StatelessWidget {
               ],
             ),
           ),
-
           SizedBox(width: 8),
-
-          // Score
           Text(
             '${data.user.totalScore} pts',
             style: TextStyle(
@@ -586,9 +507,7 @@ class LeaderboardScreen extends StatelessWidget {
             width: 24,
             child: _buildRankChangeIndicator(data),
           ),
-
           SizedBox(width: 12),
-
           Container(
             width: 40,
             child: Text(
@@ -600,29 +519,13 @@ class LeaderboardScreen extends StatelessWidget {
               ),
             ),
           ),
-
           SizedBox(width: 12),
-
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: isDark ? Colors.grey[800] : Colors.grey[200],
-            backgroundImage: data.user.profileImg.isNotEmpty
-                ? NetworkImage(data.user.profileImg)
-                : null,
-            child: data.user.profileImg.isEmpty
-                ? Text(
-              data.user.userName[0].toUpperCase(),
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: TColors.primary,
-              ),
-            )
-                : null,
+          AvatarWithFrame(
+            profileImageUrl: data.user.profileImg,
+            avatarSize: 48,
+            frameSize: 58,
           ),
-
           SizedBox(width: 16),
-
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -670,9 +573,7 @@ class LeaderboardScreen extends StatelessWidget {
               ],
             ),
           ),
-
           SizedBox(width: 8),
-
           Text(
             '${data.user.totalScore} pts',
             style: TextStyle(
@@ -691,29 +592,13 @@ class LeaderboardScreen extends StatelessWidget {
 
     switch (data.rankChange!) {
       case RankChange.up:
-        return Icon(
-          Icons.keyboard_arrow_up,
-          color: Colors.green,
-          size: 18,
-        );
+        return Icon(Icons.keyboard_arrow_up, color: Colors.green, size: 18);
       case RankChange.down:
-        return Icon(
-          Icons.keyboard_arrow_down,
-          color: Colors.red,
-          size: 18,
-        );
+        return Icon(Icons.keyboard_arrow_down, color: Colors.red, size: 18);
       case RankChange.same:
-        return Icon(
-          Icons.remove,
-          color: Colors.grey,
-          size: 18,
-        );
+        return Icon(Icons.remove, color: Colors.grey, size: 18);
       case RankChange.new_entry:
-        return Icon(
-          Icons.fiber_new,
-          color: TColors.primary,
-          size: 16,
-        );
+        return Icon(Icons.fiber_new, color: TColors.primary, size: 16);
       default:
         return SizedBox.shrink();
     }

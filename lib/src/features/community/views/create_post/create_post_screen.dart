@@ -3,13 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import '../../../../common/loaders/loaders.dart';
-import '../../../../common/widgets/images/t_circular_image.dart';
 import '../../../../utils/constants/colors.dart';
-import '../../../../utils/constants/image_strings.dart';
 import '../../../../utils/constants/sizes.dart';
 import '../../../../utils/helpers/helper_functions.dart';
 import '../../../../utils/helpers/media_helper.dart';
 import '../../../personalization/controllers/user_controller.dart';
+import '../../../personalization/views/widgets/avatar_with_frame.dart';
 import '../../controllers/post_create_controller.dart';
 import '../../models/post_model.dart';
 import 'widgets/media_grid_widget.dart';
@@ -231,7 +230,8 @@ class CreatePostScreen extends StatelessWidget {
 
     return Obx(() {
       final isUploading = controller.isCreatingPost.value;
-      final currentLength = controller.contentController.text.length;
+      // 使用响应式字符计数
+      final currentLength = controller.characterCount.value;
       final remaining = maxPostLength - currentLength;
       final isNearLimit = remaining <= 200;
       final isOverLimit = remaining < 0;
@@ -240,7 +240,7 @@ class CreatePostScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           // Character counter
-          if (isNearLimit || controller.contentController.text.isNotEmpty)
+          if (isNearLimit || currentLength > 0) // 使用 currentLength 替代 controller.contentController.text.isNotEmpty
             Padding(
               padding: EdgeInsets.only(bottom: TSizes.xs),
               child: Text(
@@ -358,15 +358,10 @@ class CreatePostScreen extends StatelessWidget {
       final user = userController.user.value;
       return Row(
         children: [
-          TCircularImage(
-            image: user.profileImg.isNotEmpty
-                ? user.profileImg
-                : TImages.user,
-            width: 48,
-            height: 48,
-            padding: 0,
-            backgroundColor: darkMode ? TColors.darkGrey : TColors.lightGrey,
-            isNetworkImage: user.profileImg.isNotEmpty,
+          AvatarWithFrame(
+            profileImageUrl: user.profileImg,
+            avatarSize: 48,  // 头像大小
+            frameSize: 58,   // 头像框大小
           ),
           SizedBox(width: TSizes.md),
           Expanded(

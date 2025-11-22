@@ -379,7 +379,8 @@ class HealthDataEntryScreen extends StatelessWidget {
             controller.noteController,
             darkMode,
             controller,
-            maxLines: 3,
+            fieldKey: 'note',
+            maxLines: 1,
             keyboardType: TextInputType.multiline,
           ),
         ];
@@ -463,7 +464,7 @@ class HealthDataEntryScreen extends StatelessWidget {
           ),
         ),
 
-        // Input field with error - FIXED: Error only shows under input
+        // Input field with error
         Expanded(
           flex: 3,
           child: Column(

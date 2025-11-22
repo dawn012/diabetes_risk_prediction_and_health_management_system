@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../../common/loaders/loaders.dart';
+import '../../../../common/widgets/dialogs/dialog.dart';
 import '../../../../services/step_tracking_service.dart';
 import '../../../../utils/constants/colors.dart';
 import '../../../../utils/constants/sizes.dart';
@@ -296,7 +297,7 @@ class ThisPhoneScreen extends StatelessWidget {
 
             const Spacer(),
 
-            // Connect/Disconnect button - 修改这里
+            // Connect/Disconnect button
             Obx(() {
               final isConnected = stepTrackingService.isConnected.value;
 
@@ -367,7 +368,7 @@ class ThisPhoneScreen extends StatelessWidget {
     // 检查是否成功连接
     if (stepTrackingService.isConnected.value) {
       TLoaders.successSnackBar(
-        title: 'Connected!',
+        title: 'Tracking Started!',
         message: 'Step tracking is now active',
       );
     }
@@ -375,59 +376,19 @@ class ThisPhoneScreen extends StatelessWidget {
 
   void _showDisconnectDialog(
       BuildContext context, StepTrackingService stepTrackingService) {
-    final darkMode = THelperFunctions.isDarkMode(context);
 
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          backgroundColor: darkMode ? TColors.darkContainer : Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(TSizes.cardRadiusLg),
-          ),
-          title: Text(
-            'Disconnect Phone',
-            style: TextStyle(
-              color: darkMode ? TColors.white : TColors.textPrimary,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          content: Text(
-            'Are you sure you want to disconnect this phone? You will no longer receive step data from your device.',
-            style: TextStyle(
-              color: darkMode ? TColors.white : TColors.textSecondary,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: Text(
-                'Cancel',
-                style: TextStyle(color: TColors.textSecondary),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                stepTrackingService.stopTracking();
-                TLoaders.successSnackBar(
-                  title: 'Disconnected',
-                  message:
-                  'Phone disconnected successfully. Step tracking has been stopped.',
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: TColors.error,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(TSizes.borderRadiusLg),
-                ),
-              ),
-              child: const Text(
-                'Disconnect',
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-          ],
+    TDialog.deleteDialog(
+      title: 'Disconnect Phone',
+      message:
+      'Are you sure you want to disconnect this phone? You will no longer receive step data from your device.',
+      buttonTitle: 'Disconnect',
+      onConfirm: () {
+        stepTrackingService.stopTracking();
+
+        TLoaders.successSnackBar(
+          title: 'Disconnected',
+          message:
+          'Phone disconnected successfully. Step tracking has been stopped.',
         );
       },
     );

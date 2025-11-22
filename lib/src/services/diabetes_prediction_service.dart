@@ -1,6 +1,7 @@
 // diabetes_prediction_service.dart
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
@@ -20,7 +21,8 @@ class DiabetesPredictionService extends GetxService {
   final Uuid _uuid = const Uuid();
 
   // API 配置
-  static const String _baseUrl = 'http://192.168.247.188:5000';
+  static const String _baseUrl = 'https://diabetespredictionapi-production.up.railway.app';
+  // static const String _baseUrl = '';
   static const Duration _timeout = Duration(seconds: 30);
 
   // 状态管理
@@ -97,14 +99,17 @@ class DiabetesPredictionService extends GetxService {
       // 5. 调用预测 API
       final apiResponse = await _callPredictionApi(requestData);
 
-      // 6. 创建完整的预测记录
+      // 6. 获取 meal photos 文件
+      final mealPhotoFiles = await _getMealPhotoFiles();
+
+      // 7. 创建完整的预测记录
       final predictionRecord =
       await _createPredictionRecord(apiResponse, assessmentData);
 
-      // 7. 保存到 Firestore（使用现有 Repository）
-      await _savePredictionToFirestore(predictionRecord);
+      // 8. 保存到 Firestore（包含 meal photos）
+      await _savePredictionToFirestore(predictionRecord, mealPhotoFiles);
 
-      // 8. 更新状态
+      // 9. 更新状态
       lastPrediction.value = predictionRecord;
 
       print(
@@ -116,6 +121,62 @@ class DiabetesPredictionService extends GetxService {
       rethrow;
     } finally {
       isPredicting.value = false;
+    }
+  }
+
+  /// 获取 meal photos 文件
+  Future<List<File>?> _getMealPhotoFiles() async {
+    try {
+      // 从 cache 获取 meal photos
+      final cache = _storageManager.getCachedAssessment();
+      if (cache == null) {
+        print('❌ No cache found in _getMealPhotoFiles');
+        return null;
+      }
+
+      final mealPhotos = cache.mealPhotos;
+      print('📸 Meal photos from cache: ${mealPhotos?.length ?? 0}');
+
+      if (mealPhotos == null) {
+        return null;
+      }
+
+      if (mealPhotos.isEmpty) {
+        return null;
+      }
+
+      final files = <File>[];
+      for (int i = 0; i < mealPhotos.length; i++) {
+        final photoRecord = mealPhotos[i];
+        try {
+          final imagePath = photoRecord.imagePath;
+
+          if (imagePath == null || imagePath.isEmpty) {
+            continue;
+          }
+
+          // 检查是否是本地文件路径
+          if (imagePath.startsWith('http') || imagePath.startsWith('gs://')) {
+            continue;
+          }
+
+          final file = File(imagePath);
+          final fileExists = await file.exists();
+
+          if (fileExists) {
+            files.add(file);
+          } else {
+            print('❌ Photo $i file does not exist at path: $imagePath');
+          }
+        } catch (e) {
+          print('❌ Error processing photo $i: $e');
+        }
+      }
+
+      return files.isNotEmpty ? files : null;
+    } catch (e) {
+      print('❌ Error in _getMealPhotoFiles: $e');
+      return null;
     }
   }
 
@@ -245,11 +306,13 @@ class DiabetesPredictionService extends GetxService {
   /// 保存预测结果到 Firestore
   Future<void> _savePredictionToFirestore(
       DiabetesRiskPredictionModel predictionRecord,
+      List<File>? mealPhotoFiles,
       ) async {
     try {
       await _predictionRepository.saveDiabetesPrediction(
         _getCurrentUserId(),
         predictionRecord,
+        newMealPhotos: mealPhotoFiles
       );
 
       print(

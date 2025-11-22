@@ -789,3 +789,155 @@ This is an automated message, please do not reply to this email.
     `,
   };
 };
+
+// Manager Welcome Email Template
+export const generateManagerWelcomeEmail = (
+  userName: string,
+  role: string,
+  passwordResetLink: string
+) => {
+  const formattedRole = role.split(" ").map(word =>
+    word.charAt(0).toUpperCase() + word.slice(1)
+  ).join(" ");
+
+  return {
+    subject: "🎉 Welcome to Diatrack Manager Portal - Set Your Password",
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #e3f2fd; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .content { padding: 30px; background: #fff; }
+          .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
+          .button { background: #2196F3; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; display: inline-block; font-size: 16px; font-weight: bold; margin: 20px 0; }
+          .info-box { background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2196F3; }
+          .role-badge { background: #2196F3; color: white; padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: bold; display: inline-block; }
+          .steps { margin: 25px 0; }
+          .step { display: flex; align-items: flex-start; margin-bottom: 15px; }
+          .step-number { background: #2196F3; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 15px; flex-shrink: 0; padding-top: 2px; padding-left: 6px; }
+          .step-content { flex: 1; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1 style="margin: 0; color: #1565C0;">Welcome to Diatrack!</h1>
+            <p style="margin: 10px 0 0 0; font-size: 18px; color: #1976D2;">Manager Account Setup</p>
+          </div>
+          <div class="content">
+            <h2>Dear ${userName},</h2>
+
+            <p>Welcome to the Diatrack Manager Portal! Your manager account has been successfully created with the following role:</p>
+
+            <div style="text-align: center; margin: 25px 0;">
+              <span class="role-badge">${formattedRole}</span>
+            </div>
+
+            <div class="info-box">
+              <h3 style="margin-top: 0; color: #1565C0;">Next Steps</h3>
+              <p>To get started, you need to set your password and verify your account.</p>
+            </div>
+
+            <div class="steps">
+              <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                  <strong>Set Your Password</strong>
+                  <p>Click the button below to set a secure password for your account.</p>
+                </div>
+              </div>
+
+              <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                  <strong>Log In</strong>
+                  <p>After setting your password, you can log in to the Manager Portal.</p>
+                </div>
+              </div>
+
+              <div class="step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                  <strong>Access Dashboard</strong>
+                  <p>Start managing users, content, and system operations.</p>
+                </div>
+              </div>
+            </div>
+
+            <div style="text-align: center;">
+              <a href="${passwordResetLink}" class="button">
+                🚀 Set Your Password
+              </a>
+            </div>
+
+            <div style="background: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107;">
+              <strong>⚠️ Important Security Notice:</strong>
+              <p style="margin: 8px 0 0 0;">This link will expire in 24 hours for security reasons. If the link expires, you can request a new password reset from the login page.</p>
+            </div>
+
+            <p><strong>Need Help?</strong></p>
+            <ul>
+              <li>If you have trouble setting your password, contact the system administrator</li>
+              <li>For technical support, reach out to the IT department</li>
+              <li>Review the manager guidelines and documentation</li>
+            </ul>
+
+            <p>We're excited to have you on board as part of the Diatrack management team!</p>
+
+            <p>Best regards,<br>
+            <strong>Diatrack Administration Team</strong></p>
+          </div>
+          <div class="footer">
+            <p>© ${new Date().getFullYear()} Diatrack - Diabetes Health Management System. All rights reserved.</p>
+            <p>This is an automated message, please do not reply to this email.</p>
+            <p>If you believe you received this email in error, please contact the system administrator.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+    text: `
+🎉 WELCOME TO DIATRACK MANAGER PORTAL
+
+Dear ${userName},
+
+Welcome to the Diatrack Manager Portal! Your manager account has been successfully created with the role: ${formattedRole}
+
+NEXT STEPS:
+To get started, you need to set your password and verify your account.
+
+SETUP STEPS:
+1. Set Your Password
+   Click the link below to set a secure password for your account.
+
+2. Log In
+   After setting your password, you can log in to the Manager Portal.
+
+3. Access Dashboard
+   Start managing users, content, and system operations.
+
+SET YOUR PASSWORD:
+${passwordResetLink}
+
+⚠️ IMPORTANT SECURITY NOTICE:
+This link will expire in 24 hours for security reasons. If the link expires, you can request a new password reset from the login page.
+
+NEED HELP?
+- If you have trouble setting your password, contact the system administrator
+- For technical support, reach out to the IT department
+- Review the manager guidelines and documentation
+
+We're excited to have you on board as part of the Diatrack management team!
+
+Best regards,
+Diatrack Administration Team
+
+© ${new Date().getFullYear()} Diatrack - Diabetes Health Management System. All rights reserved.
+This is an automated message, please do not reply to this email.
+If you believe you received this email in error, please contact the system administrator.
+    `,
+  };
+};

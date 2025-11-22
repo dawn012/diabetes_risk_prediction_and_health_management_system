@@ -99,7 +99,7 @@ class SortBottomSheetWidget extends StatelessWidget {
                     },
                   ));
                 }).toList(),
-                const SizedBox(height: TSizes.sm),
+                const SizedBox(height: 30),
               ],
             ),
           ),

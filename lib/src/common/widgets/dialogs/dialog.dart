@@ -100,7 +100,7 @@ class TDialog {
                 title,
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
-                  fontSize: 22,
+                  fontSize: 20,
                   color: isDark ? TColors.white : TColors.black,
                 ),
               ),
@@ -138,7 +138,9 @@ class TDialog {
                       ),
                       child: Text(
                         cancelText,
-                        style: Theme.of(context).textTheme.titleMedium!.copyWith(
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
                           color: isDark ? TColors.white : TColors.black,
                         ),
                       ),

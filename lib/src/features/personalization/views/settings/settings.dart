@@ -12,13 +12,17 @@ import '../../../../utils/constants/sizes.dart';
 import '../../../../utils/helpers/helper_functions.dart';
 import '../../../achievement/views/leaderboard_screen.dart';
 import '../../../achievement/views/user_achievement_screen.dart';
+import '../../../notification/views/notification_screen.dart';
+import '../../../reward/views/reward_shop_screen.dart';
 import '../../../subscription/views/subscription_history_screen.dart';
 import '../../../subscription/views/subscription_plan_selection_screen.dart';
 import '../../../subscription/views/transaction_history_screen.dart';
+import '../../controllers/user_controller.dart';
 import '../profile/profile.dart';
+import 'avatar_frame_manager_screen.dart';
 import 'help_support_screen.dart';
-import 'terms_conditions_screen.dart';
 import 'privacy_policy_screen.dart';
+import 'terms_conditions_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -26,6 +30,7 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final darkMode = THelperFunctions.isDarkMode(context);
+    final userController = UserController.instance;
 
     return Scaffold(
       body: SingleChildScrollView(
@@ -46,10 +51,66 @@ class SettingsScreen extends StatelessWidget {
                     ),
                   ),
 
-                  /// -- User Profile Card
-                  TUserProfileTile(
-                    onPressed: () => Get.to(() => const ProfileScreen()),
-                  ),
+                  /// -- User Profile Card with Points Display
+                  Obx(() {
+                    final user = userController.user.value;
+                    return TUserProfileTile(
+                      onPressed: () => Get.to(() => const ProfileScreen()),
+                      showDefaultSubtitle: false, // 不显示默认的 email subtitle
+                      customSubtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Email
+                          Text(
+                            user.email,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.white.withOpacity(0.8),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          SizedBox(height: 6),
+                          // Points Row
+                          Row(
+                            children: [
+                              // Total Score
+                              Icon(
+                                Iconsax.star_1_bold,
+                                size: 14,
+                                color: TColors.warning,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                '${user.totalScore} pts',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white.withOpacity(0.9),
+                                ),
+                              ),
+                              SizedBox(width: 12),
+                              // Reward Points
+                              Icon(
+                                Iconsax.coin_1_bold,
+                                size: 14,
+                                color: TColors.gold,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                '${user.rewardPoints} coins',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white.withOpacity(0.9),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
                   const SizedBox(height: TSizes.defaultSpace),
                 ],
               ),
@@ -67,6 +128,18 @@ class SettingsScreen extends StatelessWidget {
                     showActionButton: false,
                   ),
                   const SizedBox(height: TSizes.spaceBtwItems),
+
+                  _buildSettingItem(
+                    context: context,
+                    icon: Iconsax.frame_bold,
+                    title: 'Avatar Frames',
+                    subtitle: 'Manage your avatar frames',
+                    iconColor: const Color(0xFF8B5CF6),
+                    iconBgColor: const Color(0xFF8B5CF6).withOpacity(0.1),
+                    onTap: () => Get.to(() => const AvatarFrameManagerScreen()),
+                    darkMode: darkMode,
+                  ),
+                  const SizedBox(height: TSizes.sm),
 
                   // Account Settings Items
                   _buildSettingItem(
@@ -89,6 +162,18 @@ class SettingsScreen extends StatelessWidget {
                     iconColor: TColors.gold,
                     iconBgColor: TColors.gold.withOpacity(0.1),
                     onTap: () => Get.to(() => const LeaderboardScreen()),
+                    darkMode: darkMode,
+                  ),
+                  const SizedBox(height: TSizes.sm),
+
+                  _buildSettingItem(
+                    context: context,
+                    icon: Iconsax.shop_bold,
+                    title: 'Reward Shop',
+                    subtitle: 'Redeem exclusive rewards',
+                    iconColor: TColors.info,
+                    iconBgColor: TColors.info.withOpacity(0.1),
+                    onTap: () => Get.to(() => const RewardShopScreen()),
                     darkMode: darkMode,
                   ),
                   const SizedBox(height: TSizes.sm),
@@ -122,8 +207,8 @@ class SettingsScreen extends StatelessWidget {
                     icon: Iconsax.receipt_text_bold,
                     title: 'Transaction History',
                     subtitle: 'View all your transactions',
-                    iconColor: const Color(0xFF8B5CF6),
-                    iconBgColor: const Color(0xFF8B5CF6).withOpacity(0.1),
+                    iconColor: const Color(0xFFEC4899),
+                    iconBgColor: const Color(0xFFEC4899).withOpacity(0.1),
                     onTap: () => Get.to(() => const TransactionHistoryScreen()),
                     darkMode: darkMode,
                   ),
@@ -141,12 +226,10 @@ class SettingsScreen extends StatelessWidget {
                     context: context,
                     icon: Iconsax.notification_bold,
                     title: 'Notifications',
-                    subtitle: 'Manage notification preferences',
+                    subtitle: 'Manage your notification',
                     iconColor: TColors.info,
                     iconBgColor: TColors.info.withOpacity(0.1),
-                    onTap: () {
-                      // TODO: Navigate to notifications settings
-                    },
+                    onTap: () => Get.to(() => const NotificationScreen()),
                     darkMode: darkMode,
                   ),
                   const SizedBox(height: TSizes.sm),

@@ -10,7 +10,6 @@ import '../../../../utils/helpers/helper_functions.dart';
 import '../../../health_data_entry/controllers/diabetes_risk_controller.dart';
 import '../../models/diabetes_risk_prediction_model.dart';
 import '../../models/meal_analysis_result_model.dart';
-import '../../models/detected_food_model.dart';
 
 class DiabetesRiskDetailScreen extends StatelessWidget {
   final DiabetesRiskPredictionModel prediction;

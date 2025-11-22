@@ -2,9 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:intl/intl.dart';
 
 import '../../../common/widgets/custom_shapes/containers/primary_header_container.dart';
+import '../../../services/step_tracking_service.dart';
 import '../../../utils/constants/colors.dart';
 import '../../../utils/constants/sizes.dart';
 import '../../../utils/formatters/formatter.dart';
@@ -105,9 +105,9 @@ class _DashboardState extends State<Dashboard> {
           children: [
             /// -- Header Container with Floating Tips --
             SizedBox(
-              height: 230,
+              height: 210,
               child: Stack(
-                clipBehavior: Clip.none,  // 允许子组件溢出
+                clipBehavior: Clip.none, // 允许子组件溢出
                 children: [
                   TPrimaryHeaderContainer(
                     child: Column(
@@ -125,7 +125,7 @@ class _DashboardState extends State<Dashboard> {
 
                   /// -- Floating Health Tips Card --
                   Positioned(
-                    top: 100,
+                    top: 80,
                     left: TSizes.defaultSpace,
                     right: TSizes.defaultSpace,
                     child: Transform.translate(
@@ -139,20 +139,20 @@ class _DashboardState extends State<Dashboard> {
 
             /// -- Main Content with top margin for floating card --
             Container(
-              margin: const EdgeInsets.only(top: 120), // Space for floating card
+              margin: const EdgeInsets.only(top: 120),
+              // Space for floating card
               padding: const EdgeInsets.all(TSizes.defaultSpace),
               child: Column(
                 children: [
                   // Health Metrics Cards (Single Column)
                   _buildHealthMetricsList(
-                    context,
-                    darkMode,
-                    glucoseController,
-                    pressureController,
-                    weightController,
-                    exerciseController,
-                    diabetesRiskController
-                  ),
+                      context,
+                      darkMode,
+                      glucoseController,
+                      pressureController,
+                      weightController,
+                      exerciseController,
+                      diabetesRiskController),
                 ],
               ),
             ),
@@ -198,7 +198,8 @@ class _DashboardState extends State<Dashboard> {
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(TSizes.cardRadiusLg),
-            child: PageView.builder( // 直接使用 PageView，不需要 Stack
+            child: PageView.builder(
+              // 直接使用 PageView，不需要 Stack
               controller: _pageController,
               onPageChanged: (index) {
                 setState(() {
@@ -337,7 +338,8 @@ class _DashboardState extends State<Dashboard> {
         const SizedBox(height: TSizes.lg),
 
         // Diabetes Risk Card
-        Obx(() => _buildDiabetesRiskCard(context, darkMode, diabetesRiskController)),
+        Obx(() =>
+            _buildDiabetesRiskCard(context, darkMode, diabetesRiskController)),
       ],
     );
   }
@@ -433,8 +435,11 @@ class _DashboardState extends State<Dashboard> {
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
                       color: controller.averageValue.value >= 0
-                          ? controller.getGlucoseLevelColor(controller.averageValue.value)
-                          : (darkMode ? Colors.grey.shade400 : Colors.grey.shade600),
+                          ? controller.getGlucoseLevelColor(
+                              controller.averageValue.value)
+                          : (darkMode
+                              ? Colors.grey.shade400
+                              : Colors.grey.shade600),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -459,7 +464,9 @@ class _DashboardState extends State<Dashboard> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildGlucoseStatRow('Normal', controller.normalCount.value,
+                        _buildGlucoseStatRow(
+                            'Normal',
+                            controller.normalCount.value,
                             TColors.glucoseNormal),
                         const SizedBox(height: 8),
                         _buildGlucoseStatRow('High', controller.highCount.value,
@@ -615,11 +622,15 @@ class _DashboardState extends State<Dashboard> {
                     style: TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
-                      color: controller.systolicAverage.value > 0 && controller.diastolicAverage.value > 0
+                      color: controller.systolicAverage.value > 0 &&
+                              controller.diastolicAverage.value > 0
                           ? controller.getBPLevelColor(
-                        controller.systolicAverage.value.round(),
-                        controller.diastolicAverage.value.round(),
-                      ) : (darkMode ? Colors.grey.shade400 : Colors.grey.shade600),
+                              controller.systolicAverage.value.round(),
+                              controller.diastolicAverage.value.round(),
+                            )
+                          : (darkMode
+                              ? Colors.grey.shade400
+                              : Colors.grey.shade600),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -703,7 +714,8 @@ class _DashboardState extends State<Dashboard> {
       subtitle = 'Last Record | All Periods';
       value = 'No Data';
     } else if (hasSingleRecord) {
-      subtitle = 'Last Record: ${TFormatter.formatLastRecordDate(controller.latestWeightRecord.value!.logDateTime)} | All Periods';
+      subtitle =
+          'Last Record: ${TFormatter.formatLastRecordDate(controller.latestWeightRecord.value!.logDateTime)} | All Periods';
       value = '${controller.weightCurrent.value.toStringAsFixed(1)} kg';
     } else {
       final change =
@@ -799,7 +811,8 @@ class _DashboardState extends State<Dashboard> {
                     style: TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
-                      color: controller.getWeightStatusColor(controller.weightCurrent.value),
+                      color: controller
+                          .getWeightStatusColor(controller.weightCurrent.value),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -845,7 +858,8 @@ class _DashboardState extends State<Dashboard> {
     );
   }
 
-  Widget _buildExerciseCard(BuildContext context, bool darkMode, ExerciseController controller) {
+  Widget _buildExerciseCard(
+      BuildContext context, bool darkMode, ExerciseController controller) {
     return GestureDetector(
       onTap: () => Get.to(() => const ExerciseScreen()),
       child: Container(
@@ -896,7 +910,8 @@ class _DashboardState extends State<Dashboard> {
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: darkMode ? Colors.white : const Color(0xFF2D3748),
+                          color:
+                              darkMode ? Colors.white : const Color(0xFF2D3748),
                         ),
                       ),
                       Text(
@@ -919,50 +934,51 @@ class _DashboardState extends State<Dashboard> {
               ],
             ),
             const SizedBox(height: 20),
-
-            Obx(() => Row(children: [
-              Text(
-                controller.weeklyExerciseMinutes.value > 0
-                    ? '${controller.weeklyExerciseMinutes.value}'
-                    : 'No Data',
-                style: TextStyle(
-                  fontSize: controller.weeklyExerciseMinutes.value > 0 ? 32 : 24,
-                  fontWeight: FontWeight.bold,
-                  color: controller.weeklyExerciseMinutes.value > 0
-                      ? const Color(0xFF4A90E2)
-                      : (darkMode
-                      ? Colors.grey.shade500
-                      : Colors.grey.shade400),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'min',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: darkMode
-                      ? Colors.grey.shade400
-                      : Colors.grey.shade600,
-                ),
-              ),
-            ])),
-
+            Obx(() =>
+                Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                  Text(
+                    controller.weeklyExerciseMinutes.value > 0
+                        ? '${controller.weeklyExerciseMinutes.value}'
+                        : 'No Data',
+                    style: TextStyle(
+                      fontSize:
+                          controller.weeklyExerciseMinutes.value > 0 ? 32 : 24,
+                      fontWeight: FontWeight.bold,
+                      color: controller.weeklyExerciseMinutes.value > 0
+                          ? const Color(0xFF4A90E2)
+                          : (darkMode
+                              ? Colors.grey.shade500
+                              : Colors.grey.shade400),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'mins',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: darkMode
+                          ? Colors.grey.shade400
+                          : Colors.grey.shade600,
+                    ),
+                  ),
+                ])),
             const SizedBox(height: 20),
-
             Obx(() => Text(
-              'Weekly Goal: ${controller.weeklyExerciseGoal} min',
-              style: TextStyle(
-                fontSize: 14,
-                color: darkMode ? Colors.grey.shade400 : Colors.grey.shade600,
-              ),
-            )),
+                  'Weekly Goal: ${controller.weeklyExerciseGoal} min',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color:
+                        darkMode ? Colors.grey.shade400 : Colors.grey.shade600,
+                  ),
+                )),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildStepsCard(BuildContext context, bool darkMode, ExerciseController controller) {
+  Widget _buildStepsCard(
+      BuildContext context, bool darkMode, ExerciseController controller) {
     return GestureDetector(
       onTap: () => Get.to(() => const ExerciseScreen()),
       child: Container(
@@ -989,6 +1005,7 @@ class _DashboardState extends State<Dashboard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Header Row
             Row(
               children: [
                 Container(
@@ -1013,7 +1030,8 @@ class _DashboardState extends State<Dashboard> {
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: darkMode ? Colors.white : const Color(0xFF2D3748),
+                          color:
+                          darkMode ? Colors.white : const Color(0xFF2D3748),
                         ),
                       ),
                       Text(
@@ -1031,25 +1049,83 @@ class _DashboardState extends State<Dashboard> {
                 Icon(
                   Icons.arrow_forward_ios_rounded,
                   size: 16,
-                  color: darkMode ? Colors.grey.shade500 : Colors.grey.shade400,
+                  color: darkMode ? Colors.grey.shade400 : Colors.grey.shade600,
                 ),
               ],
             ),
+
             const SizedBox(height: 20),
 
+            // Step count row
             Obx(() {
-              final isConnected = controller.isConnected.value;
-              final todaySteps = controller.todaySteps.value;
+              final stepService = StepTrackingService.instance;
+              final isConnected = stepService.isConnected.value;
+              final isInitialized = stepService.isInitialized.value;
+              final todaySteps = stepService.todaySteps.value;
 
-              return Text(
-                isConnected ? '$todaySteps steps' : 'Not Connected',
-                style: TextStyle(
-                  fontSize: isConnected ? 32 : 24,
-                  fontWeight: FontWeight.bold,
-                  color: isConnected
-                      ? const Color(0xFF4A90E2)
-                      : (darkMode ? Colors.grey.shade500 : Colors.grey.shade400),
-                ),
+              // 显示加载状态：已连接但未初始化完成
+              if (isConnected && !isInitialized) {
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          darkMode ? Colors.grey.shade500 : Colors.grey.shade400,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Loading...',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: darkMode ? Colors.grey.shade500 : Colors.grey.shade400,
+                      ),
+                    ),
+                  ],
+                );
+              }
+
+              // 未连接状态
+              if (!isConnected) {
+                return Text(
+                  'Not Connected',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: darkMode ? Colors.grey.shade500 : Colors.grey.shade400,
+                  ),
+                );
+              }
+
+              // 已连接且已初始化：显示步数
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '$todaySteps',
+                    style: const TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF4A90E2),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'steps',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: darkMode
+                          ? Colors.grey.shade400
+                          : Colors.grey.shade600,
+                    ),
+                  ),
+                ],
               );
             }),
 
@@ -1059,7 +1135,8 @@ class _DashboardState extends State<Dashboard> {
               'Daily Goal: ${controller.dailyStepsGoal} steps',
               style: TextStyle(
                 fontSize: 14,
-                color: darkMode ? Colors.grey.shade400 : Colors.grey.shade600,
+                color:
+                darkMode ? Colors.grey.shade400 : Colors.grey.shade600,
               ),
             )),
           ],
@@ -1129,7 +1206,6 @@ class _DashboardState extends State<Dashboard> {
 
   Widget _buildPressureTrendChart(
       BloodPressureController controller, bool darkMode) {
-
     // 直接使用 controller 中已经生成的趋势数据和标签
     final systolicData = controller.systolicTrendsData;
     final diastolicData = controller.diastolicTrendsData;
@@ -1202,7 +1278,8 @@ class _DashboardState extends State<Dashboard> {
                   value.toInt().toString(),
                   style: TextStyle(
                     fontSize: 12,
-                    color: darkMode ? Colors.grey.shade400 : Colors.grey.shade600,
+                    color:
+                        darkMode ? Colors.grey.shade400 : Colors.grey.shade600,
                   ),
                 );
               },
@@ -1220,7 +1297,9 @@ class _DashboardState extends State<Dashboard> {
                     dateLabels[index].split('\n')[0], // 只取日期部分，去掉时间
                     style: TextStyle(
                       fontSize: 12,
-                      color: darkMode ? Colors.grey.shade400 : Colors.grey.shade600,
+                      color: darkMode
+                          ? Colors.grey.shade400
+                          : Colors.grey.shade600,
                     ),
                   );
                 }
@@ -1228,8 +1307,10 @@ class _DashboardState extends State<Dashboard> {
               },
             ),
           ),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
         borderData: FlBorderData(show: false),
         minX: 0,
@@ -1356,7 +1437,8 @@ class _DashboardState extends State<Dashboard> {
                   value.toInt().toString(),
                   style: TextStyle(
                     fontSize: 12,
-                    color: darkMode ? Colors.grey.shade400 : Colors.grey.shade600,
+                    color:
+                        darkMode ? Colors.grey.shade400 : Colors.grey.shade600,
                   ),
                 );
               },
@@ -1374,7 +1456,9 @@ class _DashboardState extends State<Dashboard> {
                     dateOnlyLabels[index],
                     style: TextStyle(
                       fontSize: 12,
-                      color: darkMode ? Colors.grey.shade400 : Colors.grey.shade600,
+                      color: darkMode
+                          ? Colors.grey.shade400
+                          : Colors.grey.shade600,
                     ),
                   );
                 }
@@ -1382,14 +1466,18 @@ class _DashboardState extends State<Dashboard> {
               },
             ),
           ),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
         borderData: FlBorderData(show: false),
         minX: 0,
         maxX: (dataCount - 1).toDouble(),
-        minY: dynamicMinY, // 使用动态计算的最小值
-        maxY: dynamicMaxY, // 使用动态计算的最大值
+        minY: dynamicMinY,
+        // 使用动态计算的最小值
+        maxY: dynamicMaxY,
+        // 使用动态计算的最大值
         lineBarsData: [
           LineChartBarData(
             spots: weightData,
@@ -1413,7 +1501,8 @@ class _DashboardState extends State<Dashboard> {
     );
   }
 
-  Widget _buildDiabetesRiskCard(BuildContext context, bool darkMode, DiabetesRiskController controller) {
+  Widget _buildDiabetesRiskCard(
+      BuildContext context, bool darkMode, DiabetesRiskController controller) {
     final hasData = controller.past14DaysCount.value > 0;
 
     return GestureDetector(
@@ -1467,7 +1556,7 @@ class _DashboardState extends State<Dashboard> {
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                           color:
-                          darkMode ? Colors.white : const Color(0xFF2D3748),
+                              darkMode ? Colors.white : const Color(0xFF2D3748),
                         ),
                       ),
                       Text(
@@ -1502,8 +1591,11 @@ class _DashboardState extends State<Dashboard> {
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
                       color: controller.currentScore.value > 0
-                          ? controller.getRiskLevelColor(controller.currentScore.value)
-                          : (darkMode ? Colors.grey.shade400 : Colors.grey.shade600),
+                          ? controller
+                              .getRiskLevelColor(controller.currentScore.value)
+                          : (darkMode
+                              ? Colors.grey.shade400
+                              : Colors.grey.shade600),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -1537,7 +1629,8 @@ class _DashboardState extends State<Dashboard> {
   }
 
 // Add this chart builder method:
-  Widget _buildDiabetesRiskTrendChart(DiabetesRiskController controller, bool darkMode) {
+  Widget _buildDiabetesRiskTrendChart(
+      DiabetesRiskController controller, bool darkMode) {
     final trendData = controller.trendsData;
     final dateLabels = controller.trendsLabels;
 
@@ -1600,7 +1693,8 @@ class _DashboardState extends State<Dashboard> {
                   value.toInt().toString(),
                   style: TextStyle(
                     fontSize: 12,
-                    color: darkMode ? Colors.grey.shade400 : Colors.grey.shade600,
+                    color:
+                        darkMode ? Colors.grey.shade400 : Colors.grey.shade600,
                   ),
                 );
               },
@@ -1618,7 +1712,9 @@ class _DashboardState extends State<Dashboard> {
                     dateLabels[index],
                     style: TextStyle(
                       fontSize: 12,
-                      color: darkMode ? Colors.grey.shade400 : Colors.grey.shade600,
+                      color: darkMode
+                          ? Colors.grey.shade400
+                          : Colors.grey.shade600,
                     ),
                   );
                 }
@@ -1626,8 +1722,10 @@ class _DashboardState extends State<Dashboard> {
               },
             ),
           ),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
         borderData: FlBorderData(show: false),
         minX: 0,

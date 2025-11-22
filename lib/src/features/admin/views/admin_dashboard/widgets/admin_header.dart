@@ -6,6 +6,7 @@ import '../../../../../common/widgets/dialogs/common_confirmation_dialog.dart';
 import '../../../../../data/repositories/authentication/authentication_repository.dart';
 import '../../../../../utils/constants/admin_colors.dart';
 import '../../../../../utils/helpers/helper_functions.dart';
+import '../../../../personalization/controllers/user_controller.dart'; // 添加这行
 
 class AdminHeader extends StatelessWidget {
   const AdminHeader({super.key});
@@ -14,6 +15,7 @@ class AdminHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final darkMode = THelperFunctions.isDarkMode(context);
     final authRepo = AuthenticationRepository.instance;
+    final userController = Get.find<UserController>(); // 获取 UserController
 
     return Container(
       height: 80,
@@ -125,48 +127,66 @@ class AdminHeader extends StatelessWidget {
                     ),
                   ),
                 ],
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 20,
-                      backgroundColor: TAdminColors.primary,
-                      child: Text(
-                        (authRepo.authUser?.email?.substring(0, 1).toUpperCase() ?? 'A'),
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
+                child: Obx(() {
+                  final user = userController.user.value;
+                  final hasProfileImage = user.profileImg.isNotEmpty;
+                  final username = user.username.isNotEmpty ? user.username : 'Admin';
+                  final email = authRepo.authUser?.email ?? '';
+
+                  return Row(
+                    children: [
+                      // CircleAvatar with profile image or initial
+                      hasProfileImage
+                          ? CircleAvatar(
+                        radius: 20,
+                        backgroundImage: NetworkImage(user.profileImg),
+                        backgroundColor: TAdminColors.getSurfaceVariantColor(darkMode),
+                      )
+                          : CircleAvatar(
+                        radius: 20,
+                        backgroundColor: TAdminColors.primary,
+                        child: Text(
+                          username.isNotEmpty
+                              ? username.substring(0, 1).toUpperCase()
+                              : email.isNotEmpty
+                              ? email.substring(0, 1).toUpperCase()
+                              : 'A',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                    ),
-                    SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          authRepo.authUser?.email?.split('@').first ?? 'Admin',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w500,
-                            color: TAdminColors.getOnSurfaceColor(darkMode),
+                      SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            user.username.isNotEmpty ? user.username : email.split('@').first,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w500,
+                              color: TAdminColors.getOnSurfaceColor(darkMode),
+                            ),
                           ),
-                        ),
-                        Text(
-                          'Administrator',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: TAdminColors.getOnSurfaceVariantColor(darkMode),
+                          Text(
+                            'Administrator',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: TAdminColors.getOnSurfaceVariantColor(darkMode),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(width: 8),
-                    Icon(
-                      Iconsax.arrow_down_1_bold,
-                      size: 16,
-                      color: TAdminColors.getOnSurfaceVariantColor(darkMode),
-                    ),
-                  ],
-                ),
+                        ],
+                      ),
+                      SizedBox(width: 8),
+                      Icon(
+                        Iconsax.arrow_down_1_bold,
+                        size: 16,
+                        color: TAdminColors.getOnSurfaceVariantColor(darkMode),
+                      ),
+                    ],
+                  );
+                }),
               ),
             ],
           ),

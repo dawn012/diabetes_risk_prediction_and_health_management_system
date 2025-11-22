@@ -17,7 +17,8 @@ const PAYPAL_WEBHOOK_ID = process.env.PAYPAL_WEBHOOK_ID;
 // 时间转换函数
 function convertDateToUTC8(dateString: string): number {
   const date = new Date(dateString);
-  return date.getTime() + (8 * 60 * 60 * 1000); // +8 小时
+  //   return date.getTime() + (8 * 60 * 60 * 1000); // +8 小时
+  return date.getTime();
 }
 
 // 格式化日期函数

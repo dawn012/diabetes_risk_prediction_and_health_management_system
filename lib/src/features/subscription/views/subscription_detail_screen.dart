@@ -474,6 +474,7 @@ class SubscriptionDetailScreen extends StatelessWidget {
                 ),
               ),
             ],
+            const SizedBox(height: TSizes.spaceBtwSections),
           ],
         ),
       ),

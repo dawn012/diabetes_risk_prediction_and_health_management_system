@@ -52,17 +52,21 @@ class ProfileFieldItem extends StatelessWidget {
                       overflow: TextOverflow.visible,
                     ),
                   ),
-                  if (icon != null && onInfoTap != null) ...[
-                    const SizedBox(width: 4),
-                    GestureDetector(
-                      onTap: onInfoTap,
-                      child: Icon(
-                        icon,
-                        size: 14,
-                        color: TColors.info,
+                  // 固定位置的图标，不受文本换行影响
+                  if (icon != null && onInfoTap != null)
+                    Container(
+                      width: 33, // 固定宽度
+                      height: 18,
+                      margin: EdgeInsets.only(left: 4),
+                      child: GestureDetector(
+                        onTap: onInfoTap,
+                        child: Icon(
+                          icon,
+                          size: 14,
+                          color: TColors.info,
+                        ),
                       ),
                     ),
-                  ],
                 ],
               ),
             ),

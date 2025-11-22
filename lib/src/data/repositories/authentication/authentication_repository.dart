@@ -450,30 +450,18 @@ class AuthenticationRepository extends GetxController {
 
   /// Create manager account with email (sends verification email)
   /// Returns the created user ID
-  Future<String> createManagerWithEmail(String email, String role) async {
+  Future<Map<String, dynamic>> createManagerWithCloudFunction(String email, String role, String username) async {
     try {
-      // Store current user
-      final currentUser = _auth.currentUser;
+      final function = FirebaseFunctions.instance
+          .httpsCallable('createManager');
 
-      // Create new user with a temporary password
-      // The manager will set their actual password when they verify their email
-      final tempPassword = _generateTempPassword();
+      final result = await function.call({
+        'email': email,
+        'role': role,
+        'username': username,
+      });
 
-      final userCredential = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: tempPassword,
-      );
-
-      // Get the new user ID
-      final newUserId = userCredential.user!.uid;
-
-      // Set the user role in authentication
-      await setUserRole(newUserId, role);
-
-      // Send password reset email so they can set their own password
-      await _auth.sendPasswordResetEmail(email: email);
-
-      return newUserId;
+      return result.data;
     } on FirebaseAuthException catch (e) {
       throw TFirebaseAuthException(e.code).message;
     } on FirebaseException catch (e) {

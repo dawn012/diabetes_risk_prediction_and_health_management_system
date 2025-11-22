@@ -564,32 +564,97 @@ class RangeIndicators extends StatelessWidget {
   final List<String> labels;
   final List<Color>? colors;
   final bool darkMode;
+  final bool useWrap; // 是否使用换行布局
 
   const RangeIndicators({
     super.key,
     required this.labels,
     this.colors,
     required this.darkMode,
+    this.useWrap = false, // 默认不使用换行
   });
 
   @override
   Widget build(BuildContext context) {
+    // 如果标签较长或数量多，使用换行布局
+    final shouldWrap = useWrap || _shouldUseWrapLayout();
+
+    if (shouldWrap) {
+      return _buildWrapLayout();
+    } else {
+      return _buildRowLayout();
+    }
+  }
+
+  /// 判断是否应该使用换行布局
+  bool _shouldUseWrapLayout() {
+    // 检查是否有长标签
+    final hasLongLabels = labels.any((label) => label.length > 8);
+    // 检查标签数量
+    final tooManyLabels = labels.length > 3;
+
+    return hasLongLabels || tooManyLabels;
+  }
+
+  /// 行布局 - 适合短标签
+  Widget _buildRowLayout() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: List.generate(labels.length, (index) {
-          return Text(
-            labels[index],
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: colors != null ? FontWeight.w600 : FontWeight.normal,
-              color: colors != null
-                  ? colors![index]
-                  : darkMode ? TColors.darkGrey : TColors.darkerGrey,
+          return Expanded(
+            child: Center( // 保证Text居中
+              child: Text(
+                labels[index],
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: colors != null ? FontWeight.w600 : FontWeight.normal,
+                  color: colors != null
+                      ? colors![index]
+                      : darkMode ? TColors.darkGrey : TColors.darkerGrey,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           );
         }),
+      ),
+    );
+  }
+
+  /// 换行布局 - 适合长标签
+  Widget _buildWrapLayout() {
+    return Wrap(
+      alignment: WrapAlignment.spaceBetween,
+      runAlignment: WrapAlignment.center,
+      spacing: 8,
+      runSpacing: 8,
+      children: List.generate(labels.length, (index) {
+        return _buildLabelItem(index);
+      }),
+    );
+  }
+
+  /// 构建单个标签项目
+  Widget _buildLabelItem(int index) {
+    return Container(
+      constraints: BoxConstraints(
+        maxWidth: 120, // 限制最大宽度
+      ),
+      child: Text(
+        labels[index],
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: colors != null ? FontWeight.w600 : FontWeight.normal,
+          color: colors != null
+              ? colors![index]
+              : darkMode ? TColors.darkGrey : TColors.darkerGrey,
+        ),
+        textAlign: TextAlign.center,
+        maxLines: 2, // 允许最多两行
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }

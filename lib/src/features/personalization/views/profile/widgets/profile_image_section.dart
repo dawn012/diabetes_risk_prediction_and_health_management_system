@@ -6,7 +6,6 @@ import 'package:icons_plus/icons_plus.dart';
 
 import '../../../../../common/loaders/loaders.dart';
 import '../../../../../common/widgets/camera/media_picker.dart';
-import '../../../../../common/widgets/images/t_circular_image.dart';
 import '../../../../../utils/constants/colors.dart';
 import '../../../../../utils/constants/enums.dart';
 import '../../../../../utils/constants/image_strings.dart';
@@ -14,6 +13,7 @@ import '../../../../../utils/constants/sizes.dart';
 import '../../../../../utils/helpers/image_helper.dart';
 import '../../../controllers/update_profile_controller.dart';
 import '../../../controllers/user_controller.dart';
+import '../../widgets/avatar_with_frame.dart';
 
 /// Profile Image Section with tap to view and change
 class ProfileImageSection extends StatelessWidget {
@@ -34,7 +34,7 @@ class ProfileImageSection extends StatelessWidget {
 
             return Stack(
               children: [
-                // Profile Image
+                // Profile Image with Frame - 替换为 AvatarWithFrame
                 GestureDetector(
                   onTap: () => _showFullScreenImage(
                     context,
@@ -45,8 +45,8 @@ class ProfileImageSection extends StatelessWidget {
                     tag: 'profile_image',
                     child: pendingImage != null
                         ? Container(
-                      width: 100,
-                      height: 100,
+                      width: 120, // 调整大小以适应头像框
+                      height: 120,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         image: DecorationImage(
@@ -59,13 +59,10 @@ class ProfileImageSection extends StatelessWidget {
                         ),
                       ),
                     )
-                        : TCircularImage(
-                      image: currentImageUrl.isNotEmpty
-                          ? currentImageUrl
-                          : TImages.user,
-                      width: 100,
-                      height: 100,
-                      isNetworkImage: currentImageUrl.isNotEmpty,
+                        : AvatarWithFrame(
+                      profileImageUrl: currentImageUrl,
+                      avatarSize: 100,  // 头像大小
+                      frameSize: 120,   // 头像框大小
                     ),
                   ),
                 ),

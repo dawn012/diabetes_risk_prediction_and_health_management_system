@@ -10,6 +10,8 @@ import '../community_management/community_management_screen.dart';
 import '../manager_management/manager_management_screen.dart';
 import '../profile/admin_profile_screen.dart';
 import '../report/transaction_report_screen.dart';
+import '../report/user_analytics_screen.dart';
+import '../reward_management/reward_management_screen.dart';
 import '../user_management/user_management_screen.dart';
 import 'widgets/admin_header.dart';
 import 'widgets/admin_sidebar.dart';
@@ -61,12 +63,14 @@ class AdminDashboardScreen extends StatelessWidget {
         return CommunityManagementScreen();
       case 4: // Achievement Management
         return AchievementManagementScreen();
-      case 5: // Analytics
+      case 5: // Achievement Management
+        return RewardManagementScreen();
+      case 6: // Analytics
         return _buildPlaceholder('Analytics', darkMode);
-      case 51: return TransactionReportScreen();
-      case 52: return _buildPlaceholder('User Reports', darkMode);
-      case 53: return _buildPlaceholder('Performance Reports', darkMode);
-      case 6: // Settings
+      case 61: return TransactionReportScreen();
+      case 62: return UserAnalyticsScreen();
+      // case 53: return _buildPlaceholder('Performance Reports', darkMode);
+      case 7: // Settings
         return AdminProfileScreen();
       default:
         return _buildDashboardContent(darkMode);

@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../utils/constants/firebase_field_names.dart';
 import '../../../utils/formatters/formatter.dart';
 
@@ -13,6 +12,7 @@ abstract class BaseAccountModel {
   final bool isVerify;
   bool accountAvailable;
   bool isDeleted;
+  int lastActive;
 
   BaseAccountModel({
     required this.userId,
@@ -25,6 +25,7 @@ abstract class BaseAccountModel {
     required this.isVerify,
     this.accountAvailable = true,
     this.isDeleted = false,
+    this.lastActive = 0,
   });
 
   Map<String, dynamic> toJson() => {
@@ -38,6 +39,7 @@ abstract class BaseAccountModel {
     FirebaseFieldNames.isVerify: isVerify,
     FirebaseFieldNames.accountAvailable: accountAvailable,
     FirebaseFieldNames.isDeleted: isDeleted,
+    FirebaseFieldNames.lastActive: lastActive,
   };
 
   /// Helper function to format phone number

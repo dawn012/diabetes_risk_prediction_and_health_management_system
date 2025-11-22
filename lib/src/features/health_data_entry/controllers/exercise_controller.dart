@@ -63,7 +63,7 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
 
   // Keep track of the time ranges for each tab
   String weekTimeRange = 'This Week';
-  String monthTimeRange = 'Oct 2025';
+  String monthTimeRange = 'Nov 2025';
 
   // Data from Firestore
   final healthDataList = <HealthDataModel>[].obs;
@@ -81,23 +81,22 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
     // 监听 UserController 的用户数据变化
     ever(_userController.user, (user) {
       print('User data updated in ExerciseController');
-      // 当用户数据更新时，重新计算进度
       _updateExerciseProgress();
-      update(); // 通知 UI 更新
+      update();
     });
 
     // Listen to step tracking service
-    ever(_stepTrackingService.isConnected, (connected) {
-      print('Connection status changed in ExerciseController: $connected');
-      if (connected) {
-        _updateStepsChartData();
-      }
-    });
+    // ever(_stepTrackingService.isConnected, (connected) {
+    //   print('Connection status changed in ExerciseController: $connected');
+    //   if (connected) {
+    //     _updateStepsChartData();
+    //   }
+    // });
 
-    // Listen to step tracking service
+    // Listen to step tracking service for real-time step updates
     _stepTrackingService.todaySteps.listen((steps) {
       todaySteps.value = steps;
-      _updateStepsChartData();
+      _updateTodayStepsInChart();
     });
   }
 
@@ -123,9 +122,7 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
         .listen(
           (filteredLogs) {
         healthDataList.value = filteredLogs;
-
         refreshData();
-
         isLoading.value = false;
       },
       onError: (error) {
@@ -137,10 +134,9 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
       },
     );
 
-    // 步数监听
+    // 步数监听 - 用于 Dashboard 显示
     _stepTrackingService.todaySteps.listen((steps) {
       todaySteps.value = steps;
-      _updateStepsChartData();
     });
   }
 
@@ -158,8 +154,6 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
       }
     }
     weeklyExerciseMinutes.value = weeklyMinutes;
-
-    todaySteps.value = 0;
   }
 
   void _initializeChartData() {
@@ -184,15 +178,15 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
 
   void _updateDataForTimeRange(String range) {
     if (tabController.index == 0) {
-      // Week view
       _generateExerciseDataForRange(range);
       _generateStepsDataForRange(range);
     } else {
-      // Month view
       _generateExerciseMonthData(range);
       _generateStepsMonthData(range);
     }
   }
+
+  // ==================== 运动数据方法 ====================
 
   /// 根据任意时间范围生成运动数据（Week视图）
   void _generateExerciseDataForRange(String range) {
@@ -207,8 +201,8 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
         label: _getWeekDayLabel(i),
         value: dayData['total']?.toDouble() ?? 0,
         stackData: dayData['stackData'],
-        startDate: currentDate,  // 传入具体日期
-        endDate: currentDate,    // 同一天
+        startDate: currentDate,
+        endDate: currentDate,
       ));
     }
 
@@ -216,110 +210,24 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
     _updateExerciseSummary();
   }
 
-  /// 根据任意时间范围生成步数数据（Week视图）
-  Future<void> _generateStepsDataForRange(String range) async {
-    final userId = _authRepo.authUser?.uid;
-    if (userId == null) return;
-
-    final DateTime startDate = _parseWeekRange(range);
-    final chartData = <ChartBarData>[];
-    final rawData = <double>[];
-
-    for (int i = 0; i < 7; i++) {
-      final currentDate = startDate.add(Duration(days: i));
-      final dayStart = DateTime(currentDate.year, currentDate.month, currentDate.day);
-      final dayEnd = dayStart.add(const Duration(days: 1));
-
-      final logs = await _healthLogRepo.findLogsInTimeRange(
-        userId: userId,
-        startTime: dayStart,
-        endTime: dayEnd,
-        physiologicalTimePeriod: PhysiologicalTimePeriod.wakeUp,
-      );
-
-      double steps = logs.isNotEmpty && logs.first.steps != null
-          ? logs.first.steps!.toDouble()
-          : 0;
-
-      chartData.add(ChartBarData(
-        label: _getWeekDayLabel(i),
-        value: steps,
-      ));
-
-      rawData.add(steps);
-    }
-
-    stepsChartData.value = chartData;
-    rawStepsData.value = rawData;
-    hasStepsData.value = rawData.any((step) => step > 0);
-
-    if (hasStepsData.value) {
-      final total = rawData.reduce((a, b) => a + b);
-      averageSteps.value = (total / 7).round();
-    } else {
-      averageSteps.value = 0;
-    }
-  }
-
-  /// 解析 Week 时间范围字符串，返回该周的开始日期
-  DateTime _parseWeekRange(String range) {
-    final now = DateTime.now();
-
-    if (range == 'This Week') {
-      return now.subtract(Duration(days: now.weekday % 7));
-    } else if (range == 'Last Week') {
-      return now.subtract(Duration(days: now.weekday % 7 + 7));
-    } else {
-      // 解析 "9/15 - 9/21" 格式
-      try {
-        final parts = range.split(' - ');
-        if (parts.length == 2) {
-          final startParts = parts[0].split('/');
-          if (startParts.length == 2) {
-            final month = int.parse(startParts[0]);
-            final day = int.parse(startParts[1]);
-
-            // 确定年份（如果是未来月份，则是去年）
-            int year = now.year;
-            if (month > now.month) {
-              year = now.year - 1;
-            }
-
-            return DateTime(year, month, day);
-          }
-        }
-      } catch (e) {
-        print('Error parsing week range: $e');
-      }
-
-      // 默认返回本周
-      return now.subtract(Duration(days: now.weekday % 7));
-    }
-  }
-
   /// 生成月度运动数据（Month视图）
   void _generateExerciseMonthData(String range) {
     final DateTime monthStart = _parseMonthRange(range);
     final chartData = <ChartBarData>[];
 
-    // 找到包含本月第一天的那个周的开始日期（星期日）
     DateTime currentWeekStart = _findFirstDayOfWeek(monthStart);
-
     int weekIndex = 0;
 
-    // 遍历直到进入下个月且超过第一周
-    while (weekIndex < 6) { // 最多6周，防止无限循环
+    while (weekIndex < 6) {
       final weekStart = currentWeekStart;
       final weekEnd = weekStart.add(const Duration(days: 6));
 
-      // 如果周开始日期已经超出当前月份且不是第一周，则停止
       if (weekStart.month != monthStart.month && weekIndex > 0) break;
 
       int weekLowIntensity = 0;
       int weekModerateIntensity = 0;
       int weekHighIntensity = 0;
 
-      // 累计这一周的数据
       for (var data in healthDataList) {
         if (data.logDateTime.isAfter(weekStart.subtract(const Duration(days: 1))) &&
             data.logDateTime.isBefore(weekEnd.add(const Duration(days: 1)))) {
@@ -343,7 +251,6 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
         StackData(value: weekHighIntensity.toDouble(), color: const Color(0xFFEF4444)),
       ];
 
-      // 生成周标签（显示日期范围）
       final weekLabel = _getMonthChartLabel(weekStart);
 
       chartData.add(ChartBarData(
@@ -354,123 +261,12 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
         endDate: weekEnd,
       ));
 
-      // 移动到下一周
       currentWeekStart = currentWeekStart.add(const Duration(days: 7));
       weekIndex++;
     }
 
     exerciseChartData.value = chartData;
     _updateExerciseSummary();
-  }
-
-  /// 生成月视图图表标签 - 只显示周开始日期
-  String _getMonthChartLabel(DateTime weekStart) {
-    return '${weekStart.month}/${weekStart.day}';
-  }
-
-  /// 找到某一天所在周的第一天（星期日）
-  DateTime _findFirstDayOfWeek(DateTime date) {
-    // DateTime.weekday: 1=Monday, 7=Sunday
-    // 计算需要回退多少天到本周星期日
-    // 如果 date.weekday = 7 (星期日)，daysToSubtract = 0
-    // 如果 date.weekday = 1 (星期一)，daysToSubtract = 1
-    // 如果 date.weekday = 6 (星期六)，daysToSubtract = 6
-    int daysToSubtract = date.weekday % 7;
-    return DateTime(date.year, date.month, date.day).subtract(Duration(days: daysToSubtract));
-  }
-
-  /// 生成月度步数数据（Month视图）
-  Future<void> _generateStepsMonthData(String range) async {
-    final userId = _authRepo.authUser?.uid;
-    if (userId == null) return;
-
-    final DateTime monthStart = _parseMonthRange(range);
-    final chartData = <ChartBarData>[];
-    final rawData = <double>[];
-
-    // 找到包含本月第一天的那个周的开始日期（星期日）
-    DateTime currentWeekStart = _findFirstDayOfWeek(monthStart);
-
-    int weekIndex = 0;
-
-    // 遍历直到进入下个月且超过第一周
-    while (weekIndex < 6) {
-      final weekStart = currentWeekStart;
-      final weekEnd = weekStart.add(const Duration(days: 7));
-
-      // 如果周开始日期已经超出当前月份且不是第一周，则停止
-      if (weekStart.month != monthStart.month && weekIndex > 0) break;
-
-      final logs = await _healthLogRepo.findLogsInTimeRange(
-        userId: userId,
-        startTime: weekStart,
-        endTime: weekEnd,
-        physiologicalTimePeriod: PhysiologicalTimePeriod.wakeUp,
-      );
-
-      double weekSteps = 0;
-      for (var log in logs) {
-        if (log.steps != null) {
-          weekSteps += log.steps!;
-        }
-      }
-
-      // 生成周标签 - 只显示周开始日期
-      final weekLabel = _getMonthChartLabel(weekStart);
-
-      chartData.add(ChartBarData(
-        label: weekLabel,
-        value: weekSteps,
-        startDate: weekStart,
-        endDate: weekEnd,
-      ));
-
-      rawData.add(weekSteps);
-
-      // 移动到下一周
-      currentWeekStart = currentWeekStart.add(const Duration(days: 7));
-      weekIndex++;
-    }
-
-    stepsChartData.value = chartData;
-    rawStepsData.value = rawData;
-    hasStepsData.value = rawData.any((step) => step > 0);
-
-    if (hasStepsData.value) {
-      final total = rawData.reduce((a, b) => a + b);
-      averageSteps.value = (total / chartData.length).round(); // 动态周数平均
-    } else {
-      averageSteps.value = 0;
-    }
-  }
-
-  /// 解析 Month 时间范围字符串，返回该月的第一天
-  DateTime _parseMonthRange(String range) {
-    final now = DateTime.now();
-
-    try {
-      // 解析 "Oct 2025" 格式
-      final parts = range.split(' ');
-      if (parts.length == 2) {
-        final monthMap = {
-          'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4,
-          'May': 5, 'Jun': 6, 'Jul': 7, 'Aug': 8,
-          'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12
-        };
-
-        final month = monthMap[parts[0]];
-        final year = int.parse(parts[1]);
-
-        if (month != null) {
-          return DateTime(year, month, 1);
-        }
-      }
-    } catch (e) {
-      print('Error parsing month range: $e');
-    }
-
-    // 默认返回当前月份
-    return DateTime(now.year, now.month, 1);
   }
 
   /// Get exercise data for a specific date
@@ -511,11 +307,223 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
     };
   }
 
-  bool _isSameDay(DateTime date1, DateTime date2) {
-    return date1.year == date2.year &&
-        date1.month == date2.month &&
-        date1.day == date2.day;
+  // ==================== 步数数据混合获取方法 ====================
+
+  /// 根据任意时间范围生成步数数据（Week视图）- 混合获取
+  Future<void> _generateStepsDataForRange(String range) async {
+    final userId = _authRepo.authUser?.uid;
+    if (userId == null) return;
+
+    final DateTime startDate = _parseWeekRange(range);
+    final chartData = <ChartBarData>[];
+    final rawData = <double>[];
+
+    for (int i = 0; i < 7; i++) {
+      final currentDate = startDate.add(Duration(days: i));
+      final today = DateTime.now();
+      final isToday = _isSameDay(currentDate, today);
+
+      double steps = 0;
+
+      if (isToday) {
+        // 今天的数据：优先使用本地实时数据
+        steps = _stepTrackingService.todaySteps.value.toDouble();
+        print('📊 Today steps - Local: $steps');
+
+        // 如果本地数据为0，尝试从云端获取
+        if (steps == 0) {
+          steps = await _getStepsFromFirebase(userId, currentDate);
+          print('📊 Today steps - Fallback to Firebase: $steps');
+        }
+      } else {
+        // 历史数据：从云端获取
+        steps = await _getStepsFromFirebase(userId, currentDate);
+        print('📊 Historical steps ($currentDate) - Firebase: $steps');
+      }
+
+      chartData.add(ChartBarData(
+        label: _getWeekDayLabel(i),
+        value: steps,
+        startDate: currentDate,
+        endDate: currentDate,
+      ));
+
+      rawData.add(steps);
+    }
+
+    stepsChartData.value = chartData;
+    rawStepsData.value = rawData;
+    hasStepsData.value = rawData.any((step) => step > 0);
+
+    if (hasStepsData.value) {
+      final total = rawData.reduce((a, b) => a + b);
+      averageSteps.value = (total / 7).round();
+    } else {
+      averageSteps.value = 0;
+    }
+
+    print('📈 Steps chart data updated: $rawData');
   }
+
+  /// 生成月度步数数据（Month视图）- 混合获取
+  Future<void> _generateStepsMonthData(String range) async {
+    final userId = _authRepo.authUser?.uid;
+    if (userId == null) return;
+
+    final DateTime monthStart = _parseMonthRange(range);
+    final chartData = <ChartBarData>[];
+    final rawData = <double>[];
+
+    DateTime currentWeekStart = _findFirstDayOfWeek(monthStart);
+    int weekIndex = 0;
+
+    while (weekIndex < 6) {
+      final weekStart = currentWeekStart;
+      final weekEnd = weekStart.add(const Duration(days: 7));
+
+      if (weekStart.month != monthStart.month && weekIndex > 0) break;
+
+      double weekSteps = 0;
+      final today = DateTime.now();
+
+      // 检查这一周是否包含今天
+      final containsToday = !today.isBefore(weekStart) && !today.isAfter(weekEnd);
+
+      if (containsToday) {
+        // 如果包含今天，使用混合数据
+        for (int i = 0; i < 7; i++) {
+          final currentDate = weekStart.add(Duration(days: i));
+          final isToday = _isSameDay(currentDate, today);
+
+          double dailySteps = 0;
+          if (isToday) {
+            // 今天的数据使用本地实时数据
+            dailySteps = _stepTrackingService.todaySteps.value.toDouble();
+            if (dailySteps == 0) {
+              dailySteps = await _getStepsFromFirebase(userId, currentDate);
+            }
+          } else {
+            // 其他日期从云端获取
+            dailySteps = await _getStepsFromFirebase(userId, currentDate);
+          }
+          weekSteps += dailySteps;
+        }
+      } else {
+        // 不包含今天，完全从云端获取
+        final logs = await _healthLogRepo.findLogsInTimeRange(
+          userId: userId,
+          startTime: weekStart,
+          endTime: weekEnd,
+          physiologicalTimePeriod: PhysiologicalTimePeriod.wakeUp,
+        );
+
+        for (var log in logs) {
+          if (log.steps != null) {
+            weekSteps += log.steps!;
+          }
+        }
+      }
+
+      final weekLabel = _getMonthChartLabel(weekStart);
+
+      chartData.add(ChartBarData(
+        label: weekLabel,
+        value: weekSteps,
+        startDate: weekStart,
+        endDate: weekEnd,
+      ));
+
+      rawData.add(weekSteps);
+
+      currentWeekStart = currentWeekStart.add(const Duration(days: 7));
+      weekIndex++;
+    }
+
+    stepsChartData.value = chartData;
+    rawStepsData.value = rawData;
+    hasStepsData.value = rawData.any((step) => step > 0);
+
+    if (hasStepsData.value) {
+      final total = rawData.reduce((a, b) => a + b);
+      averageSteps.value = (total / chartData.length).round();
+    } else {
+      averageSteps.value = 0;
+    }
+  }
+
+  /// 从 Firebase 获取指定日期的步数
+  Future<double> _getStepsFromFirebase(String userId, DateTime date) async {
+    try {
+      final startTime = DateTime(date.year, date.month, date.day);
+      final endTime = DateTime(date.year, date.month, date.day + 1);
+      // final dayEnd = date.add(const Duration(days: 1));
+
+      final logs = await _healthLogRepo.findLogsInTimeRange(
+        userId: userId,
+        startTime: startTime,
+        endTime: endTime,
+        physiologicalTimePeriod: PhysiologicalTimePeriod.wakeUp,
+      );
+
+      if (logs.isEmpty) {
+        print('📭 No step records found for $date');
+        return 0;
+      }
+
+      final validLogs = logs.where((log) => log.steps != null && log.steps! > 0).toList();
+
+      if (validLogs.isEmpty) {
+        print('📭 No valid step records (steps > 0) found for $date');
+        return 0;
+      }
+
+      // 由于同一天只有一个记录，直接取第一个
+      final stepRecord = validLogs.first;
+      final steps = stepRecord.steps!;
+
+      print('📥 Loaded steps from Firebase: $steps for $date');
+
+      return steps.toDouble();
+    } catch (e) {
+      print('❌ Error getting steps from Firebase: $e');
+      return 0;
+    }
+  }
+
+  /// 实时更新今天在图表中的步数
+  void _updateTodayStepsInChart() {
+    final today = DateTime.now();
+
+    if (tabController.index == 0) {
+      // Week view: 更新今天对应的柱状图
+      final updatedChartData = List<ChartBarData>.from(stepsChartData.value);
+      for (int i = 0; i < updatedChartData.length; i++) {
+        final chartData = updatedChartData[i];
+        if (chartData.startDate != null && _isSameDay(chartData.startDate!, today)) {
+          updatedChartData[i] = ChartBarData(
+            label: chartData.label,
+            value: _stepTrackingService.todaySteps.value.toDouble(),
+            startDate: chartData.startDate,
+            endDate: chartData.endDate,
+          );
+          break;
+        }
+      }
+      stepsChartData.value = updatedChartData;
+
+      // 重新计算平均值
+      final newRawData = updatedChartData.map((data) => data.value).toList();
+      if (newRawData.any((step) => step > 0)) {
+        final total = newRawData.reduce((a, b) => a + b);
+        averageSteps.value = (total / 7).round();
+      }
+    } else {
+      // Month view: 需要重新生成包含今天的周数据
+      _generateStepsMonthData(selectedTimeRange.value);
+    }
+  }
+
+  // ==================== 辅助方法 ====================
 
   void _updateExerciseSummary() {
     int low = 0;
@@ -538,7 +546,6 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
     _updateExerciseProgress();
   }
 
-  // 更新步数图表
   void _updateStepsChartData() {
     if (tabController.index == 0) {
       _generateStepsDataForRange(selectedTimeRange.value);
@@ -547,21 +554,77 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
     }
   }
 
-  void _generateEmptyData() {
-    exerciseChartData.value = List.generate(
-        7, (index) => ChartBarData(label: _getWeekDayLabel(index), value: 0));
+  /// 检查是否是同一天
+  bool _isSameDay(DateTime date1, DateTime date2) {
+    return date1.year == date2.year &&
+        date1.month == date2.month &&
+        date1.day == date2.day;
+  }
 
-    stepsChartData.value = List.generate(
-        7, (index) => ChartBarData(label: _getWeekDayLabel(index), value: 0));
+  /// 解析 Week 时间范围字符串，返回该周的开始日期
+  DateTime _parseWeekRange(String range) {
+    final now = DateTime.now();
 
-    rawStepsData.value = List.filled(7, 0);
-    hasStepsData.value = false;
-    averageSteps.value = 0;
+    if (range == 'This Week') {
+      return now.subtract(Duration(days: now.weekday % 7));
+    } else if (range == 'Last Week') {
+      return now.subtract(Duration(days: now.weekday % 7 + 7));
+    } else {
+      try {
+        final parts = range.split(' - ');
+        if (parts.length == 2) {
+          final startParts = parts[0].split('/');
+          if (startParts.length == 2) {
+            final month = int.parse(startParts[0]);
+            final day = int.parse(startParts[1]);
 
-    lowIntensityMinutes.value = 0;
-    moderateIntensityMinutes.value = 0;
-    highIntensityMinutes.value = 0;
-    _updateExerciseProgress();
+            int year = now.year;
+            if (month > now.month) {
+              year = now.year - 1;
+            }
+
+            return DateTime(year, month, day);
+          }
+        }
+      } catch (e) {
+        print('Error parsing week range: $e');
+      }
+
+      return now.subtract(Duration(days: now.weekday % 7));
+    }
+  }
+
+  /// 解析 Month 时间范围字符串，返回该月的第一天
+  DateTime _parseMonthRange(String range) {
+    final now = DateTime.now();
+
+    try {
+      final parts = range.split(' ');
+      if (parts.length == 2) {
+        final monthMap = {
+          'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4,
+          'May': 5, 'Jun': 6, 'Jul': 7, 'Aug': 8,
+          'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12
+        };
+
+        final month = monthMap[parts[0]];
+        final year = int.parse(parts[1]);
+
+        if (month != null) {
+          return DateTime(year, month, 1);
+        }
+      }
+    } catch (e) {
+      print('Error parsing month range: $e');
+    }
+
+    return DateTime(now.year, now.month, 1);
+  }
+
+  /// 找到某一天所在周的第一天（星期日）
+  DateTime _findFirstDayOfWeek(DateTime date) {
+    int daysToSubtract = date.weekday % 7;
+    return DateTime(date.year, date.month, date.day).subtract(Duration(days: daysToSubtract));
   }
 
   String _getWeekDayLabel(int index) {
@@ -569,14 +632,17 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
     return days[index];
   }
 
+  /// 生成月视图图表标签 - 只显示周开始日期
+  String _getMonthChartLabel(DateTime weekStart) {
+    return '${weekStart.month}/${weekStart.day}';
+  }
+
   void _updateExerciseProgress() {
     final totalMinutes = totalExerciseMinutes;
     final goal = weeklyExerciseGoal;
 
-    // 计算进度
     exerciseProgress.value = (totalMinutes / goal).clamp(0.0, 1.0);
 
-    // 修复剩余时间计算：如果已经超过目标，剩余时间为0
     if (totalMinutes >= goal) {
       remainingMinutes.value = 0;
     } else {
@@ -587,7 +653,8 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
     print('Remaining: ${remainingMinutes.value} minutes');
   }
 
-  // Public methods
+  // ==================== 公共方法 ====================
+
   void updateTimeRange(String range) {
     selectedTimeRange.value = range;
 
@@ -618,7 +685,7 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
 
   /// Get filtered data based on current filters (for HealthDataListScreen)
   List<HealthDataModel> getFilteredData() {
-    return healthDataList; // 已经是完整列表
+    return healthDataList;
   }
 
   Future<void> deleteHealthRecord(String logId) async {

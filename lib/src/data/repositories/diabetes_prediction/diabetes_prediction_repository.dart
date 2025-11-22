@@ -8,6 +8,7 @@ import 'package:path/path.dart' as path;
 import 'package:uuid/uuid.dart';
 
 import '../../../features/diabetes_prediction/models/diabetes_risk_prediction_model.dart';
+import '../../../features/diabetes_prediction/models/meal_photo_record_model.dart';
 import '../../../utils/constants/firebase_collection_names.dart';
 import '../../../utils/constants/firebase_field_names.dart';
 import '../../../utils/exceptions/firebase_exceptions.dart';
@@ -204,16 +205,20 @@ class DiabetesPredictionRepository extends GetxController {
       DiabetesRiskPredictionModel prediction,
       List<String> newPhotoUrls,
       ) {
-    // Create a copy of the inputs with updated photo URLs
+    final existingPhotos = prediction.inputs.mealPhotos ?? [];
+    final updatedPhotos = <MealPhotoRecord>[];
+
+    // 按顺序匹配：第一个照片用第一个URL，第二个用第二个URL...
+    for (int i = 0; i < existingPhotos.length && i < newPhotoUrls.length; i++) {
+      final existingPhoto = existingPhotos[i];
+      final newUrl = newPhotoUrls[i];
+
+      updatedPhotos.add(existingPhoto.copyWith(imagePath: newUrl));
+      print('✅ Replaced photo ${i+1}: ${existingPhoto.imagePath} -> $newUrl');
+    }
+
     final updatedInputs = prediction.inputs.copyWith(
-      mealPhotos: prediction.inputs.mealPhotos?.map((photo) {
-        // Find the corresponding new URL or keep the existing one
-        final newUrl = newPhotoUrls.firstWhere(
-              (url) => _extractFileNameFromUrl(url)?.contains(photo.id) == true,
-          orElse: () => photo.imagePath,
-        );
-        return photo.copyWith(imagePath: newUrl);
-      }).toList(),
+      mealPhotos: updatedPhotos,
     );
 
     return prediction.copyWith(inputs: updatedInputs);

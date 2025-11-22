@@ -78,11 +78,13 @@ export const handleStripeWebhook = async (
 
 // 时间转换函数
 function convertToUTC8(timestamp: number): number {
-  return timestamp * 1000 + (8 * 60 * 60 * 1000); // +8 小时
+//   return timestamp * 1000 + (8 * 60 * 60 * 1000); // +8 小时
+  return timestamp;
 }
 
 function convertToUTC8FromSeconds(seconds: number): number {
-  return seconds * 1000 + (8 * 60 * 60 * 1000); // +8 小时
+//   return seconds * 1000 + (8 * 60 * 60 * 1000); // +8 小时
+  return seconds;
 }
 
 // 格式化日期函数

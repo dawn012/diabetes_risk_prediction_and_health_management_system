@@ -28,11 +28,18 @@ class HealthAnalyticsTimeRangeSelector extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                selectedTimeRange,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown, // 自动缩小文字
+                  child: Text(
+                    selectedTimeRange,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16, // 最大字体
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: TSizes.xs),

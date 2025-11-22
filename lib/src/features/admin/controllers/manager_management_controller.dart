@@ -69,6 +69,7 @@ class ManagerManagementController extends GetxController {
     'user manager',
     'community manager',
     'achievement manager',
+    'reward manager'
   ];
 
   @override
@@ -106,7 +107,7 @@ class ManagerManagementController extends GetxController {
 
   void _subscribeToManagers() {
     _managersStreamSubscription = userRepository.streamAllManagers().listen(
-          (managers) {
+      (managers) {
         allManagers.assignAll(managers);
         filterManagers();
       },
@@ -207,7 +208,10 @@ class ManagerManagementController extends GetxController {
 
   void _updatePagination() {
     final itemCount = filteredManagers.length;
-    totalPages.value = (itemCount / itemsPerPage.value).ceil().clamp(1, double.infinity).toInt();
+    totalPages.value = (itemCount / itemsPerPage.value)
+        .ceil()
+        .clamp(1, double.infinity)
+        .toInt();
 
     if (currentPage.value > totalPages.value) {
       currentPage.value = totalPages.value;
@@ -264,7 +268,8 @@ class ManagerManagementController extends GetxController {
 
     int selectedCount = 0;
     for (AdminModel manager in filteredManagers) {
-      if (selectedManagers.any((selected) => selected.userId == manager.userId)) {
+      if (selectedManagers
+          .any((selected) => selected.userId == manager.userId)) {
         selectedCount++;
       }
     }
@@ -336,7 +341,8 @@ class ManagerManagementController extends GetxController {
         TLoaders.customToast(message: 'Processing image...');
 
         // 立即验证和压缩图片
-        final processedImage = await userController.validateAndCompressImage(imageFile);
+        final processedImage =
+            await userController.validateAndCompressImage(imageFile);
 
         if (processedImage != null) {
           // 处理成功，设置新图片
@@ -393,7 +399,8 @@ class ManagerManagementController extends GetxController {
       bool hasErrors = false;
 
       // 检查用户名重复
-      final isUsernameDuplicate = await userRepository.checkUsernameDuplicate(username, '');
+      final isUsernameDuplicate =
+          await userRepository.checkUsernameDuplicate(username, '');
       if (isUsernameDuplicate) {
         usernameDuplicateError.value = TTexts.usernameAlreadyBeenUsed;
         hasErrors = true;
@@ -417,7 +424,8 @@ class ManagerManagementController extends GetxController {
       // Upload profile image if selected - 必须在创建用户之前完成
       String profileImageUrl = '';
       if (selectedImageBytes.value != null) {
-        final uploadResult = await userController.uploadCompressedImage(compressedImage: selectedImageBytes.value!, forAddManager: true);
+        final uploadResult = await userController.uploadCompressedImage(
+            compressedImage: selectedImageBytes.value!, forAddManager: true);
         if (uploadResult == null) {
           isLoading.value = false;
           return;
@@ -426,29 +434,36 @@ class ManagerManagementController extends GetxController {
       }
 
       // Create user in Firebase Authentication and send verification email
-      final userId = await authRepository.createManagerWithEmail(email, role);
+      final result = await authRepository.createManagerWithCloudFunction(email, role, username);
 
-      // Create manager model
-      final newManager = AdminModel(
-        userId: userId,
-        username: username,
-        userType: role,
-        email: email,
-        profileImg: profileImageUrl,
-        joinDate: DateTime.now(),
-        isVerify: false, // Will be true after email verification
-        accountAvailable: true,
-      );
+      if (result['success'] == true) {
+        final userId = result['userId'];
 
-      // Save to Firestore
-      await userRepository.saveAdminRecord(newManager);
+        // Create manager model
+        final newManager = AdminModel(
+          userId: userId,
+          username: username,
+          userType: role,
+          email: email,
+          profileImg: profileImageUrl,
+          joinDate: DateTime.now(),
+          isVerify: false,
+          // Will be true after email verification
+          accountAvailable: true,
+        );
 
-      TLoaders.successSnackBar(
-        title: 'Success',
-        message: 'Manager added successfully. Verification email sent.',
-      );
+        // Save to Firestore
+        await userRepository.saveAdminRecord(newManager);
 
-      closeAddDialog();
+        TLoaders.successSnackBar(
+          title: 'Success',
+          message: 'Manager added successfully. Verification email sent.',
+        );
+
+        closeAddDialog();
+      } else {
+        throw Exception(result['message'] ?? 'Failed to create manager');
+      }
     } catch (e) {
       TLoaders.errorSnackBar(
         title: 'Error',
@@ -506,7 +521,9 @@ class ManagerManagementController extends GetxController {
       bool imageUploadFailed = false;
 
       if (selectedImageBytes.value != null) {
-        final uploadResult = await userController.uploadCompressedImage(compressedImage: selectedImageBytes.value!, targetUserId: currentManager.userId);
+        final uploadResult = await userController.uploadCompressedImage(
+            compressedImage: selectedImageBytes.value!,
+            targetUserId: currentManager.userId);
         if (uploadResult != null) {
           newImageUrl = uploadResult;
           hasChanges = true;
@@ -534,12 +551,14 @@ class ManagerManagementController extends GetxController {
       if (roleChanged) {
         try {
           await authRepository.setUserRole(currentManager.userId, newRole);
-          print('✅ Role updated to "$newRole" for user: ${currentManager.userId}');
+          print(
+              '✅ Role updated to "$newRole" for user: ${currentManager.userId}');
         } catch (e) {
           print('⚠️ Failed to update role via Cloud Function: $e');
           TLoaders.warningSnackBar(
             title: 'Role Update Warning',
-            message: 'Manager profile updated but role change may not have taken effect',
+            message:
+                'Manager profile updated but role change may not have taken effect',
           );
         }
       }
@@ -643,7 +662,8 @@ class ManagerManagementController extends GetxController {
       await notificationRepository.sendSystemNotification(
         userId: manager.userId,
         title: 'Account Restored',
-        message: 'Your account has been restored. You can now access all features again. Welcome back!',
+        message:
+            'Your account has been restored. You can now access all features again. Welcome back!',
       );
 
       TLoaders.successSnackBar(
@@ -716,7 +736,8 @@ class ManagerManagementController extends GetxController {
         await notificationRepository.sendSystemNotification(
           userId: manager.userId,
           title: 'Account Restored',
-          message: 'Your account has been restored. You can now access all features again. Welcome back!',
+          message:
+              'Your account has been restored. You can now access all features again. Welcome back!',
         );
       }
 
@@ -763,7 +784,8 @@ class ManagerManagementController extends GetxController {
     }
   }
 
-  List<TextSpan> getHighlightedText(String text, String query, {Color? textColor}) {
+  List<TextSpan> getHighlightedText(String text, String query,
+      {Color? textColor}) {
     if (query.isEmpty) {
       return [TextSpan(text: text, style: TextStyle(color: textColor))];
     }

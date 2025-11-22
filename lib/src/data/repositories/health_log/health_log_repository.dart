@@ -85,11 +85,34 @@ class HealthLogRepository extends GetxController {
         isLessThanOrEqualTo: endTime.millisecondsSinceEpoch)
         .where(FirebaseFieldNames.physiologicalTimePeriod,
         isEqualTo: physiologicalTimePeriod.value)
+        .orderBy(FirebaseFieldNames.logDateTime, descending: true)
         .get();
 
     return querySnapshot.docs
         .map((doc) => HealthDataModel.fromSnapshot(doc))
         .toList();
+  }
+
+  Future<HealthDataModel?> findStepRecordForDate({
+    required String userId,
+    required DateTime date,
+  }) async {
+
+    final querySnapshot = await _getHealthLogsCollection(userId)
+        .where(FirebaseFieldNames.logDateTime, isEqualTo: date.millisecondsSinceEpoch)
+        .where(FirebaseFieldNames.physiologicalTimePeriod, isEqualTo: PhysiologicalTimePeriod.wakeUp.value)
+        .where(FirebaseFieldNames.steps, isGreaterThan: 0)
+        .limit(1)
+        .get();
+
+    if (querySnapshot.docs.isNotEmpty) {
+      final log = HealthDataModel.fromSnapshot(querySnapshot.docs.first);
+      print('✅ Found step record for $date: ${log.steps} steps');
+      return log;
+    }
+
+    print('❌ No step record found for $date');
+    return null;
   }
 
   /// 检查记录是否包含特定数据类型
@@ -112,6 +135,15 @@ class HealthLogRepository extends GetxController {
 
   /// 合并健康数据（只合并新数据，不覆盖现有数据）
   HealthDataModel _mergeHealthData(HealthDataModel existing, HealthDataModel newData) {
+    // 确定使用哪个步数值
+    int mergedSteps = existing.steps ?? 0;
+
+    // 如果新数据有步数，且大于现有步数，使用新步数
+    if (newData.steps != null && newData.steps! > mergedSteps) {
+      mergedSteps = newData.steps!;
+      print('🔄 Merging steps: $mergedSteps (existing: ${existing.steps}, new: ${newData.steps})');
+    }
+
     return HealthDataModel(
       logId: existing.logId,
       logDateTime: existing.logDateTime,
@@ -141,6 +173,9 @@ class HealthLogRepository extends GetxController {
         duration: newData.physicalActivity.duration > 0 ? newData.physicalActivity.duration : existing.physicalActivity.duration,
         intensityLevel: newData.physicalActivity.activityType.isNotEmpty ? newData.physicalActivity.intensityLevel : existing.physicalActivity.intensityLevel,
       ),
+
+      // 步数数据：新数据优先
+      steps: mergedSteps,
     );
   }
 

@@ -354,4 +354,71 @@ enum SubscriptionStatus {
         return TColors.darkGrey;
     }
   }
+
+}
+
+enum RewardType {
+  avatarFrame('avatar frame'),
+  virtualItem('virtual item'),
+  coupon('coupon');
+
+  final String value;
+
+  const RewardType(this.value);
+
+  static RewardType fromString(String value) {
+    // 处理不同的格式
+    final normalizedValue = value.toLowerCase().trim();
+
+    return RewardType.values.firstWhere(
+          (e) => e.value == normalizedValue || e.name.toLowerCase() == normalizedValue,
+      orElse: () => RewardType.avatarFrame,
+    );
+  }
+
+  String get displayName {
+    switch (this) {
+      case RewardType.avatarFrame:
+        return 'Avatar Frame';
+      case RewardType.virtualItem:
+        return 'Virtual Item';
+      case RewardType.coupon:
+        return 'Coupon';
+    }
+  }
+}
+
+/// User Reward Status
+enum UserRewardStatus {
+  pending('pending'),
+  redeemed('redeemed');
+
+  final String value;
+
+  const UserRewardStatus(this.value);
+
+  static UserRewardStatus fromString(String value) {
+    return UserRewardStatus.values.firstWhere(
+          (e) => e.value == value.toLowerCase(),
+      orElse: () => UserRewardStatus.pending,
+    );
+  }
+
+  String get displayName {
+    switch (this) {
+      case UserRewardStatus.pending:
+        return 'Pending';
+      case UserRewardStatus.redeemed:
+        return 'Redeemed';
+    }
+  }
+
+  Color get color {
+    switch (this) {
+      case UserRewardStatus.pending:
+        return TColors.warning;
+      case UserRewardStatus.redeemed:
+        return TColors.success;
+    }
+  }
 }

@@ -64,7 +64,7 @@ class HealthDataModel {
   }) {
     return HealthDataModel(
       logId: logId ?? DateTime.now().millisecondsSinceEpoch.toString(),
-      logDateTime: DateTime(date.year, date.month, date.day), // 时间设为 00:00:00
+      logDateTime: date,
       physiologicalTimePeriod: PhysiologicalTimePeriod.wakeUp,
       bloodPressure: BloodPressureModel.empty(),
       bloodGlucose: BloodGlucoseModel.empty(),

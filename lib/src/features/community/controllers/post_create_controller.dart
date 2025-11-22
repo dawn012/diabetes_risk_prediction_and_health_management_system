@@ -25,6 +25,7 @@ class PostCreateController extends GetxController {
 
   // Form controllers
   final contentController = TextEditingController();
+  final characterCount = 0.obs;
 
   // Observables
   final selectedPostType = 'General Discussion'.obs;
@@ -70,6 +71,13 @@ class PostCreateController extends GetxController {
   bool _hasUnsavedChanges = false;
 
   void _onContentChanged() {
+    final newCount = contentController.text.length;
+
+    // 更新响应式字符计数
+    if (characterCount.value != newCount) {
+      characterCount.value = newCount;
+    }
+
     _hasUnsavedChanges = contentController.text.trim().isNotEmpty || mediaItems.isNotEmpty;
     _updateCanSubmit();
   }

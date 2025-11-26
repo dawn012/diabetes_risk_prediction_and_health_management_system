@@ -70,6 +70,22 @@ class NotificationRepository extends GetxController {
     }
   }
 
+  /// Stream unread notifications count for a user
+  Stream<int> streamUnreadCount(String userId) {
+    try {
+      return _getNotificationCollection(userId)
+          .where(FirebaseFieldNames.isRead, isEqualTo: false)
+          .snapshots()
+          .map((snapshot) => snapshot.docs.length)
+          .handleError((error) {
+        print('Error streaming unread count: $error');
+        return 0;
+      });
+    } catch (e) {
+      return Stream.value(0);
+    }
+  }
+
   /// Get unread notifications count
   Future<int> getUnreadCount(String userId) async {
     try {
@@ -83,6 +99,55 @@ class NotificationRepository extends GetxController {
     } catch (e) {
       throw TTexts.commonErrorMessage;
     }
+  }
+
+  /// 生成资料更新通知消息
+  String generateProfileUpdateMessage({
+    bool? usernameChanged,
+    bool? roleChanged,
+    bool? profileImageChanged,
+    String? oldUsername,
+    String? newUsername,
+    String? oldRole,
+    String? newRole,
+    bool isManager = false,
+  }) {
+    final List<String> changeDetails = [];
+
+    if (usernameChanged == true && oldUsername != null && newUsername != null) {
+      changeDetails.add('Username: $oldUsername → $newUsername');
+    }
+
+    if (roleChanged == true && oldRole != null && newRole != null && isManager) {
+      final formattedOldRole = _formatRole(oldRole);
+      final formattedNewRole = _formatRole(newRole);
+      changeDetails.add('Role: $formattedOldRole → $formattedNewRole');
+    }
+
+    if (profileImageChanged == true) {
+      changeDetails.add('Profile picture has been updated');
+    }
+
+    if (changeDetails.isEmpty) {
+      return 'Your account information has been updated by an administrator.';
+    }
+
+    final changesList = changeDetails.map((change) => '• $change').join('\n');
+
+    return '''
+Your account has been updated by an administrator with the following changes:
+
+$changesList
+
+Please review your profile to ensure all information is correct. If you did not request these changes, please contact support immediately.
+    '''.trim();
+  }
+
+  /// 格式化角色名称
+  String _formatRole(String role) {
+    return role.split(' ').map((word) =>
+    word[0].toUpperCase() + word.substring(1)
+    ).join(' ');
   }
 
   /// Send a system notification to a user
@@ -326,6 +391,71 @@ class NotificationRepository extends GetxController {
       throw TFirebaseException(e.code).message;
     } catch (e) {
       print('Error cleaning up notifications: $e');
+    }
+  }
+
+  /// Send delete account request notification to admin
+  Future<void> sendDeleteAccountRequestNotification({
+    required String adminId,
+    required String requestId,
+    required String managerUsername,
+    required String managerEmail,
+  }) async {
+    try {
+      final notificationId = _uuid.v4();
+      final notification = NotificationModel(
+        notificationId: notificationId,
+        notificationType: NotificationType.delete_account_request,
+        notificationTitle: 'Account Deletion Request',
+        message: '$managerUsername ($managerEmail) has requested to delete their account. '
+            'Please review and respond within 48 hours.',
+        isRead: false,
+        createdAt: DateTime.now(),
+        requestId: requestId, // Link to the request
+      );
+
+      await _getNotificationCollection(adminId)
+          .doc(notificationId)
+          .set(notification.toJson());
+    } on FirebaseException catch (e) {
+      throw TFirebaseException(e.code).message;
+    } catch (e) {
+      print('Error sending delete request notification: $e');
+      throw TTexts.commonErrorMessage;
+    }
+  }
+
+  /// Send delete account response notification to manager
+  Future<void> sendDeleteAccountResponseNotification({
+    required String managerId,
+    required String requestId,
+    required bool approved,
+    String? responseMessage,
+  }) async {
+    try {
+      final notificationId = _uuid.v4();
+      final notification = NotificationModel(
+        notificationId: notificationId,
+        notificationType: NotificationType.delete_account_request,
+        notificationTitle: approved
+            ? 'Account Deletion Approved'
+            : 'Account Deletion Rejected',
+        message: approved
+            ? 'Your account deletion request has been approved. ${responseMessage ?? "Your account will be deleted and you will be logged out."}'
+            : 'Your account deletion request has been rejected. ${responseMessage ?? "Please contact support for more information."}',
+        isRead: false,
+        createdAt: DateTime.now(),
+        requestId: requestId,
+      );
+
+      await _getNotificationCollection(managerId)
+          .doc(notificationId)
+          .set(notification.toJson());
+    } on FirebaseException catch (e) {
+      throw TFirebaseException(e.code).message;
+    } catch (e) {
+      print('Error sending response notification: $e');
+      throw TTexts.commonErrorMessage;
     }
   }
 }

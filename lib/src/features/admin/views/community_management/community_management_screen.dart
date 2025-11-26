@@ -1,4 +1,3 @@
-import 'package:diabetes_risk_prediction_and_health_management_system/src/utils/constants/enums.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:icons_plus/icons_plus.dart';
@@ -8,11 +7,13 @@ import '../../../../common/widgets/dialogs/media_lightbox.dart';
 import '../../../../common/widgets/pagination/pagination_widget.dart';
 import '../../../../common/widgets/table/reusable_data_table.dart';
 import '../../../../utils/constants/admin_colors.dart';
+import '../../../../utils/constants/enums.dart';
 import '../../../../utils/formatters/formatter.dart';
 import '../../../../utils/helpers/helper_functions.dart';
 import '../../../community/models/post_model.dart';
 import '../../controllers/community_management_controller.dart';
 import 'post_detail_dialog.dart';
+import 'post_report_dialog.dart';
 import 'widgets/community_batch_action_bar.dart';
 import 'widgets/community_management_header.dart';
 
@@ -28,12 +29,11 @@ class CommunityManagementScreen extends StatelessWidget {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            // Calculate available space for table to make it fill the screen
-            final headerHeight = 200.0; // Approximate header height
-            final bannerHeight = 60.0; // New posts banner height
-            final batchActionsHeight = 60.0; // Approximate batch actions height
-            final paginationHeight = 80.0; // Approximate pagination height
-            final padding = 48.0; // Total padding
+            final headerHeight = 200.0;
+            final bannerHeight = 60.0;
+            final batchActionsHeight = 60.0;
+            final paginationHeight = 80.0;
+            final padding = 48.0;
             final availableTableHeight = constraints.maxHeight -
                 headerHeight - bannerHeight - batchActionsHeight - paginationHeight - padding;
 
@@ -44,11 +44,9 @@ class CommunityManagementScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Header with search and filters
                     CommunityManagementHeader(controller: controller),
                     const SizedBox(height: 16),
 
-                    // New Posts Banner
                     Obx(() {
                       return controller.newPostsCount.value > 0
                           ? Column(
@@ -60,7 +58,6 @@ class CommunityManagementScreen extends StatelessWidget {
                           : const SizedBox.shrink();
                     }),
 
-                    // Batch Actions Bar
                     Obx(() {
                       return controller.selectedPosts.isNotEmpty
                           ? Column(
@@ -72,7 +69,6 @@ class CommunityManagementScreen extends StatelessWidget {
                           : const SizedBox.shrink();
                     }),
 
-                    // Data Table Container - Made taller to fill screen
                     Container(
                       height: availableTableHeight.clamp(400.0, double.infinity),
                       decoration: BoxDecoration(
@@ -88,7 +84,6 @@ class CommunityManagementScreen extends StatelessWidget {
                       ),
                       child: Column(
                         children: [
-                          // Table
                           Expanded(
                             child: Obx(() {
                               return ReusableDataTable<PostModel>(
@@ -106,7 +101,6 @@ class CommunityManagementScreen extends StatelessWidget {
                             }),
                           ),
 
-                          // Pagination with First/Last buttons
                           Obx(() => PaginationWidget(
                             currentPage: controller.currentPage.value,
                             totalPages: controller.totalPages.value,
@@ -129,7 +123,6 @@ class CommunityManagementScreen extends StatelessWidget {
     );
   }
 
-  /// Build new posts notification banner
   Widget _buildNewPostsBanner(CommunityManagementController controller, bool darkMode) {
     return Obx(() {
       final count = controller.newPostsCount.value;
@@ -165,7 +158,6 @@ class CommunityManagementScreen extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  // Icon with animation
                   TweenAnimationBuilder<double>(
                     tween: Tween(begin: 0.0, end: 1.0),
                     duration: const Duration(milliseconds: 600),
@@ -189,7 +181,6 @@ class CommunityManagementScreen extends StatelessWidget {
                   ),
                   const SizedBox(width: 16),
 
-                  // Text content
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -215,7 +206,6 @@ class CommunityManagementScreen extends StatelessWidget {
                     ),
                   ),
 
-                  // Refresh button with pulse animation
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
@@ -342,7 +332,7 @@ class CommunityManagementScreen extends StatelessWidget {
       DataTableColumn<PostModel>(
         label: 'Type',
         field: 'postType',
-        minWidth: 130,
+        minWidth: 140,
         flex: 3,
         sortable: true,
         builder: (post) => _buildTypeChip(post.postType, darkMode),
@@ -408,17 +398,25 @@ class CommunityManagementScreen extends StatelessWidget {
         ),
       ),
       DataTableColumn<PostModel>(
-        label: 'Status',
-        field: 'status',
-        minWidth: 85,
+        label: 'Reports',
+        field: 'pendingReportCount',
+        minWidth: 100,
         flex: 2,
         sortable: true,
-        builder: (post) => _buildStatusChip(post, darkMode),
+        builder: (post) => _buildReportsIndicator(post, controller, darkMode),
       ),
+      // DataTableColumn<PostModel>(
+      //   label: 'Status',
+      //   field: 'status',
+      //   minWidth: 85,
+      //   flex: 2,
+      //   sortable: true,
+      //   builder: (post) => _buildStatusChip(post, darkMode),
+      // ),
       DataTableColumn<PostModel>(
         label: 'Actions',
         field: 'actions',
-        minWidth: 80,
+        minWidth: 120,
         flex: 2,
         sortable: false,
         builder: (post) => _buildActionButtons(post, controller, darkMode),
@@ -448,7 +446,6 @@ class CommunityManagementScreen extends StatelessWidget {
       );
     }
 
-    // Parse media files to determine types
     List<String> imageTypes = [];
     List<String> videoTypes = [];
     List<String> textTypes = [];
@@ -610,6 +607,88 @@ class CommunityManagementScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildReportsIndicator(PostModel post, CommunityManagementController controller, bool darkMode) {
+    if (post.pendingReportCount == 0) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Iconsax.document_bold,
+              size: 14,
+              color: TAdminColors.getOnSurfaceVariantColor(darkMode).withOpacity(0.5),
+            ),
+            SizedBox(width: 4),
+            Text(
+              '0',
+              style: TextStyle(
+                color: TAdminColors.getOnSurfaceVariantColor(darkMode).withOpacity(0.5),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: InkWell(
+        onTap: () => _showPostReportsDialog(post),
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3), // 减少 vertical padding
+          decoration: BoxDecoration(
+            color: TAdminColors.warning.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: TAdminColors.warning.withOpacity(0.3)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Iconsax.warning_2_bold,
+                size: 12, // 减小图标大小
+                color: TAdminColors.warning,
+              ),
+              SizedBox(width: 4),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '${post.pendingReportCount}',
+                    style: TextStyle(
+                      fontSize: 12, // 减小字体大小
+                      fontWeight: FontWeight.w600,
+                      color: TAdminColors.warning,
+                    ),
+                  ),
+                  if (post.latestReportTime != null)
+                    Text(
+                      TFormatter.formatElapsedTime(post.latestReportTime!),
+                      style: TextStyle(
+                        fontSize: 8, // 减小字体大小
+                        color: TAdminColors.warning.withOpacity(0.8),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showPostReportsDialog(PostModel post) {
+    Get.dialog(
+      PostReportsDialog(post: post),
+      barrierDismissible: false,
+    );
+  }
+
   Widget _buildStatusChip(PostModel post, bool darkMode) {
     Color statusColor = post.isDisable ? TAdminColors.error : TAdminColors.success;
     String statusText = post.isDisable ? 'Disabled' : 'Active';
@@ -653,8 +732,8 @@ class CommunityManagementScreen extends StatelessWidget {
   Widget _buildActionButtons(PostModel post, CommunityManagementController controller, bool darkMode) {
     return Row(
       mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        // View Details Button
         IconButton(
           onPressed: () => _showPostDetailDialog(post, controller),
           icon: const Icon(Iconsax.eye_bold, size: 16),
@@ -666,8 +745,20 @@ class CommunityManagementScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 4),
+        // if (post.pendingReportCount > 0 || (controller.postReports[post.postId]?.isNotEmpty ?? false)) ...[
+          IconButton(
+            onPressed: () => _showPostReportsDialog(post),
+            icon: const Icon(Iconsax.document_text_bold, size: 16),
+            tooltip: 'View Reports',
+            style: IconButton.styleFrom(
+              backgroundColor: TAdminColors.warning.withOpacity(0.1),
+              foregroundColor: TAdminColors.warning,
+              minimumSize: const Size(32, 32),
+            ),
+          ),
+          const SizedBox(width: 4),
+        // ],
         if (!post.isDisable) ...[
-          // Disable Button
           IconButton(
             onPressed: () {
               ConfirmationDialog.show(
@@ -689,7 +780,6 @@ class CommunityManagementScreen extends StatelessWidget {
             ),
           ),
         ] else ...[
-          // Enable Button
           IconButton(
             onPressed: () {
               ConfirmationDialog.show(

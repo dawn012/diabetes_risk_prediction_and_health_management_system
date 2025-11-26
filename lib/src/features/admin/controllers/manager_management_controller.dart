@@ -494,6 +494,10 @@ class ManagerManagementController extends GetxController {
       final currentManager = editingManager.value!;
       bool hasChanges = false;
       bool roleChanged = false;
+      bool usernameChanged = false;
+
+      // 跟踪具体的变化
+      final List<String> changes = [];
 
       if (newUsername != currentManager.username) {
         final isDuplicate = await userRepository.checkUsernameDuplicate(
@@ -509,16 +513,20 @@ class ManagerManagementController extends GetxController {
           return;
         }
         hasChanges = true;
+        usernameChanged = true;
+        changes.add('username');
       }
 
       if (newRole != currentManager.userType) {
         hasChanges = true;
         roleChanged = true;
+        changes.add('role');
       }
 
       // 处理图片上传
       String? newImageUrl = currentManager.profileImg;
       bool imageUploadFailed = false;
+      bool profileImageChanged = false;
 
       if (selectedImageBytes.value != null) {
         final uploadResult = await userController.uploadCompressedImage(
@@ -527,6 +535,8 @@ class ManagerManagementController extends GetxController {
         if (uploadResult != null) {
           newImageUrl = uploadResult;
           hasChanges = true;
+          profileImageChanged = true;
+          changes.add('profile image');
         } else {
           // 图片上传失败
           imageUploadFailed = true;
@@ -551,8 +561,24 @@ class ManagerManagementController extends GetxController {
       if (roleChanged) {
         try {
           await authRepository.setUserRole(currentManager.userId, newRole);
-          print(
-              '✅ Role updated to "$newRole" for user: ${currentManager.userId}');
+          print('✅ Role updated to "$newRole" for user: ${currentManager.userId}');
+
+          // 在后台发送角色变更邮件，不等待结果
+          unawaited(
+              authRepository.sendManagerChangeRoleEmail(
+                userId: currentManager.userId,
+                oldRole: currentManager.userType,
+                newRole: newRole,
+              ).then((emailSuccess) {
+                if (emailSuccess) {
+                  print('✅ Role change email sent successfully');
+                } else {
+                  print('⚠️ Failed to send role change email');
+                }
+              }).catchError((e) {
+                print('⚠️ Error sending role change email: $e');
+              })
+          );
         } catch (e) {
           print('⚠️ Failed to update role via Cloud Function: $e');
           TLoaders.warningSnackBar(
@@ -570,6 +596,25 @@ class ManagerManagementController extends GetxController {
       );
 
       await userRepository.updateAdminDetails(updatedManager);
+
+      // 构建详细的通知消息
+      String notificationMessage = notificationRepository.generateProfileUpdateMessage(
+        usernameChanged: usernameChanged,
+        roleChanged: roleChanged,
+        profileImageChanged: profileImageChanged,
+        oldUsername: currentManager.username,
+        newUsername: newUsername,
+        oldRole: currentManager.userType,
+        newRole: newRole,
+        isManager: true
+      );
+
+      // Send notification to user
+      await notificationRepository.sendSystemNotification(
+        userId: currentManager.userId,
+        title: 'Account Updated',
+        message: notificationMessage,
+      );
 
       TLoaders.successSnackBar(
         title: 'Success',

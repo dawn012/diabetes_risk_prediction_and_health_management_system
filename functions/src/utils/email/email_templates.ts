@@ -941,3 +941,244 @@ If you believe you received this email in error, please contact the system admin
     `,
   };
 };
+
+// 4️⃣ MANAGER ROLE CHANGED EMAIL
+export const generateManagerRoleChangedEmail = (
+  userName: string,
+  oldRole: string,
+  newRole: string,
+  changedBy: string = "an administrator"
+) => {
+  const formatRole = (role: string) => {
+    return role.split(" ").map(word =>
+      word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(" ");
+  };
+
+  const formattedOldRole = formatRole(oldRole);
+  const formattedNewRole = formatRole(newRole);
+
+  return {
+    subject: "🔐 Your Diatrack Manager Role Has Been Updated",
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #fff3e0; padding: 25px; text-align: center; border-radius: 10px 10px 0 0; }
+          .content { padding: 30px; background: #fff; }
+          .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
+          .role-change { background: #f8f9fa; padding: 25px; border-radius: 10px; margin: 25px 0; text-align: center; border: 2px dashed #dee2e6; }
+          .old-role { color: #6c757d; text-decoration: line-through; font-size: 18px; margin-bottom: 10px; }
+          .arrow { font-size: 24px; color: #ff9800; margin: 10px 0; }
+          .new-role { color: #1976d2; font-size: 22px; font-weight: bold; margin-top: 10px; }
+          .permissions-box { background: #e8f5e8; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4caf50; }
+          .security-notice { background: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107; }
+          .button { background: #2196F3; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold; }
+          .info-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
+          .info-label { font-weight: 600; color: #555; }
+          .info-value { color: #333; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1 style="margin: 0; color: #ff9800;">🔐 Role Updated</h1>
+            <p style="margin: 10px 0 0 0; font-size: 16px; color: #f57c00;">Your manager permissions have been changed</p>
+          </div>
+          <div class="content">
+            <h2>Dear ${userName},</h2>
+
+            <p>Your Diatrack manager role has been updated by ${changedBy}. This change affects your access permissions and responsibilities within the system.</p>
+
+            <div class="role-change">
+              <div class="old-role">${formattedOldRole}</div>
+              <div class="arrow">↓</div>
+              <div class="new-role">${formattedNewRole}</div>
+            </div>
+
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="margin-top: 0; color: #333;">Change Details</h3>
+              <div class="info-item">
+                <span class="info-label">Previous Role:</span>
+                <span class="info-value">${formattedOldRole}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">New Role:</span>
+                <span class="info-value"><strong>${formattedNewRole}</strong></span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Changed By:</span>
+                <span class="info-value">${changedBy}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Effective Date:</span>
+                <span class="info-value">${new Date().toLocaleDateString("en-MY", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  })}</span>
+              </div>
+            </div>
+
+            <div class="permissions-box">
+              <h3 style="margin-top: 0; color: #2e7d32;">What This Means For You</h3>
+              <p><strong>Your new role includes:</strong></p>
+              <ul>
+                ${getRolePermissionsDescription(newRole)}
+              </ul>
+              <p>You may notice changes in the available features and options when you next log in.</p>
+            </div>
+
+            <div class="security-notice">
+              <h4 style="margin-top: 0; color: #856404;">🔒 Security Notice</h4>
+              <p style="margin: 8px 0;">
+                <strong>If you did not expect this role change or believe it was made in error:</strong>
+              </p>
+              <ul style="margin: 8px 0; padding-left: 20px;">
+                <li>Contact the system administrator immediately</li>
+                <li>Verify this change with your supervisor</li>
+                <li>Do not share your login credentials with anyone</li>
+              </ul>
+            </div>
+
+            <p>Thank you for your continued contributions to the Diatrack platform.</p>
+
+            <p>Best regards,<br>
+            <strong>Diatrack Administration Team</strong></p>
+          </div>
+          <div class="footer">
+            <p>© ${new Date().getFullYear()} Diatrack - Diabetes Health Management System. All rights reserved.</p>
+            <p>This is an automated security notification. Please do not reply to this email.</p>
+            <p>If you have concerns about this change, contact: admin@diatrack.com</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+    text: `
+🔐 MANAGER ROLE UPDATED
+
+Dear ${userName},
+
+Your Diatrack manager role has been updated by ${changedBy}. This change affects your access permissions and responsibilities within the system.
+
+ROLE CHANGE:
+${formattedOldRole} → ${formattedNewRole}
+
+CHANGE DETAILS:
+Previous Role: ${formattedOldRole}
+New Role: ${formattedNewRole}
+Changed By: ${changedBy}
+Effective Date: ${new Date().toLocaleDateString("en-MY", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  })}
+
+WHAT THIS MEANS FOR YOU:
+${getRolePermissionsText(newRole)}
+
+You may notice changes in the available features and options when you next log in.
+
+🔒 SECURITY NOTICE:
+If you did not expect this role change or believe it was made in error:
+- Contact the system administrator immediately
+- Verify this change with your supervisor
+- Do not share your login credentials with anyone
+
+Thank you for your continued contributions to the Diatrack platform.
+
+Best regards,
+Diatrack Administration Team
+
+© ${new Date().getFullYear()} Diatrack - Diabetes Health Management System. All rights reserved.
+This is an automated security notification. Please do not reply to this email.
+If you have concerns about this change, contact: admin@diatrack.com
+    `,
+  };
+};
+
+// Helper function to generate role-specific permissions description
+function getRolePermissionsDescription(role: string): string {
+  const permissions: { [key: string]: string[] } = {
+    "user manager": [
+      "Manage user accounts and profiles",
+      "Handle user support requests",
+      "Monitor user activity and compliance",
+      "Process account verification requests"
+    ],
+    "community manager": [
+      "Moderate community discussions and content",
+      "Manage forum topics and categories",
+      "Handle user reports and flags",
+      "Foster community engagement and guidelines"
+    ],
+    "achievement manager": [
+      "Create and manage achievement systems",
+      "Award achievements to users",
+      "Monitor achievement progress and statistics",
+      "Design achievement criteria and rewards"
+    ],
+    "reward manager": [
+      "Manage reward catalog and inventory",
+      "Process reward redemption requests",
+      "Monitor reward distribution and tracking",
+      "Coordinate with partners for reward fulfillment"
+    ]
+  };
+
+  const rolePermissions = permissions[role] || [
+    "Access to general manager features",
+    "System monitoring capabilities",
+    "Basic administrative functions"
+  ];
+
+  return rolePermissions.map(permission =>
+    `<li>${permission}</li>`
+  ).join("");
+}
+
+// Helper function for text version
+function getRolePermissionsText(role: string): string {
+  const permissions: { [key: string]: string[] } = {
+    "user manager": [
+      "• Manage user accounts and profiles",
+      "• Handle user support requests",
+      "• Monitor user activity and compliance",
+      "• Process account verification requests"
+    ],
+    "community manager": [
+      "• Moderate community discussions and content",
+      "• Manage forum topics and categories",
+      "• Handle user reports and flags",
+      "• Foster community engagement and guidelines"
+    ],
+    "achievement manager": [
+      "• Create and manage achievement systems",
+      "• Award achievements to users",
+      "• Monitor achievement progress and statistics",
+      "• Design achievement criteria and rewards"
+    ],
+    "reward manager": [
+      "• Manage reward catalog and inventory",
+      "• Process reward redemption requests",
+      "• Monitor reward distribution and tracking",
+      "• Coordinate with partners for reward fulfillment"
+    ]
+  };
+
+  const rolePermissions = permissions[role] || [
+    "• Access to general manager features",
+    "• System monitoring capabilities",
+    "• Basic administrative functions"
+  ];
+
+  return rolePermissions.join("\n");
+}

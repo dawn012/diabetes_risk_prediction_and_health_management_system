@@ -20,6 +20,7 @@ import '../../../utils/exceptions/platform_exceptions.dart';
 import '../../../utils/helpers/image_helper.dart';
 import '../../../utils/helpers/video_helper.dart';
 import 'comment_repository.dart';
+import 'post_report_repository.dart';
 
 /// Paginated posts response model
 class PaginatedPostsResponse {
@@ -571,6 +572,10 @@ class PostRepository extends GetxController {
         FirebaseFieldNames.isDisable: false,
         // FirebaseFieldNames.updatedAt: DateTime.now().millisecondsSinceEpoch,
       });
+
+      // Resolve all pending reports for this post
+      final reportRepo = Get.put(PostReportRepository());
+      await reportRepo.resolveAllPendingReportsForPost(postId);
 
       return null;
     } on FirebaseException catch (e) {

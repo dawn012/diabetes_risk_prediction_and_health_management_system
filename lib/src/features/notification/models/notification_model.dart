@@ -11,6 +11,9 @@ class NotificationModel {
   final bool isRead;
   final DateTime createdAt;
 
+  // Link to delete account request (if applicable)
+  final String? requestId; // References DeleteAccountRequestModel
+
   NotificationModel({
     required this.notificationId,
     required this.notificationType,
@@ -18,6 +21,7 @@ class NotificationModel {
     required this.message,
     required this.isRead,
     required this.createdAt,
+    this.requestId,
   });
 
   /// Empty notification (placeholder)
@@ -40,6 +44,7 @@ class NotificationModel {
     String? message,
     bool? isRead,
     DateTime? createdAt,
+    String? requestId,
   }) {
     return NotificationModel(
       notificationId: notificationId ?? this.notificationId,
@@ -48,6 +53,7 @@ class NotificationModel {
       message: message ?? this.message,
       isRead: isRead ?? this.isRead,
       createdAt: createdAt ?? this.createdAt,
+      requestId: requestId ?? this.requestId,
     );
   }
 
@@ -60,6 +66,7 @@ class NotificationModel {
       FirebaseFieldNames.message: message,
       FirebaseFieldNames.isRead: isRead,
       FirebaseFieldNames.createdAt: createdAt.millisecondsSinceEpoch,
+      if (requestId != null) FirebaseFieldNames.requestId: requestId,
     };
   }
 
@@ -77,13 +84,14 @@ class NotificationModel {
         isRead: data[FirebaseFieldNames.isRead] ?? false,
         createdAt: DateTime.fromMillisecondsSinceEpoch(
             data[FirebaseFieldNames.createdAt] ?? 0),
+        requestId: data[FirebaseFieldNames.requestId],
       );
     } else {
       return NotificationModel.empty();
     }
   }
 
-// 辅助方法：将字符串转换为 NotificationType
+  /// Parse notification type from string
   static NotificationType _parseNotificationType(String? typeString) {
     if (typeString == null) return NotificationType.system;
 

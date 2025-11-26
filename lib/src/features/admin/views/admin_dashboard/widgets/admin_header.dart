@@ -4,9 +4,12 @@ import 'package:icons_plus/icons_plus.dart';
 
 import '../../../../../common/widgets/dialogs/common_confirmation_dialog.dart';
 import '../../../../../data/repositories/authentication/authentication_repository.dart';
+import '../../../../../data/repositories/notification/notification_repository.dart';
 import '../../../../../utils/constants/admin_colors.dart';
 import '../../../../../utils/helpers/helper_functions.dart';
-import '../../../../personalization/controllers/user_controller.dart'; // 添加这行
+import '../../../controllers/admin_dashboard_controller.dart';
+import '../../../../personalization/controllers/user_controller.dart';
+import '../../profile/admin_notification_screen.dart';
 
 class AdminHeader extends StatelessWidget {
   const AdminHeader({super.key});
@@ -15,7 +18,9 @@ class AdminHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final darkMode = THelperFunctions.isDarkMode(context);
     final authRepo = AuthenticationRepository.instance;
-    final userController = Get.find<UserController>(); // 获取 UserController
+    final userController = Get.find<UserController>();
+    final dashboardController = Get.find<AdminDashboardController>();
+    final currentUserId = authRepo.authUser?.uid ?? '';
 
     return Container(
       height: 80,
@@ -53,6 +58,68 @@ class AdminHeader extends StatelessWidget {
           // Quick actions and user menu
           Row(
             children: [
+              // Notification Bell
+              StreamBuilder<int>(
+                stream: NotificationRepository.instance
+                    .streamUnreadCount(currentUserId),
+                builder: (context, snapshot) {
+                  final unreadCount = snapshot.data ?? 0;
+
+                  return Stack(
+                    clipBehavior: Clip.none, // Allow badge to overflow
+                    children: [
+                      IconButton(
+                        onPressed: () {
+                          Get.to(() => AdminNotificationScreen());
+                        },
+                        icon: Icon(
+                          Iconsax.notification_bold,
+                          color: TAdminColors.getOnSurfaceVariantColor(darkMode),
+                          size: 20,
+                        ),
+                        tooltip: 'Notifications',
+                      ),
+                      if (unreadCount > 0)
+                        Positioned(
+                          right: 6,
+                          top: 6,
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: unreadCount > 99 ? 4 : 5,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: TAdminColors.error,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: TAdminColors.getSurfaceColor(darkMode),
+                                width: 1.3,
+                              ),
+                            ),
+                            constraints: BoxConstraints(
+                              minWidth: 16,
+                              minHeight: 16,
+                            ),
+                            child: Center(
+                              child: Text(
+                                unreadCount > 99 ? '99+' : '$unreadCount',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: unreadCount > 99 ? 8 : 10,
+                                  fontWeight: FontWeight.bold,
+                                  height: 1.0,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+
+              SizedBox(width: 8),
+
               // Theme toggle
               IconButton(
                 onPressed: () => Get.changeThemeMode(
@@ -80,16 +147,16 @@ class AdminHeader extends StatelessWidget {
                 onSelected: (value) {
                   switch (value) {
                     case 'profile':
-                    // TODO: Navigate to profile
+                      dashboardController.selectMenuItem(5);
                       break;
                     case 'settings':
                     // TODO: Navigate to settings
                       break;
                     case 'logout':
                       ConfirmationDialog.showLogout(
-                          onConfirm: () async {
-                            await AuthenticationRepository.instance.logout();
-                          }
+                        onConfirm: () async {
+                          await AuthenticationRepository.instance.logout();
+                        },
                       );
                       break;
                   }
@@ -135,7 +202,6 @@ class AdminHeader extends StatelessWidget {
 
                   return Row(
                     children: [
-                      // CircleAvatar with profile image or initial
                       hasProfileImage
                           ? CircleAvatar(
                         radius: 20,

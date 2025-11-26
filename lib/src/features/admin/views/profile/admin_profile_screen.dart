@@ -523,39 +523,107 @@ class AdminProfileScreen extends StatelessWidget {
             ),
           ),
 
-          // Delete Account Button (for managers only)
+          // Delete Account Button (for managers only) - 使用新的按钮组件
           Obx(() {
             final userType = controller.currentAdmin.value.userType;
             if (userType.toLowerCase().contains('manager')) {
-              return Column(
-                children: [
-                  SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        _showDeleteAccountDialog(context, controller);
-                      },
-                      icon: Icon(Iconsax.trash_bold, size: 18),
-                      label: Text('Delete Account'),
-                      style: OutlinedButton.styleFrom(
-                        padding: EdgeInsets.symmetric(vertical: isWeb ? 16 : 14),
-                        side: BorderSide(color: TAdminColors.error),
-                        foregroundColor: TAdminColors.error,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              );
+              return _buildDeleteAccountButton(darkMode, isWeb, controller);
             }
             return SizedBox.shrink();
           }),
         ],
       ),
     );
+  }
+
+// 添加新的删除账户按钮组件
+  Widget _buildDeleteAccountButton(bool darkMode, bool isWeb, AdminProfileController controller) {
+    return Obx(() {
+      final isPending = controller.hasPendingDeleteRequest.value;
+      final isChecking = controller.isCheckingDeleteRequest.value;
+
+      return Column(
+        children: [
+          SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: isPending || isChecking
+                  ? null
+                  : () => controller.deleteAccount(),
+              icon: isChecking
+                  ? SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    TAdminColors.error.withOpacity(0.5),
+                  ),
+                ),
+              )
+                  : Icon(
+                isPending ? Iconsax.clock_bold : Iconsax.trash_bold,
+                size: 18,
+              ),
+              label: Text(
+                isPending
+                    ? 'Delete Request Pending'
+                    : 'Delete Account',
+              ),
+              style: OutlinedButton.styleFrom(
+                padding: EdgeInsets.symmetric(vertical: isWeb ? 16 : 14),
+                side: BorderSide(
+                  color: isPending
+                      ? TAdminColors.warning
+                      : TAdminColors.error,
+                ),
+                foregroundColor: isPending
+                    ? TAdminColors.warning
+                    : TAdminColors.error,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+          if (isPending) ...[
+            SizedBox(height: 8),
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: TAdminColors.warning.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: TAdminColors.warning.withOpacity(0.3),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Iconsax.info_circle_bold,
+                    size: 16,
+                    color: TAdminColors.warning,
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Your deletion request is being processed by administrators. '
+                          'You will be notified once they review your request.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: TAdminColors.warning,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      );
+    });
   }
 
   Widget _buildActivityCard(BuildContext context,
@@ -847,265 +915,6 @@ class AdminProfileScreen extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-
-  void _showDeleteAccountDialog(
-      BuildContext context, AdminProfileController controller) {
-    final darkMode = THelperFunctions.isDarkMode(context);
-    final passwordController = TextEditingController();
-    final hidePassword = true.obs;
-    final passwordError = ''.obs;
-    final isVerifying = false.obs;
-
-    Get.dialog(
-      Dialog(
-        backgroundColor: TAdminColors.getSurfaceColor(darkMode),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 400),
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Title
-              Text(
-                'Delete Account',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 22,
-                  color: TAdminColors.getOnSurfaceColor(darkMode),
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // Warning Message
-              Container(
-                padding: EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: TAdminColors.error.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: TAdminColors.error.withOpacity(0.3),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Iconsax.warning_2_bold,
-                      color: TAdminColors.error,
-                      size: 20,
-                    ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'This action cannot be undone. All your data will be permanently deleted.',
-                        style: TextStyle(
-                          color: TAdminColors.error,
-                          fontSize: 14,
-                          height: 1.5,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Password verification section
-              Text(
-                'Please enter your password to confirm',
-                style: TextStyle(
-                  color: TAdminColors.getOnSurfaceColor(darkMode),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // Password Field
-              Obx(() => Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextFormField(
-                    controller: passwordController,
-                    obscureText: hidePassword.value,
-                    autofocus: true,
-                    style: TextStyle(
-                      color: TAdminColors.getOnSurfaceColor(darkMode),
-                    ),
-                    onChanged: (value) {
-                      if (passwordError.value.isNotEmpty) {
-                        passwordError.value = '';
-                      }
-                    },
-                    decoration: InputDecoration(
-                      hintText: 'Enter your password',
-                      hintStyle: TextStyle(
-                        color: TAdminColors.getOnSurfaceVariantColor(
-                            darkMode),
-                      ),
-                      prefixIcon: Icon(
-                        Iconsax.password_check_bold,
-                        color: TAdminColors.getOnSurfaceVariantColor(
-                            darkMode),
-                      ),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          hidePassword.value
-                              ? Iconsax.eye_slash_bold
-                              : Iconsax.eye_bold,
-                          color: TAdminColors.getOnSurfaceVariantColor(
-                              darkMode),
-                        ),
-                        onPressed: () =>
-                        hidePassword.value = !hidePassword.value,
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: passwordError.value.isEmpty
-                              ? TAdminColors.getBorderColor(darkMode)
-                              : TAdminColors.error,
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: passwordError.value.isEmpty
-                              ? TAdminColors.primary
-                              : TAdminColors.error,
-                        ),
-                      ),
-                      errorBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide:
-                        const BorderSide(color: TAdminColors.error),
-                      ),
-                      focusedErrorBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide:
-                        const BorderSide(color: TAdminColors.error),
-                      ),
-                    ),
-                  ),
-                  if (passwordError.value.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8, left: 12),
-                      child: Text(
-                        passwordError.value,
-                        style: const TextStyle(
-                          color: TAdminColors.error,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                ],
-              )),
-              const SizedBox(height: 24),
-
-              // Buttons
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () {
-                        passwordController.dispose();
-                        Get.back();
-                      },
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        side: BorderSide(
-                            color: TAdminColors.getBorderColor(darkMode)),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text(
-                        'Cancel',
-                        style: TextStyle(
-                          color: TAdminColors.getOnSurfaceColor(darkMode),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-
-                  Expanded(
-                    child: Obx(() => ElevatedButton(
-                      onPressed: isVerifying.value
-                          ? null
-                          : () async {
-                        final password =
-                        passwordController.text.trim();
-                        if (password.isEmpty) {
-                          passwordError.value =
-                          'Please enter your password';
-                          return;
-                        }
-
-                        isVerifying.value = true;
-                        passwordError.value = '';
-
-                        try {
-                          await controller.deleteAccount(password);
-                          passwordController.dispose();
-                          Get.back();
-                        } catch (e) {
-                          isVerifying.value = false;
-                          if (e.toString().contains('wrong-password') ||
-                              e.toString()
-                                  .contains('invalid-credential')) {
-                            passwordError.value =
-                            'Incorrect password. Please try again.';
-                          } else {
-                            passwordError.value =
-                            'Failed to verify password. Please try again.';
-                          }
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: TAdminColors.error,
-                        foregroundColor: Colors.white,
-                        disabledBackgroundColor:
-                        TAdminColors.error.withOpacity(0.5),
-                        disabledForegroundColor:
-                        Colors.white.withOpacity(0.7),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: isVerifying.value
-                          ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.white),
-                        ),
-                      )
-                          : const Text(
-                        'Delete Account',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    )),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-      barrierDismissible: true,
     );
   }
 }

@@ -79,12 +79,12 @@ class UpdateProfileController extends GetxController {
       case 'height':
         originalValue = profile.height;
         break;
-      case 'dietPreference':
-        originalValue = profile.dietPreference;
-        break;
-      case 'allergies':
-        originalValue = profile.allergies;
-        break;
+      // case 'dietPreference':
+      //   originalValue = profile.dietPreference;
+      //   break;
+      // case 'allergies':
+      //   originalValue = profile.allergies;
+      //   break;
       default:
         originalValue = null;
     }
@@ -271,8 +271,8 @@ class UpdateProfileController extends GetxController {
       gender: pendingChanges['gender'] as String? ?? currentProfile.gender,
       dateOfBirth: pendingChanges['dateOfBirth'] as DateTime? ?? currentProfile.dateOfBirth,
       height: pendingChanges['height'] as double? ?? currentProfile.height,
-      dietPreference: pendingChanges['dietPreference'] as String? ?? currentProfile.dietPreference,
-      allergies: pendingChanges['allergies'] as List<String>? ?? currentProfile.allergies,
+      // dietPreference: pendingChanges['dietPreference'] as String? ?? currentProfile.dietPreference,
+      // allergies: pendingChanges['allergies'] as List<String>? ?? currentProfile.allergies,
       hasChangedGender: genderChanged || currentProfile.hasChangedGender,
       hasChangedDateOfBirth: dobChanged || currentProfile.hasChangedDateOfBirth,
       updatedAt: DateTime.now(),

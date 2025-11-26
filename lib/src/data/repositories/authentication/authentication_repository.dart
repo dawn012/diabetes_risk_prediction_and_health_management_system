@@ -13,7 +13,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../../../navigation_menu.dart';
 import '../../../common/loaders/loaders.dart';
-import '../../../common/widgets/dialogs/account_banned_dialog.dart';
+import '../../../common/widgets/dialogs/account_status_dialog.dart';
 import '../../../features/admin/views/admin_dashboard/admin_dashboard_screen.dart';
 import '../../../features/authentication/controllers/login_controller.dart';
 import '../../../features/authentication/views/login/admin_login_screen.dart';
@@ -34,6 +34,7 @@ class AuthenticationRepository extends GetxController {
   /// Variables
   final deviceStorage = GetStorage();
   final _auth = FirebaseAuth.instance;
+  final FirebaseFunctions _functions = FirebaseFunctions.instance;
 
   /// Get Authenticated User Data
   User? get authUser => _auth.currentUser;
@@ -47,6 +48,7 @@ class AuthenticationRepository extends GetxController {
 
   // Stream subscription for account status
   StreamSubscription<bool>? _accountStatusSubscription;
+  StreamSubscription<bool>? _deleteStatusSubscription;
 
   @override
   void onReady() {
@@ -62,6 +64,7 @@ class AuthenticationRepository extends GetxController {
   @override
   void onClose() {
     _accountStatusSubscription?.cancel();
+    _deleteStatusSubscription?.cancel();
     super.onClose();
   }
 
@@ -80,6 +83,17 @@ class AuthenticationRepository extends GetxController {
         _handleAccountBanned();
       }
     });
+
+    // Listen to delete status (for managers only)
+    _deleteStatusSubscription = UserRepository.instance
+        .streamUserDetailsById(userId)
+        .map((user) => user.isDeleted)
+        .distinct()
+        .listen((isDeleted) {
+      if (isDeleted) {
+        _handleAccountDeleted();
+      }
+    });
   }
 
   /// Handle account banned scenario
@@ -88,7 +102,19 @@ class AuthenticationRepository extends GetxController {
     _accountStatusSubscription?.cancel();
 
     // Show banned dialog and logout
-    AccountBannedDialog.show(
+    AccountStatusDialog.showBanned(
+      onConfirm: () async {
+        await logout(showSuccessMessage: false);
+      },
+    );
+  }
+
+  /// Handle account deleted scenario (for managers)
+  void _handleAccountDeleted() {
+    _accountStatusSubscription?.cancel();
+    _deleteStatusSubscription?.cancel();
+
+    AccountStatusDialog.showDeleted(
       onConfirm: () async {
         await logout(showSuccessMessage: false);
       },
@@ -102,6 +128,13 @@ class AuthenticationRepository extends GetxController {
       final isAccountAvailable = await _checkAccountAvailability(user.uid);
       if (!isAccountAvailable) {
         // Account is banned, logout immediately
+        await logout();
+        return;
+      }
+
+      // Check if account is deleted (for managers)
+      final isDeleted = await _checkDeleteStatus(user.uid);
+      if (isDeleted) {
         await logout();
         return;
       }
@@ -135,6 +168,7 @@ class AuthenticationRepository extends GetxController {
           Get.offAll(() => NavigationMenu());
         }
 
+        // Start monitoring after successful redirect
         _startAccountStatusListener();
       } else {
         // 对于所有用户，如果邮箱未验证，都显示错误或去验证页面
@@ -172,6 +206,17 @@ class AuthenticationRepository extends GetxController {
     } catch (e) {
       print('Error checking account availability: $e');
       return true; // Default to true if error occurs
+    }
+  }
+
+  /// Check if account is deleted
+  Future<bool> _checkDeleteStatus(String userId) async {
+    try {
+      final user = await UserRepository.instance.fetchUserDetailsById(userId);
+      return user.isDeleted;
+    } catch (e) {
+      print('Error checking delete status: $e');
+      return false;
     }
   }
 
@@ -501,6 +546,27 @@ class AuthenticationRepository extends GetxController {
     }
   }
 
+  /// Send role change email to a manager
+  Future<bool> sendManagerChangeRoleEmail({
+    required String userId,
+    required String oldRole,
+    required String newRole,
+  }) async {
+    try {
+      final callable = _functions.httpsCallable('sendManagerRoleChangedEmail');
+      final response = await callable.call({
+        'userId': userId,
+        'oldRole': oldRole,
+        'newRole': newRole,
+      });
+
+      return response.data['success'] == true;
+    } catch (e) {
+      print('Error calling sendManagerRoleChangedEmail: $e');
+      return false;
+    }
+  }
+
   /// Resend verification email to manager
   Future<void> resendManagerVerificationEmail(String email) async {
     try {
@@ -523,6 +589,7 @@ class AuthenticationRepository extends GetxController {
     try {
       // Cancel account status listener
       _accountStatusSubscription?.cancel();
+      _deleteStatusSubscription?.cancel();
 
       // Firebase sign out
       await FirebaseAuth.instance.signOut();

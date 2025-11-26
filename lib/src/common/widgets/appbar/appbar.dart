@@ -28,7 +28,7 @@ class TAppBar extends StatelessWidget implements PreferredSizeWidget {
   final IconThemeData? iconTheme;
   final bool automaticallyImplyLeading;
   final PreferredSizeWidget? bottom;
-  final VoidCallback? customBackAction; // 新增：自定义返回操作
+  final VoidCallback? customBackAction;
 
   @override
   Widget build(BuildContext context) {

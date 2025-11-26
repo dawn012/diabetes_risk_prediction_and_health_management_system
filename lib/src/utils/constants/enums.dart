@@ -3,7 +3,11 @@
 
 import 'dart:ui';
 
+import 'package:hive/hive.dart';
+
 import 'colors.dart';
+
+part 'enums.g.dart';
 
 enum TextSizes { small, medium, large }
 
@@ -15,9 +19,15 @@ enum ReportPeriod { monthly, yearly }
 
 enum ExportFormat { pdf, csv }
 
-enum ReportStatus { loading, success, error, empty }
+enum NotificationType { reminder, system, delete_account_request, account_status }
 
-enum NotificationType { reminder, system, account_status }
+/// Request status enum
+enum RequestStatus {
+  pending,
+  approved,
+  rejected,
+  expired,
+}
 
 enum BatchActionType {
   disable,
@@ -420,5 +430,224 @@ enum UserRewardStatus {
       case UserRewardStatus.redeemed:
         return TColors.success;
     }
+  }
+}
+
+/// 饮食偏好类型
+@HiveType(typeId: 8)
+enum DietPreference {
+  @HiveField(0)
+  vegan('vegan', 'Vegan'),
+  @HiveField(1)
+  vegetarian('vegetarian', 'Vegetarian'),
+  @HiveField(2)
+  paleo('paleo', 'Paleo'),
+  @HiveField(3)
+  whole30('whole30', 'Whole30');
+
+  final String value;
+  final String displayName;
+
+  const DietPreference(this.value, this.displayName);
+
+  static DietPreference fromString(String value) {
+    return DietPreference.values.firstWhere(
+          (e) => e.value == value.toLowerCase(),
+      orElse: () => DietPreference.vegan, // 默认值
+    );
+  }
+}
+
+/// 过敏原类型
+@HiveType(typeId: 9)
+enum Allergen {
+  @HiveField(0)
+  egg('egg', 'Egg'),
+  @HiveField(1)
+  dairy('dairy', 'Dairy'),
+  @HiveField(2)
+  gluten('gluten', 'Gluten'),
+  @HiveField(3)
+  nut('nut', 'Nut'),
+  @HiveField(4)
+  grain('grain', 'Grain');
+
+  final String value;
+  final String displayName;
+
+  const Allergen(this.value, this.displayName);
+
+  static Allergen fromString(String value) {
+    return Allergen.values.firstWhere(
+          (e) => e.value == value.toLowerCase(),
+      orElse: () => Allergen.egg, // 默认值
+    );
+  }
+}
+
+/// 烹饪方法
+@HiveType(typeId: 10)
+enum CookingMethod {
+  @HiveField(0)
+  airFryer('air-fryer', 'Air Fryer'),
+  @HiveField(1)
+  blender('blender', 'Blender'),
+  @HiveField(2)
+  grill('grill', 'Grill'),
+  @HiveField(3)
+  instantPot('instant-pot', 'Instant Pot'),
+  @HiveField(4)
+  mealPrep('meal-prep', 'Meal Prep'),
+  @HiveField(5)
+  noBake('no-bake', 'No-Bake'),
+  @HiveField(6)
+  oven('oven', 'Oven'),
+  @HiveField(7)
+  slowCooker('slow-cooker', 'Slow Cooker'),
+  @HiveField(8)
+  smoker('smoker', 'Smoker'),
+  @HiveField(9)
+  stovetop('stovetop', 'Stovetop'),
+  @HiveField(10)
+  foodProcessor('food-processor', 'Food Processor'),
+  @HiveField(11)
+  noCook('no-cook', 'No-Cook'),
+  @HiveField(12)
+  microwave('microwave', 'Microwave'),
+  @HiveField(13)
+  sheetPan('sheet-pan', 'Sheet Pan');
+
+  final String value;
+  final String displayName;
+
+  const CookingMethod(this.value, this.displayName);
+
+  static CookingMethod fromString(String value) {
+    return CookingMethod.values.firstWhere(
+          (e) => e.value == value.toLowerCase(),
+      orElse: () => CookingMethod.oven, // 默认值
+    );
+  }
+}
+
+@HiveType(typeId: 11)
+enum MealPlanType {
+  @HiveField(0)
+  daily('daily'),
+  @HiveField(1)
+  weekly('weekly');
+
+  final String value;
+  const MealPlanType(this.value);
+
+  static MealPlanType fromString(String value) {
+    return MealPlanType.values.firstWhere(
+          (e) => e.value == value,
+      orElse: () => MealPlanType.daily,
+    );
+  }
+}
+
+@HiveType(typeId: 12)
+enum MealPlanStatus {
+  @HiveField(0)
+  confirmed('confirmed'),
+  @HiveField(1)
+  completed('completed'),
+  @HiveField(2)
+  cancelled('cancelled'),
+  @HiveField(3)
+  expired('expired');
+
+  final String value;
+  const MealPlanStatus(this.value);
+
+  static MealPlanStatus fromString(String value) {
+    return MealPlanStatus.values.firstWhere(
+          (e) => e.value == value,
+      orElse: () => MealPlanStatus.confirmed,
+    );
+  }
+}
+
+@HiveType(typeId: 13)
+enum MealTimeSlot {
+  @HiveField(0)
+  breakfast('breakfast'),
+  @HiveField(1)
+  lunch('lunch'),
+  @HiveField(2)
+  snack('snack'),
+  @HiveField(3)
+  dinner('dinner');
+
+  final String value;
+  const MealTimeSlot(this.value);
+
+  static MealTimeSlot fromString(String value) {
+    return MealTimeSlot.values.firstWhere(
+          (e) => e.value == value,
+      orElse: () => MealTimeSlot.breakfast,
+    );
+  }
+}
+
+@HiveType(typeId: 14)
+enum MealConsumptionStatus {
+  @HiveField(0)
+  pending('pending'),
+  @HiveField(1)
+  consumed('consumed'),
+  @HiveField(2)
+  skipped('skipped');
+
+  final String value;
+  const MealConsumptionStatus(this.value);
+
+  static MealConsumptionStatus fromString(String value) {
+    return MealConsumptionStatus.values.firstWhere(
+          (e) => e.value == value,
+      orElse: () => MealConsumptionStatus.pending,
+    );
+  }
+}
+
+/// Report reason enum
+enum ReportReason {
+  spam('spam', 'Spam'),
+  harassment('harassment', 'Harassment'),
+  fraud('fraud', 'Fraud'),
+  inappropriate('inappropriate', 'Inappropriate Content'),
+  misinformation('misinformation', 'Misinformation'),
+  other('other', 'Other');
+
+  final String value;
+  final String displayName;
+
+  const ReportReason(this.value, this.displayName);
+
+  static ReportReason fromString(String value) {
+    return ReportReason.values.firstWhere(
+          (e) => e.value == value.toLowerCase(),
+      orElse: () => ReportReason.other,
+    );
+  }
+}
+
+/// Report status enum
+enum ReportStatus {
+  pending('pending', 'Pending'),
+  resolved('resolved', 'Resolved');
+
+  final String value;
+  final String displayName;
+
+  const ReportStatus(this.value, this.displayName);
+
+  static ReportStatus fromString(String value) {
+    return ReportStatus.values.firstWhere(
+          (e) => e.value == value.toLowerCase(),
+      orElse: () => ReportStatus.pending,
+    );
   }
 }

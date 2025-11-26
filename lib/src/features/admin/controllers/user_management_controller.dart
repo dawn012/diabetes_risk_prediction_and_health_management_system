@@ -319,6 +319,11 @@ class UserManagementController extends GetxController {
       final newUsername = editUsernameController.text.trim();
       final currentUser = editingUser.value!;
       bool hasChanges = false;
+      bool usernameChanged = false;
+      bool profileImageChanged = false;
+
+      // 跟踪具体的变化
+      final List<String> changes = [];
 
       if (newUsername != currentUser.username) {
         final isDuplicate = await userRepository.checkUsernameDuplicate(
@@ -332,6 +337,8 @@ class UserManagementController extends GetxController {
           return;
         }
         hasChanges = true;
+        usernameChanged = true;
+        changes.add('username');
       }
 
       String? newImageUrl = currentUser.profileImg;
@@ -345,6 +352,8 @@ class UserManagementController extends GetxController {
         if (uploadResult != null) {
           newImageUrl = uploadResult;
           hasChanges = true;
+          profileImageChanged = true;
+          changes.add('profile picture');
         } else {
           imageUploadFailed = true;
         }
@@ -370,11 +379,19 @@ class UserManagementController extends GetxController {
 
       await userRepository.updateUserDetails(updatedUser);
 
+      // 构建详细的通知消息
+      String notificationMessage = notificationRepository.generateProfileUpdateMessage(
+        usernameChanged: usernameChanged,
+        profileImageChanged: profileImageChanged,
+        oldUsername: currentUser.username,
+        newUsername: newUsername,
+      );
+
       // Send notification to user
       await notificationRepository.sendSystemNotification(
         userId: currentUser.userId,
         title: 'Account Updated',
-        message: 'Your account information has been updated by an administrator. Please review your profile to see the changes.',
+        message: notificationMessage,
       );
 
       TLoaders.successSnackBar(

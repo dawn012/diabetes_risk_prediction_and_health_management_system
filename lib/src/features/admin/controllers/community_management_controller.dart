@@ -9,8 +9,10 @@ import '../../../utils/constants/admin_colors.dart';
 import '../../../utils/constants/enums.dart';
 import '../../../data/repositories/authentication/authentication_repository.dart';
 import '../../../data/repositories/community/post_repository.dart';
+import '../../../data/repositories/community/post_report_repository.dart';
 import '../../authentication/models/user_model.dart';
 import '../../community/models/post_model.dart';
+import '../../community/models/post_report_model.dart';
 
 /// Cache entry model
 class CachedPage {
@@ -66,11 +68,20 @@ class CommunityManagementController extends GetxController {
   // User data for poster info
   final RxMap<String, UserModel> posterData = <String, UserModel>{}.obs;
 
+  // Reports data
+  final RxMap<String, List<PostReportModel>> postReports = <String, List<PostReportModel>>{}.obs;
+
+  // Reports dialog state
+  final RxBool isLoadingReports = false.obs;
+  final RxList<String> selectedReportIds = <String>[].obs;
+  final RxInt currentReportTabIndex = 0.obs;
+
   // Current user role
   final RxString currentUserRole = ''.obs;
 
   // Repositories
   final _postRepo = Get.put(PostRepository());
+  final _reportRepo = Get.put(PostReportRepository());
   final _authRepo = AuthenticationRepository.instance;
 
   @override
@@ -79,7 +90,6 @@ class CommunityManagementController extends GetxController {
     searchController.addListener(_onSearchChanged);
     _loadCurrentUserRole();
     _loadFirstPage();
-    // _startNewPostsDetection();
   }
 
   @override
@@ -128,7 +138,6 @@ class CommunityManagementController extends GetxController {
     try {
       final cacheKey = _getCacheKey();
 
-      // Check cache first
       if (_pageCache.containsKey(cacheKey)) {
         print('📦 Loading page $page from cache');
         final cached = _pageCache[cacheKey]!;
@@ -136,8 +145,8 @@ class CommunityManagementController extends GetxController {
         totalCount.value = cached.totalCount;
         _calculateTotalPages();
         _loadPosterData(cached.posts);
+        _loadReportsForPosts(cached.posts);
 
-        // Preload next page in background
         if (preloadNext && page < totalPages.value) {
           _preloadPage(page + 1);
         }
@@ -146,7 +155,6 @@ class CommunityManagementController extends GetxController {
 
       isLoading.value = true;
 
-      // Fetch from repository
       final response = await _postRepo.fetchPaginatedPosts(
         page: page,
         itemsPerPage: itemsPerPage.value,
@@ -157,26 +165,20 @@ class CommunityManagementController extends GetxController {
         isDisable: !showingActivePosts.value,
       );
 
-      // Update cache
       _updateCache(cacheKey, response.posts, response.totalCount);
 
-      // Update display
       displayedPosts.assignAll(response.posts);
       selectedPosts.clear();
       totalCount.value = response.totalCount;
       _calculateTotalPages();
 
-      // Load poster data
       await _loadPosterData(response.posts);
+      await _loadReportsForPosts(response.posts);
 
-      // Preload next page in background
       if (preloadNext && page < totalPages.value) {
         _preloadPage(page + 1);
       }
 
-      // ALWAYS update timestamp after successful load - this is our baseline
-      // Use DateTime.now() as the baseline, not the latest post timestamp
-      // This ensures we only detect NEW posts created AFTER the page load
       _lastLoadTimestamp = DateTime.now();
       print('🕒 Updated baseline timestamp: $_lastLoadTimestamp');
       _startNewPostsDetection();
@@ -199,7 +201,6 @@ class CommunityManagementController extends GetxController {
           '${searchController.text}_'
           '$page';
 
-      // Don't preload if already cached
       if (_pageCache.containsKey(cacheKey)) {
         return;
       }
@@ -223,11 +224,9 @@ class CommunityManagementController extends GetxController {
     }
   }
 
-  /// Update cache with LRU strategy (keep max 3 pages)
+  /// Update cache with LRU strategy
   void _updateCache(String key, List<PostModel> posts, int totalCount) {
-    // Remove oldest cache entries if exceeding max
     if (_pageCache.length >= _maxCachedPages) {
-      // Sort by timestamp and remove oldest
       final sortedEntries = _pageCache.entries.toList()
         ..sort((a, b) => a.value.cachedAt.compareTo(b.value.cachedAt));
 
@@ -282,6 +281,130 @@ class CommunityManagementController extends GetxController {
     }
   }
 
+  /// Load reports for visible posts
+  Future<void> _loadReportsForPosts(List<PostModel> posts) async {
+    try {
+      for (var post in posts) {
+        if (!postReports.containsKey(post.postId)) {
+          final allReports = await _reportRepo.getPostReports(post.postId);
+          postReports[post.postId] = allReports;
+        }
+      }
+    } catch (e) {
+      print('Error loading reports: $e');
+    }
+  }
+
+  /// Get pending reports for a post
+  List<PostReportModel> getPendingReportsForPost(String postId) {
+    final reports = postReports[postId] ?? [];
+    return reports.where((r) => r.status == ReportStatus.pending).toList();
+  }
+
+  /// Get resolved reports for a post
+  List<PostReportModel> getResolvedReportsForPost(String postId) {
+    final reports = postReports[postId] ?? [];
+    return reports.where((r) => r.status == ReportStatus.resolved).toList();
+  }
+
+  /// Load reports for dialog
+  Future<void> loadReportsForDialog(String postId) async {
+    isLoadingReports.value = true;
+    selectedReportIds.clear();
+
+    try {
+      final reports = await _reportRepo.getPostReports(postId);
+      postReports[postId] = reports;
+    } catch (e) {
+      TLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to load reports',
+      );
+    } finally {
+      isLoadingReports.value = false;
+    }
+  }
+
+  /// Mark single report as reviewed
+  Future<void> markReportAsReviewed(String postId, String reportId) async {
+    try {
+      await _reportRepo.markReportAsReviewed(postId, reportId);
+      await loadReportsForDialog(postId);
+      await refreshPosts(showMessage: false);
+      TLoaders.successSnackBar(
+        title: 'Success',
+        message: 'Report marked as reviewed',
+      );
+    } catch (e) {
+      TLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to mark report as reviewed',
+      );
+    }
+  }
+
+  /// Mark multiple reports as reviewed
+  Future<void> markMultipleReportsAsReviewed(String postId) async {
+    if (selectedReportIds.isEmpty) return;
+
+    try {
+      await _reportRepo.markMultipleReportsAsReviewed(
+        postId,
+        selectedReportIds,
+      );
+      selectedReportIds.clear();
+      await loadReportsForDialog(postId);
+      await refreshPosts(showMessage: false);
+      TLoaders.successSnackBar(
+        title: 'Success',
+        message: 'Reports marked as reviewed',
+      );
+    } catch (e) {
+      TLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to mark reports as reviewed',
+      );
+    }
+  }
+
+  /// Disable post from report
+  Future<void> disablePostFromReport(String postId, String reportId) async {
+    try {
+      await _reportRepo.disablePostFromReport(postId, reportId);
+      await loadReportsForDialog(postId);
+      await refreshPosts(showMessage: false);
+      TLoaders.successSnackBar(
+        title: 'Success',
+        message: 'Post disabled and report reviewed',
+      );
+    } catch (e) {
+      TLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to disable post',
+      );
+    }
+  }
+
+  /// Toggle report selection
+  void toggleReportSelection(String reportId) {
+    if (selectedReportIds.contains(reportId)) {
+      selectedReportIds.remove(reportId);
+    } else {
+      selectedReportIds.add(reportId);
+    }
+  }
+
+  /// Clear report selections
+  void clearReportSelections() {
+    selectedReportIds.clear();
+  }
+
+  /// Change report tab
+  void changeReportTab(int index) {
+    currentReportTabIndex.value = index;
+    selectedReportIds.clear();
+  }
+
   /// Handle search input changes with debounce
   void _onSearchChanged() {
     if (_searchDebounce?.isActive ?? false) _searchDebounce!.cancel();
@@ -299,11 +422,9 @@ class CommunityManagementController extends GetxController {
       currentPage.value = page;
       selectedPosts.clear();
 
-      // Check if jumping pages (not sequential)
       final isJump = (page - currentPage.value).abs() > 1;
 
       if (isJump) {
-        // Clear cache except target page and next page
         final targetKey = _getCacheKey();
         final nextPageKey = '${showingActivePosts.value ? "active" : "disabled"}_'
             '${selectedPostType.value?.name ?? "all"}_'
@@ -337,10 +458,7 @@ class CommunityManagementController extends GetxController {
       selectedPosts.clear();
       currentPage.value = 1;
       _lastLoadTimestamp = null;
-      // 重置时间戳为 null，在 _loadPage 中会重新设置
-      _lastLoadTimestamp = null;
       _loadPage(1, preloadNext: true);
-      // _startNewPostsDetection();
     }
   }
 
@@ -352,10 +470,7 @@ class CommunityManagementController extends GetxController {
       selectedPosts.clear();
       currentPage.value = 1;
       _lastLoadTimestamp = null;
-      // 重置时间戳为 null，在 _loadPage 中会重新设置
-      _lastLoadTimestamp = null;
       _loadPage(1, preloadNext: true);
-      // _startNewPostsDetection();
     }
   }
 
@@ -367,10 +482,7 @@ class CommunityManagementController extends GetxController {
       currentPage.value = 1;
       selectedPosts.clear();
       _lastLoadTimestamp = null;
-      // 重置时间戳为 null，在 _loadPage 中会重新设置
-      _lastLoadTimestamp = null;
       _loadPage(1, preloadNext: true);
-      // _startNewPostsDetection();
     }
   }
 
@@ -392,7 +504,7 @@ class CommunityManagementController extends GetxController {
     }
   }
 
-  /// Sort posts (client-side on current page)
+  /// Sort posts
   void sortPosts(int columnIndex, bool ascending) {
     sortColumnIndex.value = columnIndex;
     sortAscending.value = ascending;
@@ -401,29 +513,33 @@ class CommunityManagementController extends GetxController {
       dynamic valueA, valueB;
 
       switch (columnIndex) {
-        case 0: // Post ID
+        case 0:
           valueA = a.postId;
           valueB = b.postId;
           break;
-        case 1: // Poster
+        case 1:
           valueA = posterData[a.posterId]?.username ?? '';
           valueB = posterData[b.posterId]?.username ?? '';
           break;
-        case 2: // Type
+        case 2:
           valueA = a.postType.displayName;
           valueB = b.postType.displayName;
           break;
-        case 3: // Media Count
+        case 3:
           valueA = a.mediaUrls.length;
           valueB = b.mediaUrls.length;
           break;
-        case 4: // Likes Count
+        case 4:
           valueA = a.likes.length;
           valueB = b.likes.length;
           break;
-        case 5: // Created Date
+        case 5:
           valueA = a.createdAt;
           valueB = b.createdAt;
+          break;
+        case 6:
+          valueA = a.pendingReportCount;
+          valueB = b.pendingReportCount;
           break;
         default:
           valueA = a.postId;
@@ -449,18 +565,15 @@ class CommunityManagementController extends GetxController {
     _newPostsTimer?.cancel();
     newPostsCount.value = 0;
 
-    // 只在有有效时间戳时才启动检测
     if (_lastLoadTimestamp == null) {
       print('⏸️ New posts detection paused - no baseline timestamp');
       return;
     }
 
-    // Combined strategy: check every 30 seconds OR when count reaches threshold
     _newPostsTimer = Timer.periodic(_newPostsCheckInterval, (_) {
       _checkNewPosts();
     });
 
-    // Also listen to realtime updates
     _newPostsSubscription = _postRepo.streamNewPostsCount(
       since: _lastLoadTimestamp,
       postType: selectedPostType.value?.name,
@@ -468,7 +581,6 @@ class CommunityManagementController extends GetxController {
     ).listen((count) {
       newPostsCount.value = count;
 
-      // Show notification when threshold reached
       if (count >= _newPostsThreshold) {
         _showNewPostsNotification(count);
       }
@@ -497,23 +609,22 @@ class CommunityManagementController extends GetxController {
     );
   }
 
-  /// Refresh posts (clear cache and reload)
-  Future<void> refreshPosts() async {
+  /// Refresh posts
+  Future<void> refreshPosts({bool showMessage = true}) async {
     _clearCache();
     selectedPosts.clear();
     newPostsCount.value = 0;
     _lastLoadTimestamp = null;
     currentPage.value = 1;
 
-    // 重置时间戳为 null，在 _loadPage 中会重新设置
-    _lastLoadTimestamp = null;
     await _loadPage(1, preloadNext: true);
-    // _startNewPostsDetection();
 
-    TLoaders.successSnackBar(
-      title: 'Refreshed',
-      message: 'Posts data has been refreshed.',
-    );
+    if (showMessage) {
+      TLoaders.successSnackBar(
+        title: 'Refreshed',
+        message: 'Posts data has been refreshed.',
+      );
+    }
   }
 
   /// Disable a single post
@@ -529,7 +640,6 @@ class CommunityManagementController extends GetxController {
     try {
       await _postRepo.togglePostStatus(post.postId, post.isDisable);
 
-      // Update cache: remove post from current page
       final cacheKey = _getCacheKey();
       if (_pageCache.containsKey(cacheKey)) {
         final cached = _pageCache[cacheKey]!;
@@ -571,7 +681,6 @@ class CommunityManagementController extends GetxController {
     try {
       await _postRepo.togglePostStatus(post.postId, post.isDisable);
 
-      // Update cache: remove post from current page
       final cacheKey = _getCacheKey();
       if (_pageCache.containsKey(cacheKey)) {
         final cached = _pageCache[cacheKey]!;
@@ -620,7 +729,6 @@ class CommunityManagementController extends GetxController {
         await _postRepo.togglePostStatus(post.postId, post.isDisable);
       }
 
-      // Clear cache and reload
       _clearCache();
       selectedPosts.clear();
       await _loadPage(currentPage.value, preloadNext: true);
@@ -659,7 +767,6 @@ class CommunityManagementController extends GetxController {
         await _postRepo.togglePostStatus(post.postId, post.isDisable);
       }
 
-      // Clear cache and reload
       _clearCache();
       selectedPosts.clear();
       await _loadPage(currentPage.value, preloadNext: true);

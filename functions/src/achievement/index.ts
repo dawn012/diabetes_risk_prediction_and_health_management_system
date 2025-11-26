@@ -34,6 +34,7 @@ export {
 
 // 定时任务
 export {
+  distributeLeaderboardRewards,
   monthlyAchievementReset,
   hourlySyncCheck,
   dailyPermanentAchievementUpdate,

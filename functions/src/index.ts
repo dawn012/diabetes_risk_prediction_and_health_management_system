@@ -63,7 +63,8 @@ export const {
   sendUserBannedEmail,
   sendUserRestoredEmail,
   sendBatchUserBannedEmails,
-  sendBatchUserRestoredEmails
+  sendBatchUserRestoredEmails,
+  sendManagerRoleChangedEmail
 } = emailFunctions;
 
 export const {

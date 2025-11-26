@@ -134,7 +134,7 @@ class RewardDetailDialog extends StatelessWidget {
             child: reward.icon.isNotEmpty
                 ? Image.network(
               reward.icon,
-              fit: BoxFit.cover,
+              fit: BoxFit.contain,
               errorBuilder: (context, error, stackTrace) {
                 return Container(
                   color: TAdminColors.getSurfaceVariantColor(darkMode),

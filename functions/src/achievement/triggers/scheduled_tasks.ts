@@ -120,7 +120,7 @@ export const distributeLeaderboardRewards = onSchedule(
       if (rewardCount > 0) {
         await batch.commit();
         functions.logger.log(
-          `🎉 Rewards distributed successfully!`
+          "🎉 Rewards distributed successfully!"
         );
         functions.logger.log(
           `Total: ${rewardCount} users received ${totalPointsDistributed} points`

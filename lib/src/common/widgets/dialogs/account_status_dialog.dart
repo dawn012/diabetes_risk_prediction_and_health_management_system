@@ -5,19 +5,26 @@ import 'package:icons_plus/icons_plus.dart';
 import '../../../utils/constants/colors.dart';
 import '../../../utils/helpers/helper_functions.dart';
 
-class AccountBannedDialog {
-  AccountBannedDialog._();
+enum AccountStatusType {
+  banned,
+  deleted,
+}
 
-  /// Show account banned dialog (non-dismissible)
+class AccountStatusDialog {
+  AccountStatusDialog._();
+
+  /// Show account status dialog (non-dismissible)
   static Future<void> show({
+    required AccountStatusType statusType,
     required VoidCallback onConfirm,
+    String? customMessage,
   }) async {
     final context = Get.context!;
     final isDark = THelperFunctions.isDarkMode(context);
 
     await Get.dialog(
       WillPopScope(
-        onWillPop: () async => false, // Prevent back button dismiss
+        onWillPop: () async => false,
         child: Dialog(
           backgroundColor: isDark ? TColors.dark : TColors.white,
           shape: RoundedRectangleBorder(
@@ -38,8 +45,8 @@ class AccountBannedDialog {
                     color: TColors.error.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
-                    Iconsax.close_circle_bold,
+                  child: Icon(
+                    _getIcon(statusType),
                     color: TColors.error,
                     size: 28,
                   ),
@@ -48,7 +55,7 @@ class AccountBannedDialog {
 
                 // Title
                 Text(
-                  'Account Banned',
+                  _getTitle(statusType),
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 22,
@@ -59,14 +66,13 @@ class AccountBannedDialog {
 
                 // Message
                 Text(
-                  'Your account has been banned due to violation of our community guidelines. '
-                      'Please contact support if you believe this is a mistake.',
+                  customMessage ?? _getDefaultMessage(statusType),
                   style: TextStyle(
                     color: isDark ? TColors.darkGrey : TColors.textSecondary,
                     fontSize: 14,
                     height: 1.5,
                   ),
-                  textAlign: TextAlign.left,
+                  textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
 
@@ -75,8 +81,8 @@ class AccountBannedDialog {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () {
-                      Get.back(); // Close dialog first
-                      onConfirm(); // Then execute logout
+                      Get.back();
+                      onConfirm();
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: TColors.error,
@@ -102,8 +108,61 @@ class AccountBannedDialog {
           ),
         ),
       ),
-      barrierDismissible: false, // Prevent tap outside to dismiss
-      barrierColor: Colors.black.withOpacity(0.5)
+      barrierDismissible: false,
+      barrierColor: Colors.black.withOpacity(0.5),
+    );
+  }
+
+  static IconData _getIcon(AccountStatusType statusType) {
+    switch (statusType) {
+      case AccountStatusType.banned:
+        return Iconsax.close_circle_bold;
+      case AccountStatusType.deleted:
+        return Iconsax.trash_bold;
+    }
+  }
+
+  static String _getTitle(AccountStatusType statusType) {
+    switch (statusType) {
+      case AccountStatusType.banned:
+        return 'Account Banned';
+      case AccountStatusType.deleted:
+        return 'Account Deleted';
+    }
+  }
+
+  static String _getDefaultMessage(AccountStatusType statusType) {
+    switch (statusType) {
+      case AccountStatusType.banned:
+        return 'Your account has been banned due to violation of our community guidelines. '
+            'Please contact support if you believe this is a mistake.';
+      case AccountStatusType.deleted:
+        return 'Your account deletion request has been approved by an administrator. '
+            'Your account will be logged out now.';
+    }
+  }
+
+  /// Convenience method for showing banned dialog
+  static Future<void> showBanned({
+    required VoidCallback onConfirm,
+    String? customMessage,
+  }) async {
+    await show(
+      statusType: AccountStatusType.banned,
+      onConfirm: onConfirm,
+      customMessage: customMessage,
+    );
+  }
+
+  /// Convenience method for showing deleted dialog
+  static Future<void> showDeleted({
+    required VoidCallback onConfirm,
+    String? customMessage,
+  }) async {
+    await show(
+      statusType: AccountStatusType.deleted,
+      onConfirm: onConfirm,
+      customMessage: customMessage,
     );
   }
 }

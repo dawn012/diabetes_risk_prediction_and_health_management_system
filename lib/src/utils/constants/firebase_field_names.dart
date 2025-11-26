@@ -27,7 +27,6 @@ class FirebaseFieldNames {
   static const String dateOfBirth = "dateOfBirth";
   static const String weight = "weight";
   static const String height = "height";
-  static const String dietPreference = "dietPreference";
   static const String allergies = "allergies";
   static const String isTakeMedication = "isTakeMedication";
   static const String medicationAdherence = "medicationAdherence";
@@ -40,6 +39,54 @@ class FirebaseFieldNames {
   static const String hasChangedDateOfBirth = "hasChangedDateOfBirth";
   static const String updatedAt = "updatedAt";
 
+  ///-- Meal Preferences
+  static const String mealPreferences = 'mealPreferences';
+  static const String dietPreference = 'dietPreference';
+  static const String allergens = 'allergens';
+  static const String preferredCookingMethods = 'preferredCookingMethods';
+  static const String maxPreparationTime = 'maxPreparationTime';
+
+  ///-- Meal Plan
+  static const String mealPlanId = 'mealPlanId';
+  static const String planType = 'planType';
+  static const String adherence = 'adherence';
+
+  ///-- Meal Plan Meal
+  static const String mealPlanMealId = 'mealPlanMealId';
+  static const String meal = 'meal';
+  static const String scheduledDate = 'scheduledDate';
+  static const String mealTimeSlot = 'mealTimeSlot';
+
+  ///-- Meal
+  static const String mealId = 'mealId';
+  static const String mealName = 'mealName';
+  static const String mealDescription = 'mealDescription';
+  static const String imageUrl = 'imageUrl';
+  static const String ingredients = 'ingredients';
+  static const String preparationTime = 'preparationTime';
+  static const String cookingTime = 'cookingTime';
+  static const String nutrient = 'nutrient';
+  static const String instructions = 'instructions';
+  static const String serves = 'serves';
+  static const String dishType = 'dishType';
+  static const String dietaryRestrictions = 'dietaryRestrictions';
+  static const String dietType = 'dietType';
+  static const String cookingMethod = 'cookingMethod';
+  static const String authorName = 'authorName';
+  static const String notes = 'notes';
+  static const String sourceUrl = 'sourceUrl';
+
+  ///-- Nutrient
+  static const String calories = 'calories';
+  static const String protein = 'protein';
+  static const String fat = 'fat';
+  static const String saturatedFat = 'saturatedFat';
+  static const String carbohydrates = 'carbohydrates';
+  static const String fiber = 'fiber';
+  static const String sugar = 'sugar';
+  static const String sodium = 'sodium';
+  static const String cholesterol = 'cholesterol';
+
   ///-- Reward
   static const String rewardId = 'rewardId';
   static const String rewardType = 'rewardType';
@@ -50,7 +97,6 @@ class FirebaseFieldNames {
   ///-- User Reward
   static const String pointsSpent = 'pointsSpent';
   static const String redeemedAt = 'redeemedAt';
-  static const String notes = 'notes';
 
   ///-- Health Data
   static const String logId = 'logId';
@@ -91,6 +137,8 @@ class FirebaseFieldNames {
   static const String commentCount = 'commentCount';
   static const String createdAt = 'createdAt';
   static const String isDisable = 'isDisable';
+  static const String pendingReportCount = 'pendingReportCount';
+  static const String latestReportTime = 'latestReportTime';
 
   ///-- Comments
   static const String commentId = 'commentId';
@@ -104,8 +152,14 @@ class FirebaseFieldNames {
   static const String mentions = 'mentions';
   static const String replyCount = 'replyCount';
 
+  ///-- Report
+  static const String reportId = 'reportId';
+  static const String reporterId = 'reporterId';
+  static const String reason = 'reason';
+  static const String additionalNote = 'additionalNote';
+  static const String resolvedAt = 'resolvedAt';
+
   ///-- Story
-  static const String imageUrl = 'imageUrl';
   static const String storyId = 'storyId';
   static const String views = 'views';
 
@@ -196,4 +250,11 @@ class FirebaseFieldNames {
   static const String notificationType = 'notificationType';
   static const String title = 'title';
   static const String isRead = 'isRead';
+
+  static const String requestId = 'requestId';
+  static const String requesterId = 'requesterId';
+  static const String requestStatus = 'requestStatus';
+  static const String responderId = 'responderId';
+  static const String expiresAt = 'expiresAt';
+  static const String responseMessage = 'responseMessage';
 }

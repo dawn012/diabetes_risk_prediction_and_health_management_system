@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../utils/constants/firebase_field_names.dart';
+import '../../meal_recommendation/models/meal_preference_model.dart';
 import '../../personalization/models/user_profile_model.dart';
 import 'base_account_model.dart';
 
@@ -9,6 +10,7 @@ class UserModel extends BaseAccountModel {
   int rewardPoints;
   String? currentAvatarFrame;
   final UserProfileModel profile;
+  final MealPreferenceModel mealPreferences;
 
   UserModel({
     required super.userId,
@@ -27,7 +29,9 @@ class UserModel extends BaseAccountModel {
     this.rewardPoints = 0,
     this.currentAvatarFrame,
     UserProfileModel? profile,
-  }) : profile = profile ?? UserProfileModel.empty();
+    MealPreferenceModel? mealPreferences, // 添加饮食偏好参数
+  }) : profile = profile ?? UserProfileModel.empty(),
+        mealPreferences = mealPreferences ?? MealPreferenceModel.empty();
 
   /// empty factory
   static UserModel empty() {
@@ -48,6 +52,7 @@ class UserModel extends BaseAccountModel {
       rewardPoints: 0,
       currentAvatarFrame: null,
       profile: UserProfileModel.empty(),
+      mealPreferences: MealPreferenceModel.empty(),
     );
   }
 
@@ -69,6 +74,7 @@ class UserModel extends BaseAccountModel {
     int? rewardPoints,
     String? currentAvatarFrame,
     UserProfileModel? profile,
+    MealPreferenceModel? mealPreferences,
   }) {
     return UserModel(
       userId: userId ?? this.userId,
@@ -87,6 +93,7 @@ class UserModel extends BaseAccountModel {
       rewardPoints: rewardPoints ?? this.rewardPoints,
       currentAvatarFrame: currentAvatarFrame ?? this.currentAvatarFrame,
       profile: profile ?? this.profile,
+      mealPreferences: mealPreferences ?? this.mealPreferences,
     );
   }
 
@@ -95,12 +102,22 @@ class UserModel extends BaseAccountModel {
     final data = doc.data();
     if (data == null) return UserModel.empty();
 
+    // 解析 UserProfileModel
     UserProfileModel profile;
     if (data[FirebaseFieldNames.profile] != null &&
         data[FirebaseFieldNames.profile] is Map<String, dynamic>) {
       profile = UserProfileModel.fromMap(data[FirebaseFieldNames.profile]);
     } else {
       profile = UserProfileModel.empty();
+    }
+
+    // 解析 MealPreferenceModel
+    MealPreferenceModel mealPreferences;
+    if (data[FirebaseFieldNames.mealPreferences] != null &&
+        data[FirebaseFieldNames.mealPreferences] is Map<String, dynamic>) {
+      mealPreferences = MealPreferenceModel.fromMap(data[FirebaseFieldNames.mealPreferences]);
+    } else {
+      mealPreferences = MealPreferenceModel.empty();
     }
 
     return UserModel(
@@ -122,6 +139,7 @@ class UserModel extends BaseAccountModel {
       rewardPoints: data[FirebaseFieldNames.rewardPoints] ?? 0,
       currentAvatarFrame: data[FirebaseFieldNames.currentAvatarFrame],
       profile: profile,
+      mealPreferences: mealPreferences,
     );
   }
 
@@ -134,6 +152,7 @@ class UserModel extends BaseAccountModel {
       FirebaseFieldNames.rewardPoints: rewardPoints,
       FirebaseFieldNames.currentAvatarFrame: currentAvatarFrame,
       FirebaseFieldNames.profile: profile.toJson(),
+      FirebaseFieldNames.mealPreferences: mealPreferences.toJson(),
     });
     return map;
   }

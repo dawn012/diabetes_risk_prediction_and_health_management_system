@@ -6,6 +6,7 @@ import {
   generateUserBannedEmail,
   generateUserRestoredFromBanEmail,
   generateUserRestoredFromInactiveEmail,
+  generateManagerRoleChangedEmail
 } from "../utils/email/email_templates";
 
 // Initialize Firebase Admin if not already initialize
@@ -356,6 +357,89 @@ export const sendBatchUserRestoredEmails = onCall(async (request) => {
     throw new functions.https.HttpsError(
       "internal",
       "Failed to send batch emails",
+      error
+    );
+  }
+});
+
+// 5️⃣ Send email when manager role is changed
+export const sendManagerRoleChangedEmail = onCall(async (request) => {
+  // Check if the request is authenticated
+  if (!request.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "User must be authenticated to call this function."
+    );
+  }
+
+  // Check if user has admin privileges
+  const callerUid = request.auth.uid;
+  const callerDoc = await admin
+    .firestore()
+    .collection("users")
+    .doc(callerUid)
+    .get();
+  const callerRole = callerDoc.data()?.userType?.toLowerCase();
+  const callerName = callerDoc.data()?.username || "an administrator";
+
+  if (!["admin"].includes(callerRole)) {
+    throw new functions.https.HttpsError(
+      "permission-denied",
+      "Only administrators can change manager roles."
+    );
+  }
+
+  try {
+    const { userId, oldRole, newRole } = request.data;
+
+    if (!userId || !oldRole || !newRole) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "userId, oldRole, and newRole are required"
+      );
+    }
+
+    // Get user data
+    const userDoc = await admin
+      .firestore()
+      .collection("users")
+      .doc(userId)
+      .get();
+
+    if (!userDoc.exists) {
+      throw new functions.https.HttpsError("not-found", "User not found");
+    }
+
+    const userData = userDoc.data();
+    if (!userData?.email) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "User email not found"
+      );
+    }
+
+    // Generate email
+    const emailContent = generateManagerRoleChangedEmail(
+      userData.username || "Manager",
+      oldRole,
+      newRole,
+      callerName
+    );
+
+    // Send email
+    await sendEmail({
+      to: userData.email,
+      subject: emailContent.subject,
+      html: emailContent.html,
+      text: emailContent.text,
+    });
+
+    return { success: true, message: "Role change email sent successfully" };
+  } catch (error) {
+    console.error("Error sending role change email:", error);
+    throw new functions.https.HttpsError(
+      "internal",
+      "Failed to send role change email",
       error
     );
   }

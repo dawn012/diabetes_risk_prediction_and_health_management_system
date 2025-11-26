@@ -14,6 +14,7 @@ import '../../../controllers/post_controller.dart';
 import '../../../controllers/post_share_utils.dart';
 import '../../../models/post_model.dart';
 import '../../create_post/create_post_screen.dart';
+import '../report_post_dialog.dart';
 
 class PostHeader extends StatelessWidget {
   const PostHeader({super.key, required this.post});
@@ -371,11 +372,9 @@ class PostHeader extends StatelessWidget {
   }
 
   void _reportPost() {
-    // TODO: 实现举报帖子功能
-    Get.snackbar(
-      'Report Post',
-      'Report functionality for post: ${post.postId}',
-      snackPosition: SnackPosition.BOTTOM,
+    Get.dialog(
+      ReportPostDialog(postId: post.postId),
+      barrierDismissible: true,
     );
   }
 

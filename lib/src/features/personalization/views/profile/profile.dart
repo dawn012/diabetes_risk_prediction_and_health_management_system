@@ -185,8 +185,8 @@ class ProfileScreen extends StatelessWidget {
                       _buildWeightField(context, profile, userController),
                       _buildHeightField(context, profile, updateController, pendingChanges),
                       _buildBMIField(context, profile, pendingChanges),
-                      _buildDietPreferenceField(context, profile, updateController, pendingChanges),
-                      _buildAllergiesField(context, profile, updateController, pendingChanges),
+                      // _buildDietPreferenceField(context, profile, updateController, pendingChanges),
+                      // _buildAllergiesField(context, profile, updateController, pendingChanges),
                     ],
                   );
                 }),
@@ -353,46 +353,46 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDietPreferenceField(
-      BuildContext context,
-      UserProfileModel profile,
-      UpdateProfileController controller,
-      Map<String, dynamic> pendingChanges,
-      ) {
-    String displayValue = profile.dietPreference.isNotEmpty ? profile.dietPreference : 'Not set';
-
-    if (pendingChanges.containsKey('dietPreference')) {
-      displayValue = pendingChanges['dietPreference'];
-    }
-
-    return ProfileFieldItem(
-      title: 'Diet Preference',
-      value: displayValue,
-      onTap: () => _handleDietPreferenceEdit(profile, controller),
-      trailing: Icon(Iconsax.arrow_right_3_outline, size: 18),
-    );
-  }
-
-  Widget _buildAllergiesField(
-      BuildContext context,
-      UserProfileModel profile,
-      UpdateProfileController controller,
-      Map<String, dynamic> pendingChanges,
-      ) {
-    List<String> displayAllergies = profile.allergies;
-
-    if (pendingChanges.containsKey('allergies')) {
-      displayAllergies = List<String>.from(pendingChanges['allergies']);
-    }
-
-    return ProfileFieldItem(
-      title: 'Allergies',
-      value: displayAllergies.isNotEmpty ? displayAllergies.join(', ') : 'None',
-      onTap: () => _handleAllergiesEdit(profile, controller),
-      trailing: Icon(Iconsax.arrow_right_3_outline, size: 18),
-      maxLines: 2,
-    );
-  }
+  // Widget _buildDietPreferenceField(
+  //     BuildContext context,
+  //     UserProfileModel profile,
+  //     UpdateProfileController controller,
+  //     Map<String, dynamic> pendingChanges,
+  //     ) {
+  //   String displayValue = profile.dietPreference.isNotEmpty ? profile.dietPreference : 'Not set';
+  //
+  //   if (pendingChanges.containsKey('dietPreference')) {
+  //     displayValue = pendingChanges['dietPreference'];
+  //   }
+  //
+  //   return ProfileFieldItem(
+  //     title: 'Diet Preference',
+  //     value: displayValue,
+  //     onTap: () => _handleDietPreferenceEdit(profile, controller),
+  //     trailing: Icon(Iconsax.arrow_right_3_outline, size: 18),
+  //   );
+  // }
+  //
+  // Widget _buildAllergiesField(
+  //     BuildContext context,
+  //     UserProfileModel profile,
+  //     UpdateProfileController controller,
+  //     Map<String, dynamic> pendingChanges,
+  //     ) {
+  //   List<String> displayAllergies = profile.allergies;
+  //
+  //   if (pendingChanges.containsKey('allergies')) {
+  //     displayAllergies = List<String>.from(pendingChanges['allergies']);
+  //   }
+  //
+  //   return ProfileFieldItem(
+  //     title: 'Allergies',
+  //     value: displayAllergies.isNotEmpty ? displayAllergies.join(', ') : 'None',
+  //     onTap: () => _handleAllergiesEdit(profile, controller),
+  //     trailing: Icon(Iconsax.arrow_right_3_outline, size: 18),
+  //     maxLines: 2,
+  //   );
+  // }
 
   // === Edit Handler Methods ===
 
@@ -477,43 +477,43 @@ class ProfileScreen extends StatelessWidget {
     }
   }
 
-  Future<void> _handleDietPreferenceEdit(
-      UserProfileModel profile,
-      UpdateProfileController controller,
-      ) async {
-    // 获取当前值（包含 pending changes）
-    final currentDietPreference = controller.getCurrentValueWithPending('dietPreference', profile.dietPreference);
-
-    final result = await ProfileSelectionDialog.showSingleSelection(
-      title: 'Diet Preference',
-      options: ProfileConstants.dietPreferences,
-      currentValue: currentDietPreference,
-      icon: Iconsax.cake_bold,
-    );
-
-    if (result != null) {
-      controller.updatePendingChange('dietPreference', result);
-    }
-  }
-
-  Future<void> _handleAllergiesEdit(
-      UserProfileModel profile,
-      UpdateProfileController controller,
-      ) async {
-    // 获取当前值（包含 pending changes）
-    final currentAllergies = controller.getCurrentValueWithPending('allergies', profile.allergies);
-
-    final result = await ProfileSelectionDialog.showMultiSelection(
-      title: 'Allergies',
-      options: ProfileConstants.commonAllergens,
-      currentValues: currentAllergies,
-      icon: Iconsax.warning_2_bold,
-    );
-
-    if (result != null) {
-      controller.updatePendingChange('allergies', result);
-    }
-  }
+  // Future<void> _handleDietPreferenceEdit(
+  //     UserProfileModel profile,
+  //     UpdateProfileController controller,
+  //     ) async {
+  //   // 获取当前值（包含 pending changes）
+  //   final currentDietPreference = controller.getCurrentValueWithPending('dietPreference', profile.dietPreference);
+  //
+  //   final result = await ProfileSelectionDialog.showSingleSelection(
+  //     title: 'Diet Preference',
+  //     options: ProfileConstants.dietPreferences,
+  //     currentValue: currentDietPreference,
+  //     icon: Iconsax.cake_bold,
+  //   );
+  //
+  //   if (result != null) {
+  //     controller.updatePendingChange('dietPreference', result);
+  //   }
+  // }
+  //
+  // Future<void> _handleAllergiesEdit(
+  //     UserProfileModel profile,
+  //     UpdateProfileController controller,
+  //     ) async {
+  //   // 获取当前值（包含 pending changes）
+  //   final currentAllergies = controller.getCurrentValueWithPending('allergies', profile.allergies);
+  //
+  //   final result = await ProfileSelectionDialog.showMultiSelection(
+  //     title: 'Allergies',
+  //     options: ProfileConstants.commonAllergens,
+  //     currentValues: currentAllergies,
+  //     icon: Iconsax.warning_2_bold,
+  //   );
+  //
+  //   if (result != null) {
+  //     controller.updatePendingChange('allergies', result);
+  //   }
+  // }
 
   // === Helper Methods ===
 

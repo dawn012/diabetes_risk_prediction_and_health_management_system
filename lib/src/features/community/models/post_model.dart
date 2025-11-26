@@ -15,6 +15,8 @@ class PostModel {
   final bool isDisable;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final int pendingReportCount; // Number of pending reports
+  final DateTime? latestReportTime; // Time of most recent report
 
   const PostModel({
     required this.postId,
@@ -28,6 +30,8 @@ class PostModel {
     required this.isDisable,
     required this.createdAt,
     required this.updatedAt,
+    this.pendingReportCount = 0,
+    this.latestReportTime,
   });
 
   /// Empty constructor for initialization
@@ -43,6 +47,8 @@ class PostModel {
     isDisable: false,
     createdAt: DateTime.fromMillisecondsSinceEpoch(0),
     updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
+    pendingReportCount: 0,
+    latestReportTime: DateTime.fromMillisecondsSinceEpoch(0),
   );
 
   /// Create a copy of the model with updated fields
@@ -58,6 +64,8 @@ class PostModel {
     bool? isDisable,
     DateTime? createdAt,
     DateTime? updatedAt,
+    int? pendingReportCount,
+    DateTime? latestReportTime
   }) {
     return PostModel(
       postId: postId ?? this.postId,
@@ -71,6 +79,8 @@ class PostModel {
       isDisable: isDisable ?? this.isDisable,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      pendingReportCount: pendingReportCount ?? this.pendingReportCount,
+      latestReportTime: latestReportTime ?? this.latestReportTime,
     );
   }
 
@@ -87,6 +97,8 @@ class PostModel {
       FirebaseFieldNames.isDisable: isDisable,
       FirebaseFieldNames.createdAt: createdAt.millisecondsSinceEpoch,
       FirebaseFieldNames.updatedAt: updatedAt.millisecondsSinceEpoch,
+      FirebaseFieldNames.pendingReportCount: pendingReportCount,
+      FirebaseFieldNames.latestReportTime: latestReportTime?.millisecondsSinceEpoch,
       // Comments are stored as subcollection, not included in main document
     };
   }
@@ -108,6 +120,9 @@ class PostModel {
           data[FirebaseFieldNames.createdAt] ?? 0),
       updatedAt: DateTime.fromMillisecondsSinceEpoch(
           data[FirebaseFieldNames.updatedAt] ?? 0),
+      pendingReportCount: data[FirebaseFieldNames.pendingReportCount] ?? 0,
+      latestReportTime: DateTime.fromMillisecondsSinceEpoch(
+          data[FirebaseFieldNames.latestReportTime] ?? 0),
     );
   }
 

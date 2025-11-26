@@ -146,7 +146,7 @@ class RewardManagementScreen extends StatelessWidget {
                   child: reward.icon.isNotEmpty
                       ? Image.network(
                     reward.icon,
-                    fit: BoxFit.cover,
+                    fit: BoxFit.contain,
                     errorBuilder: (context, error, stackTrace) {
                       return Icon(
                         Iconsax.gallery_slash_bold,

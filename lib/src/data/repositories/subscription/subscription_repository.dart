@@ -134,6 +134,28 @@ class SubscriptionRepository extends GetxController {
     }
   }
 
+  /// Stream active subscription status
+  Stream<bool> streamHasActiveSubscription(String userId) {
+    try {
+      return _subscriptionsCollection
+          .where(FirebaseFieldNames.userId, isEqualTo: userId)
+          .where(FirebaseFieldNames.status, isEqualTo: SubscriptionStatus.active.value)
+          .limit(1)
+          .snapshots()
+          .map((querySnapshot) {
+        final hasActive = querySnapshot.docs.isNotEmpty;
+        print('Active subscription status update: $hasActive');
+        return hasActive;
+      }).handleError((error) {
+        print('Error in streamHasActiveSubscription: $error');
+        return false;
+      });
+    } catch (e) {
+      print('Error setting up streamHasActiveSubscription: $e');
+      return Stream.value(false);
+    }
+  }
+
   /// Check if user has pending subscription
   Future<bool> hasPendingSubscription(String userId) async {
     try {

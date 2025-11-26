@@ -4,9 +4,12 @@ class FirebaseCollectionNames {
   static const String users = 'users';
   static const String healthLogs = 'healthLogs';
   static const String diabetesPredictions = 'diabetesPredictions';
+  static const String mealPlans = 'mealPlans';
+  static const String meals = 'meals';
   static const String posts = 'posts';
   static const String comments = 'comments';
   static const String replies = 'replies';
+  static const String reports = 'reports';
   static const String achievements = 'achievements';
   static const String userAchievements = 'userAchievements';
   static const String leaderboard = 'leaderboard';

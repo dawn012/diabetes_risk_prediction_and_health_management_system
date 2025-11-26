@@ -9,6 +9,7 @@ import 'package:icons_plus/icons_plus.dart';
 import 'src/features/achievement/views/leaderboard_screen.dart';
 import 'src/features/community/views/community_menu.dart';
 import 'src/features/diabetes_prediction/controllers/diabetes_prediction_flow_manager.dart';
+import 'src/features/meal_recommendation/views/meal_home_screen.dart';
 import 'src/features/meal_recommendation/views/meal_recommendation_form.dart';
 import 'src/features/personalization/views/settings/settings.dart';
 import 'src/utils/constants/colors.dart';
@@ -118,7 +119,7 @@ class NavigationController extends GetxController {
 
   final screens = [
     const Dashboard(),
-    const MealRecommendationForm(),
+    const MealHomeScreen(),
     const CommunityMenu(),
     // const MealRecommendationForm(),
     const SettingsScreen(),

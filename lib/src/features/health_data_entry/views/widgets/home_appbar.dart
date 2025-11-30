@@ -30,6 +30,7 @@ class THomeAppBar extends StatelessWidget {
           ),
         ],
       ),
+      isCenter: false,
       actions: [
         TNotificationIcon(
           onPressed: () => Get.to(() => NotificationScreen()),

@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:icons_plus/icons_plus.dart';
 import 'package:intl/intl.dart';
 
+import '../../../common/widgets/appbar/appbar.dart';
 import '../../../common/widgets/dialogs/dialog.dart';
 import '../../../utils/constants/colors.dart';
 import '../../../utils/constants/enums.dart';
@@ -17,19 +18,23 @@ class MealPlanPreviewScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.find<MealRecommendationController>();
+    final controller = Get.put(MealRecommendationController());
     final isDark = THelperFunctions.isDarkMode(context);
 
     return Scaffold(
       backgroundColor: isDark ? TColors.dark : TColors.light,
-      appBar: AppBar(
+      appBar: TAppBar(
         title: const Text('Review Your Meal Plan'),
         backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          onPressed: () => _handleBack(controller),
-          icon: const Icon(Iconsax.arrow_left_bold),
-        ),
+        showBackArrow: true,
+        customBackAction: () {
+          // 如果有 plan 就回到第一个 screen
+          if (controller.generatedMealPlan.value != null) {
+            Get.until((route) => route.isFirst);
+          } else {
+            Get.back();
+          }
+        },
       ),
       body: Obx(() {
         final mealPlan = controller.generatedMealPlan.value;
@@ -48,7 +53,7 @@ class MealPlanPreviewScreen extends StatelessWidget {
         return Column(
           children: [
             // Plan Info Header
-            _buildPlanInfoHeader(mealPlan, isDark),
+            _buildPlanInfoHeader(controller, mealPlan, isDark),
 
             // Meal List
             Expanded(
@@ -68,7 +73,7 @@ class MealPlanPreviewScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildPlanInfoHeader(dynamic mealPlan, bool isDark) {
+  Widget _buildPlanInfoHeader(MealRecommendationController controller, dynamic mealPlan, bool isDark) {
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(20),
@@ -94,7 +99,7 @@ class MealPlanPreviewScreen extends StatelessWidget {
             children: [
               Icon(
                 mealPlan.planType == MealPlanType.daily
-                    ? Iconsax.sun_1_bold
+                    ? Icons.sunny
                     : Iconsax.calendar_1_bold,
                 color: TColors.white,
                 size: 24,
@@ -125,6 +130,37 @@ class MealPlanPreviewScreen extends StatelessWidget {
                   ],
                 ),
               ),
+              // Regenerate Icon Button
+              Obx(() => Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: controller.isReplacingMeal.value
+                      ? null
+                      : () => _handleRegenerate(controller),
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: TColors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: controller.isReplacingMeal.value
+                        ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(TColors.white),
+                      ),
+                    )
+                        : const Icon(
+                      Iconsax.refresh_2_bold,
+                      color: TColors.white,
+                      size: 20,
+                    ),
+                  ),
+                ),
+              )),
             ],
           ),
           const SizedBox(height: 12),
@@ -416,14 +452,20 @@ class MealPlanPreviewScreen extends StatelessWidget {
                     ),
                     const SizedBox(width: 16),
                     _buildNutritionInfo(
-                      'Protein',
-                      '${meal.meal.nutrient.protein.toInt()}g',
+                      'Carbs',
+                      '${meal.meal.nutrient.carbohydrates.toInt()}g',
                       isDark,
                     ),
                     const SizedBox(width: 16),
                     _buildNutritionInfo(
-                      'Carbs',
-                      '${meal.meal.nutrient.carbohydrates.toInt()}g',
+                      'Fiber',
+                      '${meal.meal.nutrient.fiber.toInt()}g',
+                      isDark,
+                    ),
+                    const SizedBox(width: 16),
+                    _buildNutritionInfo(
+                      'Sugar',
+                      '${meal.meal.nutrient.sugar.toInt()}g',
                       isDark,
                     ),
                   ],
@@ -534,16 +576,14 @@ class MealPlanPreviewScreen extends StatelessWidget {
         ],
       ),
       child: SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: Row(
           children: [
-            // Regenerate Button
-            SizedBox(
-              width: double.infinity,
+            // Cancel Button
+            Expanded(
               child: OutlinedButton.icon(
-                onPressed: () => _handleRegenerate(controller),
-                icon: const Icon(Iconsax.refresh_2_bold),
-                label: const Text('Regenerate Meal Plan'),
+                onPressed: () => _handleCancel(controller),
+                icon: const Icon(Iconsax.close_circle_bold),
+                label: const Text('Cancel Plan'),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   side: BorderSide(color: TColors.primary),
@@ -553,12 +593,11 @@ class MealPlanPreviewScreen extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(width: 12),
 
             // Confirm Button
-            Obx(() => SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
+            Expanded(
+              child: Obx(() => ElevatedButton.icon(
                 onPressed: controller.isLoading.value
                     ? null
                     : () => _handleConfirm(controller),
@@ -572,7 +611,7 @@ class MealPlanPreviewScreen extends StatelessWidget {
                   ),
                 )
                     : const Icon(Iconsax.tick_circle_bold),
-                label: const Text('Confirm Meal Plan'),
+                label: const Text('Confirm Plan'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: TColors.primary,
                   foregroundColor: TColors.white,
@@ -581,28 +620,27 @@ class MealPlanPreviewScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-              ),
-            )),
+              )),
+            ),
           ],
         ),
       ),
     );
   }
 
-  void _handleBack(MealRecommendationController controller) async {
-    final shouldDiscard = await TDialog.confirmDialog(
-      title: 'Discard Meal Plan?',
-      message: 'Are you sure you want to go back? Your generated meal plan will be discarded.',
-      confirmText: 'Discard',
+  void _handleCancel(MealRecommendationController controller) async {
+    final shouldCancel = await TDialog.confirmDialog(
+      title: 'Cancel Meal Plan?',
+      message: 'Are you sure you want to cancel? Your generated meal plan will be discarded.',
+      confirmText: 'Cancel Plan',
       cancelText: 'Keep Editing',
       confirmButtonColor: TColors.error,
       icon: Iconsax.warning_2_bold,
       iconColor: TColors.error,
     );
 
-    if (shouldDiscard == true) {
+    if (shouldCancel == true) {
       await controller.discardMealPlan();
-      Get.back();
     }
   }
 
@@ -629,7 +667,7 @@ class MealPlanPreviewScreen extends StatelessWidget {
       cancelText: 'Cancel',
       icon: Iconsax.tick_circle_bold,
       iconColor: TColors.success,
-      confirmButtonColor: TColors.success,
+      confirmButtonColor: TColors.primary,
     );
 
     if (shouldConfirm == true) {

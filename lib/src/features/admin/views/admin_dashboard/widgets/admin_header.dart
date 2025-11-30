@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:icons_plus/icons_plus.dart';
 
+import '../../../../../common/loaders/loaders.dart';
 import '../../../../../common/widgets/dialogs/common_confirmation_dialog.dart';
+import '../../../../../common/widgets/dialogs/image_preview_dialog.dart';
 import '../../../../../data/repositories/authentication/authentication_repository.dart';
 import '../../../../../data/repositories/notification/notification_repository.dart';
 import '../../../../../utils/constants/admin_colors.dart';
@@ -202,24 +204,45 @@ class AdminHeader extends StatelessWidget {
 
                   return Row(
                     children: [
-                      hasProfileImage
-                          ? CircleAvatar(
-                        radius: 20,
-                        backgroundImage: NetworkImage(user.profileImg),
-                        backgroundColor: TAdminColors.getSurfaceVariantColor(darkMode),
-                      )
-                          : CircleAvatar(
-                        radius: 20,
-                        backgroundColor: TAdminColors.primary,
-                        child: Text(
-                          username.isNotEmpty
-                              ? username.substring(0, 1).toUpperCase()
-                              : email.isNotEmpty
-                              ? email.substring(0, 1).toUpperCase()
-                              : 'A',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
+                      // 头像部分
+                      GestureDetector(
+                        onTap: () {
+                          if (hasProfileImage) {
+                            // 使用网络图片预览
+                            ImagePreviewDialog.showNetworkImage(
+                              context: Get.context!,
+                              imageUrl: user.profileImg,
+                              title: '$username\'s Avatar',
+                              maxWidth: 400,
+                              maxHeight: 400,
+                            );
+                          } else {
+                            // 显示默认头像的提示
+                            TLoaders.modernSnackBar(
+                              title: 'No Profile Image',
+                              message: 'You don\'t have a profile image',
+                            );
+                          }
+                        },
+                        child: hasProfileImage
+                            ? CircleAvatar(
+                          radius: 20,
+                          backgroundImage: NetworkImage(user.profileImg),
+                          backgroundColor: TAdminColors.getSurfaceVariantColor(darkMode),
+                        )
+                            : CircleAvatar(
+                          radius: 20,
+                          backgroundColor: TAdminColors.primary,
+                          child: Text(
+                            username.isNotEmpty
+                                ? username.substring(0, 1).toUpperCase()
+                                : email.isNotEmpty
+                                ? email.substring(0, 1).toUpperCase()
+                                : 'A',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),

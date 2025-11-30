@@ -93,7 +93,7 @@ class MealDetailScreen extends StatelessWidget {
             shape: BoxShape.circle,
           ),
           child: const Icon(
-            Iconsax.arrow_left_bold,
+            Iconsax.arrow_left_2_outline,
             color: TColors.white,
           ),
         ),
@@ -266,51 +266,70 @@ class MealDetailScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
+
+          // 🆕 CHANGED: 添加 icon 参数
           _buildNutritionRow(
             'Calories',
             '${meal.nutrient.calories.toInt()} kcal',
+            Iconsax.flash_bold,
+            TColors.warning,
             isDark,
           ),
           _buildNutritionRow(
             'Protein',
             '${meal.nutrient.protein.toInt()} g',
+            Iconsax.medal_star_bold,
+            TColors.error,
             isDark,
           ),
           _buildNutritionRow(
             'Carbohydrates',
             '${meal.nutrient.carbohydrates.toInt()} g',
+            Iconsax.coffee_bold,
+            TColors.info,
             isDark,
           ),
           _buildNutritionRow(
             'Fat',
             '${meal.nutrient.fat.toInt()} g',
+            Iconsax.drop_bold,
+            TColors.warningDark,
             isDark,
           ),
           _buildNutritionRow(
             'Saturated Fat',
             '${meal.nutrient.saturatedFat.toInt()} g',
+            Iconsax.heart_bold,
+            Colors.orange,
             isDark,
           ),
           _buildNutritionRow(
             'Fiber',
             '${meal.nutrient.fiber.toInt()} g',
+            Iconsax.wind_bold,
+            TColors.success,
             isDark,
           ),
           _buildNutritionRow(
             'Sugar',
             '${meal.nutrient.sugar.toInt()} g',
+            Iconsax.cake_bold,
+            Colors.pink,
             isDark,
           ),
           _buildNutritionRow(
             'Sodium',
             '${meal.nutrient.sodium.toInt()} mg',
+            Iconsax.filter_bold,
+            Colors.purple,
             isDark,
           ),
           _buildNutritionRow(
             'Cholesterol',
             '${meal.nutrient.cholesterol.toInt()} mg',
+            Iconsax.activity_bold,
+            Colors.red.shade300,
             isDark,
-            isLast: true,
           ),
         ],
       ),
@@ -320,40 +339,52 @@ class MealDetailScreen extends StatelessWidget {
   Widget _buildNutritionRow(
       String label,
       String value,
-      bool isDark, {
-        bool isLast = false,
-      }) {
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
+      IconData icon,
+      Color iconColor,
+      bool isDark,
+      ) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),  // 统一间距
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: iconColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              icon,
+              color: iconColor,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 12),
+
+          // Label
+          Expanded(
+            child: Text(
               label,
               style: TextStyle(
                 fontSize: 14,
-                color: isDark ? TColors.darkGrey : TColors.textSecondary,
-              ),
-            ),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
                 color: isDark ? TColors.white : TColors.black,
+                fontWeight: FontWeight.w500,
               ),
             ),
-          ],
-        ),
-        if (!isLast) ...[
-          const SizedBox(height: 8),
-          Divider(
-            color: isDark ? TColors.borderSecondary.withOpacity(0.2) : TColors.borderPrimary,
-            height: 1,
           ),
-          const SizedBox(height: 8),
+
+          // Value
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: isDark ? TColors.white : TColors.black,
+            ),
+          ),
         ],
-      ],
+      ),
     );
   }
 
@@ -799,7 +830,7 @@ class MealDetailScreen extends StatelessWidget {
         icon: Icon(Iconsax.link_bold, size: 20),
         label: const Text('View Original Recipe'),
         style: OutlinedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
           side: BorderSide(color: TColors.primary),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),

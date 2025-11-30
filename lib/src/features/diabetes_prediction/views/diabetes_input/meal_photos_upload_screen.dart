@@ -471,7 +471,7 @@ class MealPhotosUploadScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    'GL: ${photo.analysisResult!.totalGL.toStringAsFixed(1)}',
+                    'GL: ${photo.analysisResult!.totalGL.toStringAsFixed(2)}',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 11,
@@ -757,7 +757,7 @@ class MealPhotosUploadScreen extends StatelessWidget {
           const SizedBox(height: 16),
 
           _resultRow('Average GL/Meal',
-              '${data.avgGLPerMeal.toStringAsFixed(1)}'),
+              '${data.avgGLPerMeal.toStringAsFixed(2)}'),
           _resultRow('Total Foods Detected', '${data.totalFoodsDetected}'),
           _resultRow('Low GL Meals',
               '${data.lowGLMealsCount}/${data.mealCount}'),
@@ -1001,7 +1001,7 @@ class MealPhotosUploadScreen extends StatelessWidget {
                       style: TextStyle(fontWeight: FontWeight.w600),
                     ),
                     Text(
-                      '${meal.totalGL.toStringAsFixed(1)} (${meal.glCategory.toUpperCase()})',
+                      '${meal.totalGL.toStringAsFixed(2)} (${meal.glCategory.toUpperCase()})',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: _getGLColor(meal.glCategory),
@@ -1057,7 +1057,7 @@ class MealPhotosUploadScreen extends StatelessWidget {
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Text(
-                                      '${food.glycemicLoad!.toStringAsFixed(1)} (${food.glCategory})',
+                                      '${food.glycemicLoad!.toStringAsFixed(2)} (${food.glCategory})',
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.bold,

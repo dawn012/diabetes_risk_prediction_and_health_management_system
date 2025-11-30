@@ -310,16 +310,23 @@ class PostHeader extends StatelessWidget {
                 _copyPostLink();
               },
             ),
-            _buildOptionItem(
-              context,
-              icon: Icons.report,
-              title: 'Report Post',
-              color: TColors.warning,
-              onTap: () {
-                Get.back();
-                _reportPost();
-              },
-            ),
+            // 只在不是自己的帖子时显示举报选项
+            if (!isOwnPost) ...[
+              Divider(
+                height: 1,
+                color: isDark ? TColors.darkGrey.withOpacity(0.3) : TColors.grey.withOpacity(0.7),
+              ),
+              _buildOptionItem(
+                context,
+                icon: Icons.report,
+                title: 'Report Post',
+                color: TColors.warning,
+                onTap: () {
+                  Get.back();
+                  _reportPost();
+                },
+              ),
+            ],
             const SizedBox(height: TSizes.md),
           ],
         ),

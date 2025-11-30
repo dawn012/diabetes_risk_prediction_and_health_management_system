@@ -9,14 +9,14 @@ class MealTimeConstants {
     MealTimeSlot.breakfast: 7,  // 7:00 AM
     MealTimeSlot.lunch: 12,     // 12:00 PM
     MealTimeSlot.snack: 15,     // 3:00 PM
-    MealTimeSlot.dinner: 18,    // 6:00 PM
+    MealTimeSlot.dinner: 19,    // 7:00 PM
   };
 
   /// Meal time slot end times (consumption deadline in 24-hour format)
   static const Map<MealTimeSlot, int> mealEndTimes = {
-    MealTimeSlot.breakfast: 11,  // 11:00 AM
+    MealTimeSlot.breakfast: 9,  // 9:00 AM
     MealTimeSlot.lunch: 15,      // 3:00 PM
-    MealTimeSlot.snack: 18,      // 6:00 PM
+    MealTimeSlot.snack: 17,      // 5:00 PM
     MealTimeSlot.dinner: 22,     // 10:00 PM
   };
 
@@ -46,12 +46,20 @@ class MealTimeConstants {
     }
   }
 
-  /// Get remaining meal slots for today
-  static List<MealTimeSlot> getRemainingMealSlots(DateTime dateTime) {
+  /// Get remaining meal slots for today based on diabetes risk level
+  static List<MealTimeSlot> getRemainingMealSlots(DateTime dateTime, {String? diabetesRisk}) {
     final currentHour = dateTime.hour;
     final List<MealTimeSlot> remainingSlots = [];
 
+    // 根据风险等级确定包含哪些餐食
+    final bool includeSnack = diabetesRisk == 'high';
+
     for (final slot in MealTimeSlot.values) {
+      // 如果不是高风险用户，跳过snack
+      if (slot == MealTimeSlot.snack && !includeSnack) {
+        continue;
+      }
+
       final startTime = mealStartTimes[slot]!;
       if (currentHour < startTime) {
         remainingSlots.add(slot);

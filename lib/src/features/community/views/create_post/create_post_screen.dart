@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:icons_plus/icons_plus.dart';
 
 import '../../../../common/loaders/loaders.dart';
 import '../../../../utils/constants/colors.dart';
@@ -48,7 +49,11 @@ class CreatePostScreen extends StatelessWidget {
           );
           return false;
         }
-        return await controller.checkUnsavedChanges();
+        final canPop = await controller.checkUnsavedChanges();
+        if (canPop && controller.isEditingMode.value) {
+          controller.resetEditingState(); // 离开时重置编辑状态
+        }
+        return canPop;
       },
       child: Scaffold(
         backgroundColor: darkMode ? TColors.dark : TColors.light,
@@ -69,7 +74,7 @@ class CreatePostScreen extends StatelessWidget {
               if (canPop) Get.back();
             },
             icon: Icon(
-              Icons.close,
+              Iconsax.arrow_left_2_outline,
               color: darkMode ? TColors.white : TColors.black,
             ),
           ),

@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../../common/widgets/appbar/appbar.dart';
 import '../../../common/widgets/bottom_sheets/sort_bottom_sheet_widget.dart';
+import '../../../common/widgets/dialogs/dialog.dart';
 import '../../../common/widgets/filter_chip/filter_chips_widget.dart';
 import '../../../common/widgets/search_bar/search_bar_widget.dart';
 import '../../../utils/constants/colors.dart';
@@ -16,7 +17,9 @@ import '../controllers/meal_plan_controller.dart';
 import '../models/meal_plan_meal_model.dart';
 import '../models/meal_plan_model.dart';
 import 'meal_details_screen.dart';
+import 'meal_plan_preview_screen.dart';
 import 'meal_recommendation_form.dart';
+import 'meal_recommendation_info_screen.dart';
 
 class MealHomeScreen extends StatelessWidget {
   const MealHomeScreen({super.key});
@@ -39,7 +42,19 @@ class MealHomeScreen extends StatelessWidget {
             ),
           ),
           backgroundColor: isDark ? TColors.dark : TColors.white,
-          showBackArrow: true,
+          showBackArrow: false,
+          isCenter: false,
+          actions: [
+            IconButton(
+              icon: Icon(
+                Icons.info_outline_rounded,
+                color: isDark ? TColors.white : TColors.dark,
+              ),
+              onPressed: () {
+                Get.to(() => const MealRecommendationInfoScreen());
+              },
+            ),
+          ],
           bottom: TabBar(
             indicatorColor: TColors.primary,
             labelColor: TColors.primary,
@@ -70,6 +85,7 @@ class MealHomeScreen extends StatelessWidget {
       bool isDark,
       MealPlanController controller,
       ) {
+
     return Obx(() {
       if (controller.isLoadingActive.value) {
         return Center(
@@ -107,64 +123,163 @@ class MealHomeScreen extends StatelessWidget {
   }
 
   Widget _buildNoActivePlan(BuildContext context, bool isDark) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(TSizes.defaultSpace),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(TSizes.xl),
-              decoration: BoxDecoration(
-                color: TColors.primary.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Iconsax.calendar_1_bold,
-                size: 80,
-                color: TColors.primary,
-              ),
-            ),
-            const SizedBox(height: TSizes.spaceBtwSections),
-            Text(
-              'No Active Meal Plan',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: isDark ? TColors.white : TColors.dark,
-              ),
-            ),
-            const SizedBox(height: TSizes.md),
-            Text(
-              'Create your personalized meal plan to start\ntracking your healthy eating journey!',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                color: isDark ? TColors.darkGrey : TColors.textSecondary,
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: TSizes.spaceBtwSections),
-            SizedBox(
-              width: 220,
-              child: ElevatedButton.icon(
-                onPressed: () => Get.to(() => const MealRecommendationForm()),
-                icon: const Icon(Iconsax.add_circle_bold, size: 20),
-                label: const Text('Create Meal Plan'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: TColors.primary,
-                  foregroundColor: TColors.white,
-                  padding: const EdgeInsets.symmetric(vertical: TSizes.md),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(TSizes.buttonRadius),
+    final controller = Get.find<MealPlanController>();
+
+    return Obx(() {
+      // 检查 Hive 中是否有未确认的临时计划
+      final hasTempPlan = controller.hasTempMealPlan.value;
+
+      if (hasTempPlan) {
+        // 显示继续上次计划的选项
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(TSizes.defaultSpace),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(TSizes.xl),
+                  decoration: BoxDecoration(
+                    color: TColors.warning.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Iconsax.clock_bold,
+                    size: 80,
+                    color: TColors.warning,
                   ),
                 ),
-              ),
+                const SizedBox(height: TSizes.spaceBtwSections),
+                Text(
+                  'Continue Your Meal Plan',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? TColors.white : TColors.dark,
+                  ),
+                ),
+                const SizedBox(height: TSizes.md),
+                Text(
+                  'You have an unconfirmed meal plan from your last session.\nWould you like to continue where you left off?',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: isDark ? TColors.darkGrey : TColors.textSecondary,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: TSizes.spaceBtwSections),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 140,
+                      child: OutlinedButton(
+                        onPressed: () => _handleCancel(controller),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: TSizes.md),
+                          side: BorderSide(color: TColors.error),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(TSizes.buttonRadius),
+                          ),
+                        ),
+                        child: Text(
+                          'Discard',
+                          style: TextStyle(
+                            color: TColors.error,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: TSizes.md),
+                    SizedBox(
+                      width: 140,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          // 跳转到预览页面继续编辑
+                          Get.to(() => const MealPlanPreviewScreen());
+                        },
+                        icon: const Icon(Iconsax.eye_bold, size: 20),
+                        label: const Text('Continue'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: TColors.primary,
+                          foregroundColor: TColors.white,
+                          padding: const EdgeInsets.symmetric(vertical: TSizes.md),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(TSizes.buttonRadius),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
-    );
+          ),
+        );
+      } else {
+        // 显示创建新计划的选项
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(TSizes.defaultSpace),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(TSizes.xl),
+                  decoration: BoxDecoration(
+                    color: TColors.primary.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Iconsax.calendar_1_bold,
+                    size: 80,
+                    color: TColors.primary,
+                  ),
+                ),
+                const SizedBox(height: TSizes.spaceBtwSections),
+                Text(
+                  'No Active Meal Plan',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? TColors.white : TColors.dark,
+                  ),
+                ),
+                const SizedBox(height: TSizes.md),
+                Text(
+                  'Create your personalized meal plan to start\ntracking your healthy eating journey!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: isDark ? TColors.darkGrey : TColors.textSecondary,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: TSizes.spaceBtwSections),
+                SizedBox(
+                  width: 220,
+                  child: ElevatedButton.icon(
+                    onPressed: () => Get.to(() => const MealRecommendationForm()),
+                    icon: const Icon(Iconsax.add_circle_bold, size: 20),
+                    label: const Text('Create Meal Plan'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: TColors.primary,
+                      foregroundColor: TColors.white,
+                      padding: const EdgeInsets.symmetric(vertical: TSizes.md),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(TSizes.buttonRadius),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    });
   }
 
   Widget _buildActivePlanHeader(
@@ -912,6 +1027,23 @@ class MealHomeScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _handleCancel(MealPlanController controller) async {
+    final shouldCancel = await TDialog.confirmDialog(
+      title: 'Cancel Meal Plan?',
+      message: 'Are you sure you want to cancel? Your generated meal plan will be discarded.',
+      confirmText: 'Cancel Plan',
+      cancelText: 'Keep Editing',
+      confirmButtonColor: TColors.error,
+      icon: Iconsax.warning_2_bold,
+      iconColor: TColors.error,
+    );
+
+    if (shouldCancel == true) {
+      await controller.discardTempPlan();
+      // Get.back();
+    }
   }
 
   Color _getStatusColor(MealPlanStatus status) {

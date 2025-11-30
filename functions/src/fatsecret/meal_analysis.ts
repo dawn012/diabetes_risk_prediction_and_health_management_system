@@ -419,13 +419,13 @@ function assessDietQuality(mealGLs: number[]): {
     isHealthy = false;
   }
 
-  const veryHighGL = mealGLs.filter(gl => gl > 30).length;
-  if (veryHighGL > 0) {
-    warnings.push(
-      `${veryHighGL} meal(s) have very high GL (>30) - consider portion control`
-    );
-    isHealthy = false;
-  }
+  //   const veryHighGL = mealGLs.filter(gl => gl > 30).length;
+  //   if (veryHighGL > 0) {
+  //     warnings.push(
+  //       `${veryHighGL} meal(s) have very high GL (>30) - consider portion control`
+  //     );
+  //     isHealthy = false;
+  //   }
 
   return { isHealthy, warnings, avgGL };
 }

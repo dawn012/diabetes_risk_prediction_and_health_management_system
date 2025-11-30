@@ -1,26 +1,63 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:hive/hive.dart';
 
 import '../../../utils/constants/enums.dart';
 import '../../../utils/constants/firebase_field_names.dart';
 import 'nutrient_model.dart';
 
+part 'meal_model.g.dart';
+
+@HiveType(typeId: 15)
 class MealModel {
+  @HiveField(0)
   final String mealId;
+
+  @HiveField(1)
   final String mealName;
+
+  @HiveField(2)
   final String mealDescription;
+
+  @HiveField(3)
   final String imageUrl;
+
+  @HiveField(4)
   final List<String> ingredients;
+
+  @HiveField(5)
   final int preparationTime;
+
+  @HiveField(6)
   final int cookingTime;
+
+  @HiveField(7)
   final NutrientModel nutrient;
+
+  @HiveField(8)
   final List<String> instructions;
+
+  @HiveField(9)
   final int serves;
+
+  @HiveField(10)
   final List<String> dishType;
+
+  @HiveField(11)
   final List<String> dietaryRestrictions;
+
+  @HiveField(12)
   final List<String> dietType;
+
+  @HiveField(13)
   final List<CookingMethod> cookingMethod;
+
+  @HiveField(14)
   final String authorName;
+
+  @HiveField(15)
   final List<String>? notes;
+
+  @HiveField(16)
   final String sourceUrl;
 
   const MealModel({

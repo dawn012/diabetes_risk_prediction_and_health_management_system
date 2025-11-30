@@ -71,7 +71,7 @@ class _ProfileCompleteSuccessScreenState extends State<ProfileCompleteSuccessScr
   }
 
   void _navigateToHome() {
-    Get.off(
+    Get.offAll(
           () => const NavigationMenu(),
       transition: Transition.fadeIn,
       duration: const Duration(milliseconds: 500),

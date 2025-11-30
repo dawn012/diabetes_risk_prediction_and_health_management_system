@@ -53,16 +53,23 @@ export async function getAchievementConfigs(): Promise<AchievementConfig[]> {
       .collection("achievements")
       .where("isActive", "==", true)
       .where("achievementType", "==", "periodic")
+      // 只拿健康相关 dataType
+      .where("dataType", "in", [
+        "bloodGlucose",
+        "bloodPressure",
+        "bodyWeight",
+        "physicalActivity",
+        "steps",
+      ])
       .get();
 
     const configs: AchievementConfig[] = [];
 
     snapshot.forEach(doc => {
       const data = doc.data();
-
-      // 将毫秒数转换为 Timestamp
-      const createdAtMs = data.createdAt; // 从 Firestore 读取的毫秒数
-      const createdAtTimestamp = admin.firestore.Timestamp.fromMillis(createdAtMs);
+      const createdAtMs = data.createdAt;
+      const createdAtTimestamp =
+        admin.firestore.Timestamp.fromMillis(createdAtMs);
 
       configs.push({
         achievementId: doc.id,
@@ -81,7 +88,7 @@ export async function getAchievementConfigs(): Promise<AchievementConfig[]> {
     achievementConfigsCache = configs;
     lastCacheTime = Date.now();
 
-    functions.logger.log(`✅ Loaded ${configs.length} achievement configs`);
+    functions.logger.log(`✅ Loaded ${configs.length} health achievement configs`);
     return configs;
   } catch (error) {
     functions.logger.error("❌ Error fetching achievement configs:", error);

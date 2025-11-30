@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../common/loaders/circular_loader.dart';
+import '../../../common/widgets/appbar/appbar.dart';
 import '../../../utils/constants/colors.dart';
 import '../../../utils/constants/sizes.dart';
 import '../../../utils/helpers/helper_functions.dart';
+import '../controllers/add_reminder_controller.dart';
 import '../controllers/reminder_controller.dart';
 import 'add_reminder_form.dart';
 import 'widgets/batch_action_bar.dart';
@@ -20,13 +22,9 @@ class ReminderScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: darkMode ? TColors.dark : Colors.white,
-      appBar: AppBar(
+      appBar: TAppBar(
         backgroundColor: TColors.primary,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-          onPressed: () => Get.back(),
-        ),
+        showBackArrow: true,
         title: Obx(() => Text(
           controller.isSelectionMode.value
               ? '${controller.selectedReminderIds.length} Selected'
@@ -37,7 +35,7 @@ class ReminderScreen extends StatelessWidget {
             fontWeight: FontWeight.bold,
           ),
         )),
-        centerTitle: true,
+        iconTheme: IconThemeData(color: TColors.white),
         actions: [
           Obx(() {
             if (controller.isSelectionMode.value) {
@@ -170,6 +168,8 @@ class ReminderScreen extends StatelessWidget {
 
         return FloatingActionButton(
           onPressed: () {
+            final controller = Get.put(AddReminderController());
+            controller.clearForm();
 
             showDialog(
               context: context,
@@ -178,6 +178,7 @@ class ReminderScreen extends StatelessWidget {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
+                  insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
                   child: const AddReminderForm(),
                 );
               },

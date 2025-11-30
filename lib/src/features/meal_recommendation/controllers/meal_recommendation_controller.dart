@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../common/loaders/loaders.dart';
@@ -10,6 +11,7 @@ import '../../../data/repositories/diabetes_prediction/diabetes_prediction_repos
 import '../../../data/repositories/meal_recommendation/meal_repository.dart';
 import '../../../data/repositories/subscription/subscription_repository.dart';
 import '../../../services/meal_hive_storage_manager.dart';
+import '../../../services/meal_recommendation_api_service.dart';
 import '../../../utils/constants/enums.dart';
 import '../../../utils/constants/meal_time_constants.dart';
 import '../../diabetes_prediction/controllers/diabetes_prediction_flow_manager.dart';
@@ -53,25 +55,24 @@ class MealRecommendationController extends GetxController {
   // Current User
   final currentUser = UserController.instance.user.value;
 
-  // Diet preference options (matching DietPreference enum)
+  // 存储本地替换的食谱ID
+  final _localReplacedRecipeIds = <String>[];
+
+  // Diet preference options
   final dietPreferences = [
     'No Preference',
     ...DietPreference.values.map((e) => e.displayName).toList(),
   ];
 
-  // Common allergens (matching Allergen enum)
+  // Common allergens
   final commonAllergens = Allergen.values.map((e) => e.displayName).toList();
 
-  // Cooking methods (matching CookingMethod enum)
+  // Cooking methods
   final cookingMethods =
-  CookingMethod.values.map((e) => e.displayName).toList();
+      CookingMethod.values.map((e) => e.displayName).toList();
 
   // Generated meal plan (before confirmation)
   final Rx<MealPlanModel?> generatedMealPlan = Rx<MealPlanModel?>(null);
-
-  // API endpoint
-  static const String mealRecommendationApiUrl =
-      'YOUR_MEAL_RECOMMENDATION_API_URL';
 
   @override
   void onInit() {
@@ -92,14 +93,12 @@ class MealRecommendationController extends GetxController {
     await _loadTempMealPlanFromLocal();
   }
 
-  /// Setup active subscription status listener
   void _setupActiveSubscriptionListener() {
     _activeSubscriptionStream?.cancel();
 
     _activeSubscriptionStream = subscriptionRepo
         .streamHasActiveSubscription(currentUser.userId)
         .listen((hasActive) {
-      print('Active subscription status changed: $hasActive');
       hasActiveSubscription.value = hasActive;
     }, onError: (error) {
       print('Error in active subscription stream: $error');
@@ -107,7 +106,6 @@ class MealRecommendationController extends GetxController {
     });
   }
 
-  /// Check diabetes prediction status
   Future<void> _checkDiabetesPredictionStatus() async {
     try {
       final user = AuthenticationRepository.instance.authUser;
@@ -119,12 +117,13 @@ class MealRecommendationController extends GetxController {
 
       final predictionRepository = DiabetesPredictionRepository.instance;
       final latestPrediction =
-      await predictionRepository.getLatestPrediction(user.uid);
+          await predictionRepository.getLatestPrediction(user.uid);
 
       if (latestPrediction != null) {
         hasDiabetesPrediction.value = true;
-        final daysSince =
-            DateTime.now().difference(latestPrediction.predictionDateTime).inDays;
+        final daysSince = DateTime.now()
+            .difference(latestPrediction.predictionDateTime)
+            .inDays;
         daysSinceLastPrediction.value = daysSince;
       } else {
         hasDiabetesPrediction.value = false;
@@ -137,10 +136,8 @@ class MealRecommendationController extends GetxController {
     }
   }
 
-  /// Load meal preference from Hive (local storage)
   Future<void> _loadMealPreferenceFromLocal() async {
     try {
-      // Check if preference exists in Hive
       if (mealHiveStorage.hasPreferences()) {
         final preference = mealHiveStorage.getCurrentPreferences();
         if (preference.dietPreference != null ||
@@ -152,11 +149,9 @@ class MealRecommendationController extends GetxController {
         }
       }
 
-      // If not in Hive, try to fetch from Firestore
       final preference = await mealRepo.getMealPreference();
       if (preference != null) {
         _populateFormWithPreference(preference);
-        // Save to Hive for next time
         await mealHiveStorage.savePreferences(preference);
         print('✅ Loaded meal preference from Firestore and saved to Hive');
       }
@@ -165,17 +160,14 @@ class MealRecommendationController extends GetxController {
     }
   }
 
-  /// Load temporary meal plan from Hive (local storage)
   Future<void> _loadTempMealPlanFromLocal() async {
     try {
-      // Check if temp plan exists in Hive
       if (mealHiveStorage.hasActiveMealPlan()) {
         final tempPlan = mealHiveStorage.getActiveMealPlan();
         if (tempPlan != null && tempPlan.scheduledMeals.isNotEmpty) {
           generatedMealPlan.value = tempPlan;
           print('✅ Loaded temp meal plan from Hive');
 
-          // Navigate to preview screen if plan exists
           Future.delayed(const Duration(milliseconds: 500), () {
             Get.to(() => const MealPlanPreviewScreen());
           });
@@ -186,7 +178,6 @@ class MealRecommendationController extends GetxController {
     }
   }
 
-  /// Populate form with existing preference
   void _populateFormWithPreference(MealPreferenceModel preference) {
     selectedDietPreference.value = preference.dietPreference;
     selectedAllergens.assignAll(preference.allergens);
@@ -195,10 +186,9 @@ class MealRecommendationController extends GetxController {
     selectedPlanType.value = preference.planType;
   }
 
-  /// Toggle allergen selection
   void toggleAllergen(String allergenName) {
     final allergen =
-    Allergen.values.firstWhere((a) => a.displayName == allergenName);
+        Allergen.values.firstWhere((a) => a.displayName == allergenName);
 
     if (selectedAllergens.contains(allergen)) {
       selectedAllergens.remove(allergen);
@@ -207,10 +197,9 @@ class MealRecommendationController extends GetxController {
     }
   }
 
-  /// Toggle cooking method selection
   void toggleCookingMethod(String methodName) {
     final method =
-    CookingMethod.values.firstWhere((m) => m.displayName == methodName);
+        CookingMethod.values.firstWhere((m) => m.displayName == methodName);
 
     if (selectedCookingMethods.contains(method)) {
       selectedCookingMethods.remove(method);
@@ -219,36 +208,28 @@ class MealRecommendationController extends GetxController {
     }
   }
 
-  /// Check if allergen is selected
   bool isAllergenSelected(String allergenName) {
     final allergen =
-    Allergen.values.firstWhere((a) => a.displayName == allergenName);
+        Allergen.values.firstWhere((a) => a.displayName == allergenName);
     return selectedAllergens.contains(allergen);
   }
 
-  /// Check if cooking method is selected
   bool isCookingMethodSelected(String methodName) {
     final method =
-    CookingMethod.values.firstWhere((m) => m.displayName == methodName);
+        CookingMethod.values.firstWhere((m) => m.displayName == methodName);
     return selectedCookingMethods.contains(method);
   }
 
-  /// Update preparation time
   void updatePreparationTime(double value) {
     preparationTime.value = value.round();
   }
 
-  /// Check if form is valid (diet preference is optional now)
-  bool get isFormValid {
-    return true; // Always valid since all fields are optional
-  }
+  bool get isFormValid => true;
 
-  /// Check if can generate meal recommendation
   bool get canGenerateRecommendation {
     return hasActiveSubscription.value && hasDiabetesPrediction.value;
   }
 
-  /// Get warning message for prediction age
   String? get predictionWarningMessage {
     if (!hasDiabetesPrediction.value) {
       return 'Please complete a diabetes risk prediction first';
@@ -261,7 +242,90 @@ class MealRecommendationController extends GetxController {
     return null;
   }
 
-  /// Submit meal preferences and generate meal plan
+  /// 构建用户偏好的 API 请求格式
+  Future<Map<String, dynamic>> _buildUserPreferencesForApi() async {
+    // 获取最新的 diabetes prediction
+    final predictionRepo = DiabetesPredictionRepository.instance;
+    final latestPrediction =
+        await predictionRepo.getLatestPrediction(currentUser.userId);
+
+    return {
+      'age': currentUser.profile.age,
+      'gender': currentUser.profile.gender.toLowerCase(),
+      'diabetes_risk': latestPrediction?.riskLevel ?? 'medium',
+      // 这里需要从实际的 prediction 获取
+      'diet_preference': selectedDietPreference.value != null
+          ? [selectedDietPreference.value!.value]
+          : [],
+      'allergens': selectedAllergens.map((e) => e.value).toList(),
+      'cooking_methods': selectedCookingMethods.map((e) => e.value).toList(),
+      'max_cooking_time': preparationTime.value,
+    };
+  }
+
+  /// 获取过去计划的食谱ID（用于避免重复）
+  /// 只获取最近30天内的计划，且最多返回40%的食谱ID
+  Future<List<String>> _getPastRecipeIds() async {
+    try {
+      final cutoffDate = DateTime.now().subtract(const Duration(days: 30));
+
+      // 1. 从 Firestore 获取已保存的计划
+      final pastPlans = await mealRepo.getPastMealPlans();
+
+      // 过滤最近30天的计划
+      final recentPlans = pastPlans
+          .where((plan) => plan.endDateTime.isAfter(cutoffDate))
+          .toList();
+
+      // 获取所有食谱ID
+      final Set<String> allRecipeIds = {};
+
+      // 2. 添加已保存计划的食谱ID
+      for (var plan in recentPlans) {
+        for (var meal in plan.scheduledMeals) {
+          allRecipeIds.add(meal.meal.mealId);
+        }
+      }
+
+      // 3. 添加当前临时计划的食谱ID（如果存在）
+      if (generatedMealPlan.value != null) {
+        for (var meal in generatedMealPlan.value!.scheduledMeals) {
+          allRecipeIds.add(meal.meal.mealId);
+        }
+        print(
+            '✅ Added ${generatedMealPlan.value!.scheduledMeals.length} recipes from current temp plan');
+      }
+
+      // 4. 添加 Hive 中存储的临时计划的食谱ID
+      final hiveTempPlan = mealHiveStorage.getTempMealPlan();
+      if (hiveTempPlan != null && hiveTempPlan.scheduledMeals.isNotEmpty) {
+        for (var meal in hiveTempPlan.scheduledMeals) {
+          allRecipeIds.add(meal.meal.mealId);
+        }
+        print(
+            '✅ Added ${hiveTempPlan.scheduledMeals.length} recipes from Hive temp plan');
+      }
+
+      // 5. 添加被替换的食谱ID（从 Hive 获取）
+      final replacedRecipes = mealHiveStorage.getReplacedRecipes();
+      allRecipeIds.addAll(replacedRecipes);
+
+      if (allRecipeIds.isEmpty) return [];
+
+      print('📊 Total unique recipes in history: ${allRecipeIds.length}');
+
+      // 计算要避免重复的数量 (60%，因为我们允许40%重复)
+      final avoidCount = (allRecipeIds.length * 0.6).round();
+      final result = allRecipeIds.take(avoidCount).toList();
+
+      return result;
+    } catch (e) {
+      print('Error getting past recipe IDs: $e');
+      return [];
+    }
+  }
+
+  /// 提交餐食偏好并生成餐食计划
   Future<void> submitMealPreferences() async {
     if (!canGenerateRecommendation) {
       if (!hasActiveSubscription.value) {
@@ -281,7 +345,7 @@ class MealRecommendationController extends GetxController {
     try {
       isGenerating.value = true;
 
-      // Create preference model
+      // 创建并保存偏好设置
       final preference = MealPreferenceModel(
         dietPreference: selectedDietPreference.value,
         allergens: selectedAllergens.toList(),
@@ -291,46 +355,46 @@ class MealRecommendationController extends GetxController {
         updatedAt: DateTime.now(),
       );
 
-      // Save preference to Hive (local) first
       await mealHiveStorage.savePreferences(preference);
-      print('✅ Saved preference to Hive');
-
-      // Save preference to Firestore
       await mealRepo.saveMealPreference(preference);
-      print('✅ Saved preference to Firestore');
 
-      // Calculate remaining meals for today
-      final remainingSlots =
-      MealTimeConstants.getRemainingMealSlots(DateTime.now());
+      // 获取过去的食谱ID
+      final pastRecipeIds = await _getPastRecipeIds();
 
-      if (remainingSlots.isEmpty &&
-          selectedPlanType.value == MealPlanType.daily) {
-        TLoaders.warningSnackBar(
-          title: 'No Meals Remaining',
-          message:
-          'All meal slots for today have passed. Try generating a weekly plan instead.',
+      // 构建 API 请求参数
+      final userPreferences = _buildUserPreferencesForApi();
+
+      // 调用 API 生成计划
+      Map<String, dynamic> apiResponse;
+      if (selectedPlanType.value == MealPlanType.daily) {
+        apiResponse = await MealRecommendationApiService.generateDailyPlan(
+          userPreferences: await userPreferences,
+          userId: mealRepo.userId,
+          pastRecipeIds: pastRecipeIds,
         );
-        isGenerating.value = false;
-        return;
+      } else {
+        apiResponse = await MealRecommendationApiService.generateWeeklyPlan(
+          userPreferences: await userPreferences,
+          userId: mealRepo.userId,
+          pastRecipeIds: pastRecipeIds,
+        );
       }
 
-      // Generate meal plan via API
-      final mealPlan = await _generateMealPlan(preference, remainingSlots);
+      if (apiResponse['success'] == true) {
+        // 解析 API 返回的计划
+        final mealPlan = await _parseMealPlanFromApi(apiResponse['plan']);
 
-      if (mealPlan != null) {
-        generatedMealPlan.value = mealPlan;
+        if (mealPlan != null) {
+          generatedMealPlan.value = mealPlan;
+          await mealHiveStorage.saveActiveMealPlan(mealPlan);
 
-        // Save to Hive (temporary storage until confirmed)
-        await mealHiveStorage.saveActiveMealPlan(mealPlan);
-        print('✅ Saved temp meal plan to Hive');
+          TLoaders.successSnackBar(
+            title: 'Success',
+            message: 'Meal plan generated successfully!',
+          );
 
-        TLoaders.successSnackBar(
-          title: 'Success',
-          message: 'Meal plan generated successfully!',
-        );
-
-        // Navigate to meal plan preview screen
-        Get.to(() => const MealPlanPreviewScreen());
+          Get.to(() => const MealPlanPreviewScreen());
+        }
       }
     } catch (e) {
       TLoaders.errorSnackBar(
@@ -342,143 +406,361 @@ class MealRecommendationController extends GetxController {
     }
   }
 
-  /// Generate meal plan via API
-  Future<MealPlanModel?> _generateMealPlan(
-      MealPreferenceModel preference,
-      List<MealTimeSlot> remainingSlots,
-      ) async {
+  /// 解析 API 返回的餐食计划
+  Future<MealPlanModel?> _parseMealPlanFromApi(
+      Map<String, dynamic> planData) async {
     try {
-      // TODO: Replace with your actual API call
-      // This is a placeholder showing the expected structure
+      planData.forEach((key, value) {
+        print('   $key: ${value.runtimeType}');
+      });
 
-      /*
-      final response = await http.post(
-        Uri.parse(mealRecommendationApiUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'userId': mealRepo.userId,
-          'dietPreference': preference.dietPreference?.value,
-          'allergens': preference.allergens.map((e) => e.value).toList(),
-          'maxPreparationTime': preference.maxPreparationTime,
-          'planType': preference.planType.value,
-          'remainingSlots': remainingSlots.map((e) => e.value).toList(),
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final mealIds = List<String>.from(data['mealIds']);
-
-        // Fetch meals and create plan
-        return await _createMealPlanFromMealIds(mealIds, remainingSlots);
-      }
-      */
-
-      throw 'API integration pending';
-    } catch (e) {
-      print('Error generating meal plan: $e');
-      rethrow;
-    }
-  }
-
-  /// Create meal plan from meal IDs
-  Future<MealPlanModel> _createMealPlanFromMealIds(
-      List<String> mealIds,
-      List<MealTimeSlot> slots,
-      ) async {
-    try {
-      // Fetch meals
-      final meals = await mealRepo.getMealsByIds(mealIds);
-
-      if (meals.length != mealIds.length) {
-        throw 'Some meals could not be found';
-      }
-
-      // Create scheduled meals
       final scheduledMeals = <MealPlanMealModel>[];
       final now = DateTime.now();
 
-      for (int i = 0; i < meals.length; i++) {
-        final slot = slots[i % slots.length];
-        final scheduledDate = now.add(Duration(days: i ~/ slots.length));
-
-        scheduledMeals.add(MealPlanMealModel(
-          mealPlanMealId: const Uuid().v4(),
-          meal: meals[i],
-          scheduledDate: scheduledDate,
-          mealTimeSlot: slot,
-          status: MealConsumptionStatus.pending,
-        ));
+      // 根据计划类型解析
+      if (selectedPlanType.value == MealPlanType.daily) {
+        await _parseDailyPlan(planData, scheduledMeals, now);
+      } else {
+        await _parseWeeklyPlan(planData, scheduledMeals, now);
       }
 
-      // Create meal plan
+      if (scheduledMeals.isEmpty) {
+        print('❌ No meals were parsed successfully');
+        return null;
+      }
+
+      // 计算实际的开始和结束日期
+      DateTime startDateTime;
+      DateTime endDateTime;
+
+      if (scheduledMeals.isNotEmpty) {
+        // 从安排的餐食中获取最早的日期
+        startDateTime = scheduledMeals
+            .map((meal) => meal.scheduledDate)
+            .reduce((a, b) => a.isBefore(b) ? a : b);
+
+        // 从安排的餐食中获取最晚的日期
+        endDateTime = scheduledMeals
+            .map((meal) => meal.scheduledDate)
+            .reduce((a, b) => a.isAfter(b) ? a : b);
+
+        print(
+            '📅 Calculated date range from meals: $startDateTime to $endDateTime');
+      } else {
+        // 如果没有餐食，使用默认逻辑
+        startDateTime = now;
+        endDateTime = selectedPlanType.value == MealPlanType.daily
+            ? now
+            : now.add(const Duration(days: 6));
+      }
+
+      // 创建 MealPlanModel
       return MealPlanModel(
         mealPlanId: const Uuid().v4(),
         userId: mealRepo.userId!,
         scheduledMeals: scheduledMeals,
         planType: selectedPlanType.value,
-        startDateTime: now,
-        endDateTime: selectedPlanType.value == MealPlanType.daily
-            ? now
-            : now.add(const Duration(days: 7)),
+        startDateTime: startDateTime,
+        endDateTime: endDateTime,
         adherence: 0,
         status: MealPlanStatus.confirmed,
       );
     } catch (e) {
-      print('Error creating meal plan: $e');
-      rethrow;
+      print('❌ Error parsing meal plan: $e');
+      print('❌ Stack trace: ${e.toString()}');
+      return null;
     }
   }
 
-  /// Replace a specific meal in the plan
+  /// 解析每日计划
+  Future<void> _parseDailyPlan(
+    Map<String, dynamic> planData,
+    List<MealPlanMealModel> scheduledMeals,
+    DateTime startDate,
+  ) async {
+    // 获取用户的糖尿病风险等级
+    final userPreferences = await _buildUserPreferencesForApi();
+    final diabetesRisk = userPreferences['diabetes_risk'] ?? 'medium';
+
+    // 获取剩余的 meal slots
+    final remainingSlots = MealTimeConstants.getRemainingMealSlots(
+        DateTime.now(),
+        diabetesRisk: diabetesRisk);
+
+    // 如果今天没有剩余 slots，从明天开始
+    final actualStartDate = remainingSlots.isEmpty
+        ? startDate.add(const Duration(days: 1))
+        : startDate;
+
+    int dayOffset = 0;
+    int slotIndex = 0;
+
+    // 定义完整的 meal slots 顺序
+    final allSlots = [
+      MealTimeSlot.breakfast,
+      MealTimeSlot.lunch,
+      MealTimeSlot.snack,
+      MealTimeSlot.dinner,
+    ];
+
+    for (var mealType in ['breakfast', 'lunch', 'snack', 'dinner']) {
+      if (planData.containsKey(mealType) && planData[mealType] != null) {
+        final mealData = planData[mealType] as Map<String, dynamic>;
+        final meal = await _fetchMealFromApi(mealData);
+
+        if (meal != null) {
+          // 确定这个 meal 的日期和 time slot
+          DateTime mealDate;
+          MealTimeSlot timeSlot;
+
+          if (remainingSlots.isEmpty) {
+            final targetSlotIndex =
+                allSlots.indexOf(_mealTypeToTimeSlot(mealType));
+            dayOffset = targetSlotIndex ~/ allSlots.length;
+            slotIndex = targetSlotIndex % allSlots.length;
+
+            mealDate = actualStartDate.add(Duration(days: dayOffset));
+            timeSlot = allSlots[slotIndex];
+          } else {
+            if (slotIndex < remainingSlots.length) {
+              mealDate = actualStartDate;
+              timeSlot = remainingSlots[slotIndex];
+            } else {
+              final nextDayIndex = slotIndex - remainingSlots.length;
+              dayOffset = 1 + (nextDayIndex ~/ allSlots.length);
+              final nextSlotIndex = nextDayIndex % allSlots.length;
+
+              mealDate = actualStartDate.add(Duration(days: dayOffset));
+              timeSlot = allSlots[nextSlotIndex];
+            }
+          }
+
+          scheduledMeals.add(MealPlanMealModel(
+            mealPlanMealId: const Uuid().v4(),
+            meal: meal,
+            scheduledDate: mealDate,
+            mealTimeSlot: timeSlot,
+            status: MealConsumptionStatus.pending,
+          ));
+
+          slotIndex++;
+        } else {
+          print('❌ Failed to fetch meal for $mealType');
+        }
+      } else {
+        print('❌ $mealType not found in plan data or is null');
+      }
+    }
+
+    print('\n📊 Final scheduled meals count: ${scheduledMeals.length}');
+  }
+
+  /// 解析每周计划
+  Future<void> _parseWeeklyPlan(
+    Map<String, dynamic> planData,
+    List<MealPlanMealModel> scheduledMeals,
+    DateTime startDate,
+  ) async {
+    // 获取用户的糖尿病风险等级
+    final userPreferences = await _buildUserPreferencesForApi();
+    final diabetesRisk = userPreferences['diabetes_risk'] ?? 'medium';
+
+    // 获取今天剩余的 meal slots
+    final remainingSlots = MealTimeConstants.getRemainingMealSlots(
+        DateTime.now(),
+        diabetesRisk: diabetesRisk);
+
+    // 如果今天没有剩余 slots，从明天开始
+    final actualStartDate = remainingSlots.isEmpty
+        ? startDate.add(const Duration(days: 1))
+        : startDate;
+
+    int totalMealsAdded = 0;
+    int currentDayOffset = 0;
+
+    // 定义完整的 meal slots 顺序
+    final allSlots = [
+      MealTimeSlot.breakfast,
+      MealTimeSlot.lunch,
+      MealTimeSlot.snack,
+      MealTimeSlot.dinner,
+    ];
+
+    // 遍历每一天
+    for (int day = 1; day <= 7; day++) {
+      final dayKey = 'day_$day';
+
+      if (planData.containsKey(dayKey)) {
+        final dayData = planData[dayKey] as Map<String, dynamic>;
+
+        for (var mealType in ['breakfast', 'lunch', 'snack', 'dinner']) {
+          if (dayData.containsKey(mealType) && dayData[mealType] != null) {
+            final mealData = dayData[mealType] as Map<String, dynamic>;
+            final meal = await _fetchMealFromApi(mealData);
+
+            if (meal != null) {
+              DateTime mealDate;
+              MealTimeSlot timeSlot = _mealTypeToTimeSlot(mealType);
+
+              // 第一天特殊处理
+              if (day == 1 && remainingSlots.isNotEmpty) {
+                // 使用剩余的 slots
+                if (totalMealsAdded < remainingSlots.length) {
+                  mealDate = actualStartDate;
+                  timeSlot = remainingSlots[totalMealsAdded];
+                } else {
+                  // 超出今天的 slots，计算下一天
+                  final excessMeals = totalMealsAdded - remainingSlots.length;
+                  currentDayOffset = 1 + (excessMeals ~/ allSlots.length);
+                  mealDate =
+                      actualStartDate.add(Duration(days: currentDayOffset));
+                }
+              } else {
+                // 其他天正常处理
+                mealDate = actualStartDate.add(Duration(days: day - 1));
+              }
+
+              scheduledMeals.add(MealPlanMealModel(
+                mealPlanMealId: const Uuid().v4(),
+                meal: meal,
+                scheduledDate: mealDate,
+                mealTimeSlot: timeSlot,
+                status: MealConsumptionStatus.pending,
+              ));
+
+              totalMealsAdded++;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  /// 将 meal type 转换为 MealTimeSlot
+  MealTimeSlot _mealTypeToTimeSlot(String mealType) {
+    switch (mealType.toLowerCase()) {
+      case 'breakfast':
+        return MealTimeSlot.breakfast;
+      case 'lunch':
+        return MealTimeSlot.lunch;
+      case 'snack':
+        return MealTimeSlot.snack;
+      case 'dinner':
+        return MealTimeSlot.dinner;
+      default:
+        return MealTimeSlot.lunch;
+    }
+  }
+
+  /// 从 API 数据获取完整的 MealModel
+  Future<MealModel?> _fetchMealFromApi(Map<String, dynamic> mealData) async {
+    try {
+      final recipeId = mealData['recipe_id'] as String;
+      return await mealRepo.getMealById(recipeId);
+    } catch (e) {
+      print('Error fetching meal: $e');
+      return null;
+    }
+  }
+
+  /// 替换特定餐食
   Future<void> replaceMeal(String mealPlanMealId) async {
     if (generatedMealPlan.value == null) return;
 
     try {
       isReplacingMeal.value = true;
 
-      // TODO: Call API to get replacement meal
-      // For now, this is a placeholder
+      final currentPlan = generatedMealPlan.value!;
 
-      /*
-      final response = await http.post(
-        Uri.parse('$mealRecommendationApiUrl/replace'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'mealPlanMealId': mealPlanMealId,
-          'preferences': {
-            'dietPreference': selectedDietPreference.value?.value,
-            'allergens': selectedAllergens.map((e) => e.value).toList(),
-            'preferredCookingMethods': selectedCookingMethods.map((e) => e.value).toList(),
-            'maxPreparationTime': preparationTime.value,
-          },
-        }),
+      // 找到要替换的餐食
+      final mealToReplace = currentPlan.scheduledMeals.firstWhere(
+        (meal) => meal.mealPlanMealId == mealPlanMealId,
       );
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final newMealId = data['mealId'];
+      // 获取当前计划中的所有食谱ID（包括要替换的这个）
+      final currentRecipeIds =
+          currentPlan.scheduledMeals.map((meal) => meal.meal.mealId).toList();
 
-        // Fetch new meal and update plan
-        final newMeal = await mealRepo.getMealById(newMealId);
+      print('🔄 Current plan has ${currentRecipeIds.length} recipes');
+
+      // 获取过去的食谱ID
+      final pastRecipeIds = await _getPastRecipeIds();
+
+      // 获取被替换过的食谱ID
+      final replacedRecipeIds = mealHiveStorage.getReplacedRecipes();
+
+      // 合并所有需要排除的ID（当前计划 + 过去计划 + 被替换过的食谱）
+      final allExcludedIds = {
+        ...currentRecipeIds,
+        ...pastRecipeIds,
+        ...replacedRecipeIds
+      }.toList();
+
+      // 确定 meal type
+      final mealType = _timeSlotToMealType(mealToReplace.mealTimeSlot);
+
+      print('🔄 Replacing meal: ${mealToReplace.meal.mealName}');
+      print(
+          '📋 Excluding ${allExcludedIds.length} recipes (${currentRecipeIds.length} current, ${pastRecipeIds.length} past, ${replacedRecipeIds.length} replaced)');
+
+      // 调用 API 替换餐食
+      final apiResponse = await MealRecommendationApiService.replaceMeal(
+        mealType: mealType,
+        userPreferences: await _buildUserPreferencesForApi(),
+        currentPlanRecipeIds: allExcludedIds,
+        replacedRecipeId: mealToReplace.meal.mealId,
+        userId: mealRepo.userId,
+        pastRecipeIds: pastRecipeIds,
+      );
+
+      if (apiResponse['success'] == true) {
+        final newMealData = apiResponse['new_meal'] as Map<String, dynamic>;
+        final newMeal = await _fetchMealFromApi(newMealData);
+
         if (newMeal != null) {
           _updateMealInPlan(mealPlanMealId, newMeal);
-        }
-      }
-      */
 
-      throw 'API integration pending';
+          // 将被替换的餐食ID保存到 Hive
+          await mealHiveStorage.addReplacedRecipe(mealToReplace.meal.mealId);
+
+          TLoaders.successSnackBar(
+            title: 'Success',
+            message: 'Meal replaced successfully!',
+          );
+
+          print(
+              '✅ Meal replaced: ${mealToReplace.meal.mealName} → ${newMeal.mealName}');
+        } else {
+          throw Exception('Failed to fetch new meal from API');
+        }
+      } else {
+        throw Exception('API returned error: ${apiResponse['error']}');
+      }
     } catch (e) {
       TLoaders.errorSnackBar(
         title: 'Error',
         message: 'Failed to replace meal: ${e.toString()}',
       );
+      print('❌ Error replacing meal: $e');
     } finally {
       isReplacingMeal.value = false;
     }
   }
 
-  /// Update meal in the generated plan
+  /// 将 MealTimeSlot 转换为 meal type string
+  String _timeSlotToMealType(MealTimeSlot timeSlot) {
+    switch (timeSlot) {
+      case MealTimeSlot.breakfast:
+        return 'breakfast';
+      case MealTimeSlot.lunch:
+        return 'lunch';
+      case MealTimeSlot.snack:
+        return 'snack';
+      case MealTimeSlot.dinner:
+        return 'dinner';
+    }
+  }
+
   void _updateMealInPlan(String mealPlanMealId, MealModel newMeal) {
     final currentPlan = generatedMealPlan.value;
     if (currentPlan == null) return;
@@ -490,18 +772,17 @@ class MealRecommendationController extends GetxController {
       return scheduledMeal;
     }).toList();
 
-    generatedMealPlan.value = currentPlan.copyWith(scheduledMeals: updatedMeals);
-
-    // Update Hive storage
+    generatedMealPlan.value =
+        currentPlan.copyWith(scheduledMeals: updatedMeals);
     mealHiveStorage.saveActiveMealPlan(generatedMealPlan.value!);
   }
 
-  /// Regenerate entire meal plan
+  /// 重新生成整个餐食计划
   Future<void> regenerateMealPlan() async {
     await submitMealPreferences();
   }
 
-  /// Confirm meal plan and save to Firestore
+  /// 确认餐食计划并保存到 Firestore
   Future<void> confirmMealPlan() async {
     if (generatedMealPlan.value == null) return;
 
@@ -515,11 +796,12 @@ class MealRecommendationController extends GetxController {
         message: 'Meal plan confirmed and saved!',
       );
 
-      // Clear generated plan and temp storage
       generatedMealPlan.value = null;
       await mealHiveStorage.deleteMealPlan('active_meal_plan');
 
-      // Navigate back
+      // 清空被替换的食谱记录
+      await mealHiveStorage.clearReplacedRecipes();
+
       Get.back();
     } catch (e) {
       TLoaders.errorSnackBar(
@@ -531,13 +813,29 @@ class MealRecommendationController extends GetxController {
     }
   }
 
-  /// Discard generated meal plan
+  /// 丢弃生成的餐食计划
   Future<void> discardMealPlan() async {
-    generatedMealPlan.value = null;
-    await mealHiveStorage.deleteMealPlan('active_meal_plan');
+    try {
+      generatedMealPlan.value = null;
+      await mealHiveStorage.deleteMealPlan('active_meal_plan');
+
+      TLoaders.successSnackBar(
+        title: 'Plan Discarded',
+        message: 'Temporary meal plan has been removed',
+      );
+
+      if (Get.context != null) {
+        Navigator.of(Get.context!, rootNavigator: true).pop(true);
+      }
+    } catch (e) {
+      TLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to discard temporary plan',
+      );
+      print('Error discarding temp plan: $e');
+    }
   }
 
-  /// Reset form
   void resetForm() {
     selectedDietPreference.value = null;
     selectedAllergens.clear();
@@ -550,12 +848,10 @@ class MealRecommendationController extends GetxController {
     await _initializeData();
   }
 
-  /// Navigate to subscription page
   void navigateToSubscription() {
     Get.to(() => SubscriptionPlanScreen());
   }
 
-  /// Navigate to diabetes prediction
   void navigateToDiabetesPrediction() {
     final flowManager = Get.put(DiabetesPredictionFlowManager());
     flowManager.enterPredictionFlow();

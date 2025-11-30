@@ -53,7 +53,6 @@ class ReplyRepository extends GetxController {
           .doc(parentCommentId)
           .update({
         FirebaseFieldNames.replyCount: FieldValue.increment(1),
-        FirebaseFieldNames.updatedAt: DateTime.now().millisecondsSinceEpoch,
       });
 
       return replyId;
@@ -178,7 +177,6 @@ class ReplyRepository extends GetxController {
           .doc(parentCommentId)
           .update({
         FirebaseFieldNames.replyCount: FieldValue.increment(-1),
-        FirebaseFieldNames.updatedAt: DateTime.now().millisecondsSinceEpoch,
       });
     } on FirebaseException catch (e) {
       throw TFirebaseException(e.code).message;

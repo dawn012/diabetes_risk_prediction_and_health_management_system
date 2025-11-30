@@ -126,6 +126,8 @@ class LoginController extends GetxController {
         return;
       }
 
+      await userController.fetchUserRecord();
+
       // All checks passed - stop loading and redirect
       TFullScreenLoader.stopLoading();
 
@@ -135,7 +137,7 @@ class LoginController extends GetxController {
       TFullScreenLoader.stopLoading();
       TLoaders.errorSnackBar(
         title: TTexts.error,
-        message: TTexts.commonErrorMessage,
+        message: "$e",
       );
     }
   }
@@ -171,6 +173,11 @@ class LoginController extends GetxController {
         return;
       }
 
+      // Save user record (only if new user)
+      await userController.saveUserRecord(userCredentials);
+
+      await userController.fetchUserRecord();
+
       // --- Firestore user check ---
       final userData = await _userRepository.getUserByEmail(email);
 
@@ -197,9 +204,6 @@ class LoginController extends GetxController {
           return;
         }
       }
-
-      // Save user record (only if new user)
-      await userController.saveUserRecord(userCredentials);
 
       // Remove Loader
       TFullScreenLoader.stopLoading();
@@ -246,6 +250,11 @@ class LoginController extends GetxController {
         return;
       }
 
+      // Save user record
+      await userController.saveUserRecord(userCredentials);
+
+      await userController.fetchUserRecord();
+
       // --- Firestore user check ---
       final userData = await _userRepository.getUserByEmail(email);
 
@@ -272,9 +281,6 @@ class LoginController extends GetxController {
           return;
         }
       }
-
-      // Save user record
-      await userController.saveUserRecord(userCredentials);
 
       // Remove Loader
       TFullScreenLoader.stopLoading();

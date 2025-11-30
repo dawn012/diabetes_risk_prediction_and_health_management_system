@@ -7,7 +7,7 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { HealthLogAchievementService } from "../services/health_log_achievement_service";
 import { CommunityAchievementService } from "../services/community_achievement_service";
-import { DateUtils } from "../utils/date_utils";
+// import { DateUtils } from "../utils/date_utils";
 import { clearAchievementConfigCache } from "../config/achievement_config";
 
 const db = admin.firestore();
@@ -48,7 +48,7 @@ export const distributeLeaderboardRewards = onSchedule(
   },
   async () => {
     try {
-      functions.logger.log("🎁 Starting leaderboard rewards distribution...");
+      functions.logger.log("Starting leaderboard rewards distribution...");
 
       // 获取上个月的年份和月份
       const now = new Date();
@@ -56,7 +56,7 @@ export const distributeLeaderboardRewards = onSchedule(
       const year = lastMonth.getFullYear();
       const month = lastMonth.getMonth() + 1;
 
-      functions.logger.log(`📅 Processing rewards for ${year}-${month}`);
+      functions.logger.log(`Processing rewards for ${year}-${month}`);
 
       // 从 leaderboard collection 获取上个月的前100名
       const leaderboardSnapshot = await db
@@ -222,6 +222,16 @@ async function recordAllUsersAchievementHistory(): Promise<void> {
   try {
     functions.logger.log("📝 Recording achievement history...");
 
+    // 只对这些健康类型的周期成就做“月结写 history”
+    const healthTypesNeedingMonthlyHistory = [
+      "bloodGlucose",
+      "bloodPressure",
+      "bodyWeight",
+      "physicalActivity",
+      // 如果 steps 也要按月结算 Gold 次数，就加 "steps"
+      // "steps",
+    ];
+
     const userAchievementsSnapshot = await db
       .collection("userAchievements")
       .get();
@@ -237,7 +247,7 @@ async function recordAllUsersAchievementHistory(): Promise<void> {
     for (const doc of userAchievementsSnapshot.docs) {
       const data = doc.data();
 
-      // 只记录周期性成就且已达成某等级的
+      // 先取出对应的 achievement 配置
       const achievementDoc = await db
         .collection("achievements")
         .doc(data.achievementId)
@@ -247,9 +257,14 @@ async function recordAllUsersAchievementHistory(): Promise<void> {
 
       const achievement = achievementDoc.data();
 
+      // 只记录：
+      // 1. 周期性成就（periodic）
+      // 2. 当前等级不是 none（至少拿到 bronze 以上）
+      // 3. dataType 是需要月结的健康类型（会回退的）
       if (
         achievement?.achievementType === "periodic" &&
-        data.currentLevel !== "none"
+        data.currentLevel !== "none" &&
+        healthTypesNeedingMonthlyHistory.includes(achievement.dataType)
       ) {
         const historyRef = db.collection("achievementHistory").doc();
 
@@ -270,6 +285,8 @@ async function recordAllUsersAchievementHistory(): Promise<void> {
       functions.logger.log(
         `✅ Recorded ${recordCount} achievement histories`
       );
+    } else {
+      functions.logger.log("ℹ️ No periodic health achievements to record");
     }
   } catch (error) {
     functions.logger.error("❌ Error recording achievement history:", error);
@@ -344,53 +361,66 @@ async function resetPeriodicCommunityAchievements(
  */
 export const hourlySyncCheck = onSchedule(
   {
-    schedule: "every 1 hours",
+    schedule: "every 1 minutes",
     timeZone: "Asia/Kuala_Lumpur",
   },
   async () => {
     try {
       functions.logger.log("🔍 Running hourly achievement sync check...");
 
-      // 检查是否是新月份的第一天
-      if (DateUtils.isFirstDayOfMonth()) {
-        const now = new Date();
-        const hour = now.getUTCHours() + 8; // Malaysia time
+      const now = new Date();
+      const daysInMonth = new Date(
+        now.getFullYear(),
+        now.getMonth() + 1,
+        0
+      ).getDate();
 
-        // 如果是第一天且已过凌晨 3 点，确保重置已执行
-        if (hour >= 3) {
-          functions.logger.log(
-            "⚠️ First day of month detected, verifying reset status"
-          );
+      // 取所有 active periodic 成就
+      const achievementsSnapshot = await db
+        .collection("achievements")
+        .where("isActive", "==", true)
+        .where("achievementType", "==", "periodic")
+        .get();
 
-          // 验证 Gold 天数是否已更新
-          const daysInMonth = new Date(
-            new Date().getFullYear(),
-            new Date().getMonth() + 1,
-            0
-          ).getDate();
+      if (achievementsSnapshot.empty) {
+        functions.logger.log(
+          "ℹ️ No active periodic achievements found, skip sync"
+        );
+        functions.logger.log("✅ Hourly sync check completed");
+        return;
+      }
 
-          const sampleAchievement = await db
-            .collection("achievements")
-            .where("isActive", "==", true)
-            .where("achievementType", "==", "periodic")
-            .limit(1)
-            .get();
+      // 在所有 periodic 里找“第一条有 dynamic Gold 的成就”
+      let sampleGoldLevel: any | null = null;
 
-          if (!sampleAchievement.empty) {
-            const data = sampleAchievement.docs[0].data();
-            const goldLevel = data.levels?.find(
-              (l: any) => l.level === "gold" && l.isDynamic === true
-            );
-
-            if (goldLevel && goldLevel.criteria !== daysInMonth) {
-              functions.logger.warn(
-                `⚠️ Gold criteria not updated! Expected: ${daysInMonth}, Got: ${goldLevel.criteria}`
-              );
-              // 重新触发更新
-              await HealthLogAchievementService.updateGoldDynamicCriteria();
-            }
-          }
+      for (const doc of achievementsSnapshot.docs) {
+        const data = doc.data();
+        const goldLevel = data.levels?.find(
+          (l: any) => l.level === "gold" && l.isDynamic === true
+        );
+        if (goldLevel) {
+          sampleGoldLevel = goldLevel;
+          break;
         }
+      }
+
+      if (!sampleGoldLevel) {
+        functions.logger.log(
+          "ℹ️ No dynamic Gold level found in periodic achievements, skip sync"
+        );
+        functions.logger.log("✅ Hourly sync check completed");
+        return;
+      }
+
+      if (sampleGoldLevel.criteria !== daysInMonth) {
+        functions.logger.warn(
+          `⚠️ Gold criteria not updated! Expected: ${daysInMonth}, Got: ${sampleGoldLevel.criteria}`
+        );
+        await HealthLogAchievementService.updateGoldDynamicCriteria();
+      } else {
+        functions.logger.log(
+          `✅ Gold criteria already correct for this month (${daysInMonth} days)`
+        );
       }
 
       functions.logger.log("✅ Hourly sync check completed");
@@ -401,7 +431,7 @@ export const hourlySyncCheck = onSchedule(
 );
 
 /**
- * 🆕 每天凌晨 1 点更新所有用户的非社区类永久成就
+ * 每天凌晨 1 点更新所有用户的非社区类永久成就
  * （社区类永久成就已通过增量更新实时处理）
  */
 export const dailyPermanentAchievementUpdate = onSchedule(
@@ -428,7 +458,7 @@ export const dailyPermanentAchievementUpdate = onSchedule(
         const userId = userDoc.id;
 
         try {
-          // 🆕 只更新非社区类的永久成就（Gold 次数、总等级次数、终身步数等）
+          // 只更新非社区类的永久成就（Gold 次数、总等级次数、终身步数等）
           // 社区类永久成就（总发帖、分类发帖、支持性成员）已通过增量更新实时处理
           await CommunityAchievementService.updateNonCommunityPermanentAchievements(
             userId

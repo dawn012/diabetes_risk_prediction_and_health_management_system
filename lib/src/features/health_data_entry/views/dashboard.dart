@@ -5,6 +5,7 @@ import 'package:fl_chart/fl_chart.dart';
 
 import '../../../common/widgets/custom_shapes/containers/primary_header_container.dart';
 import '../../../services/step_tracking_service.dart';
+import '../../../services/tutorial_flow_manager.dart';
 import '../../../utils/constants/colors.dart';
 import '../../../utils/constants/sizes.dart';
 import '../../../utils/formatters/formatter.dart';
@@ -29,7 +30,7 @@ class Dashboard extends StatefulWidget {
   State<Dashboard> createState() => _DashboardState();
 }
 
-class _DashboardState extends State<Dashboard> {
+class _DashboardState extends State<Dashboard> with WidgetsBindingObserver {
   late PageController _pageController;
   late Timer _timer;
   int _currentPage = 0;
@@ -38,30 +39,88 @@ class _DashboardState extends State<Dashboard> {
     HealthTip(
       title: "Stay Hydrated",
       content:
-          "Maintaining a healthy lifestyle provides a combination of balanced nutrition, regular physical activity, sufficient sleep, and stress management.",
+      "Maintaining a healthy lifestyle provides a combination of balanced nutrition, regular physical activity, sufficient sleep, and stress management.",
     ),
     HealthTip(
       title: "Regular Exercise",
       content:
-          "Engaging in regular physical activity helps maintain cardiovascular health, strengthens muscles, and improves mental wellbeing.",
+      "Engaging in regular physical activity helps maintain cardiovascular health, strengthens muscles, and improves mental wellbeing.",
     ),
     HealthTip(
       title: "Balanced Diet",
       content:
-          "A nutritious diet rich in fruits, vegetables, whole grains, and lean proteins supports overall health and disease prevention.",
+      "A nutritious diet rich in fruits, vegetables, whole grains, and lean proteins supports overall health and disease prevention.",
     ),
     HealthTip(
       title: "Quality Sleep",
       content:
-          "Getting 7-9 hours of quality sleep each night is essential for physical recovery, mental clarity, and immune system function.",
+      "Getting 7-9 hours of quality sleep each night is essential for physical recovery, mental clarity, and immune system function.",
     ),
   ];
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // 🔥 检查是否需要恢复教学
+    final flowManager = TutorialFlowManager.instance;
+    if (flowManager.needsResume.value && mounted) {
+      flowManager.needsResume.value = false; // 重置标志
+
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted && flowManager.isTutorialActive.value) {
+          print('🔄 Resuming tutorial after dialog closed');
+          flowManager.showCurrentStepOverlay(context);
+        }
+      });
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController();
     _startAutoSlide();
+
+    WidgetsBinding.instance.addObserver(this);
+
+    // 启动教学（如果是第一次）
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _initializeTutorial();
+      }
+    });
+  }
+
+  void _initializeTutorial() {
+    final flowManager = TutorialFlowManager.instance;
+
+    // 延迟确保 UI 稳定
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (!mounted) return;
+
+      // 1) 当前用户教程已经完成：什么都不做
+      if (flowManager.hasCompletedTutorial) {
+        print('✅ Tutorial already completed for this user');
+        return;
+      }
+
+      // 2) 教程还没完成，且从未开始过（notStarted）→ 第一次启动
+      if (flowManager.currentStep.value == TutorialStep.notStarted) {
+        print('🚀 Starting tutorial from notStarted state');
+        flowManager.startTutorial(context);
+        return;
+      }
+
+      // 3) 教程还没完成，且 isTutorialActive = true → 恢复当前步骤的 overlay
+      if (flowManager.isTutorialActive.value) {
+        print('🎬 Resuming tutorial at step: ${flowManager.currentStep.value}');
+
+        if (!flowManager.showOverlay.value) {
+          flowManager.showCurrentStepOverlay(context);
+        }
+      }
+    });
   }
 
   void _startAutoSlide() {
@@ -81,6 +140,7 @@ class _DashboardState extends State<Dashboard> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer.cancel();
     _pageController.dispose();
     super.dispose();
@@ -89,6 +149,21 @@ class _DashboardState extends State<Dashboard> {
   @override
   Widget build(BuildContext context) {
     final darkMode = THelperFunctions.isDarkMode(context);
+    final flowManager = TutorialFlowManager.instance;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted &&
+          flowManager.isTutorialActive.value &&
+          !flowManager.showOverlay.value &&
+          flowManager.currentStep.value == TutorialStep.dashboardGlucoseCard) {
+        print('🔄 Resuming tutorial after data entry save');
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) {
+            flowManager.showCurrentStepOverlay(context);
+          }
+        });
+      }
+    });
 
     // Initialize controllers
     final glucoseController = Get.put(BloodGlucoseController());
@@ -99,37 +174,32 @@ class _DashboardState extends State<Dashboard> {
 
     return Scaffold(
       backgroundColor:
-          darkMode ? const Color(0xFF0A0A0B) : const Color(0xFFF8F9FA),
+      darkMode ? const Color(0xFF0A0A0B) : const Color(0xFFF8F9FA),
       body: SingleChildScrollView(
         child: Column(
           children: [
-            /// -- Header Container with Floating Tips --
-            SizedBox(
+            // Header
+            Container(
+              key: flowManager.welcomeKey,
               height: 210,
               child: Stack(
-                clipBehavior: Clip.none, // 允许子组件溢出
+                clipBehavior: Clip.none,
                 children: [
                   TPrimaryHeaderContainer(
                     child: Column(
                       children: [
-                        /// -- Appbar --
                         THomeAppBar(title: 'Dashboard'),
                         const SizedBox(height: TSizes.spaceBtwSections),
-
-                        // /// -- Spacer for floating card --
-                        // const SizedBox(height: 10), // Space for floating card
                         const SizedBox(height: TSizes.spaceBtwSections),
                       ],
                     ),
                   ),
-
-                  /// -- Floating Health Tips Card --
                   Positioned(
                     top: 80,
                     left: TSizes.defaultSpace,
                     right: TSizes.defaultSpace,
                     child: Transform.translate(
-                      offset: const Offset(0, 40), // Offset to span boundary
+                      offset: const Offset(0, 40),
                       child: _buildFloatingHealthTips(context, darkMode),
                     ),
                   ),
@@ -137,22 +207,43 @@ class _DashboardState extends State<Dashboard> {
               ),
             ),
 
-            /// -- Main Content with top margin for floating card --
+            // Main Content
             Container(
               margin: const EdgeInsets.only(top: 120),
-              // Space for floating card
               padding: const EdgeInsets.all(TSizes.defaultSpace),
               child: Column(
                 children: [
-                  // Health Metrics Cards (Single Column)
-                  _buildHealthMetricsList(
-                      context,
-                      darkMode,
-                      glucoseController,
-                      pressureController,
-                      weightController,
-                      exerciseController,
-                      diabetesRiskController),
+                  // Blood Glucose Card
+                  Obx(() => Container(
+                    key: flowManager.glucoseCardKey,
+                    child: _buildGlucoseCard(context, darkMode, glucoseController),
+                  )),
+
+                  const SizedBox(height: TSizes.lg),
+
+                  // Blood Pressure Card
+                  Obx(() => _buildPressureCard(context, darkMode, pressureController)),
+
+                  const SizedBox(height: TSizes.lg),
+
+                  // Weight Card
+                  Obx(() => _buildWeightCard(context, darkMode, weightController)),
+
+                  const SizedBox(height: TSizes.lg),
+
+                  // Exercise Card
+                  _buildExerciseCard(context, darkMode, exerciseController),
+
+                  const SizedBox(height: TSizes.lg),
+
+                  // Steps Card
+                  _buildStepsCard(context, darkMode, exerciseController),
+
+                  const SizedBox(height: TSizes.lg),
+
+                  // Diabetes Risk Card
+                  Obx(() =>
+                      _buildDiabetesRiskCard(context, darkMode, diabetesRiskController)),
                 ],
               ),
             ),
@@ -161,14 +252,29 @@ class _DashboardState extends State<Dashboard> {
       ),
 
       /// -- Floating Action Button for Quick Data Entry --
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'dashboard_fab',
-        onPressed: () => Get.to(() => const HealthDataEntryScreen()),
-        backgroundColor: TColors.primary,
-        child: const Icon(
-          Icons.add,
-          color: Colors.white,
-          size: 28,
+      floatingActionButton: Container(
+        key: flowManager.addButtonKey,
+        child: FloatingActionButton(
+          heroTag: 'dashboard_fab',
+          onPressed: () {
+            final flowManager = TutorialFlowManager.instance;
+
+            if (flowManager.shouldShowTutorialFor(TutorialStep.dashboardAddButton)) {
+              flowManager.hideOverlay();
+              flowManager.currentStep.value = TutorialStep.dataEntryIntro;
+              flowManager.saveCurrentStep();
+            }
+
+            Get.to(() => HealthDataEntryScreen(
+              initialSections: ['Blood Glucose'],
+            ));
+          },
+          backgroundColor: TColors.primary,
+          child: const Icon(
+            Icons.add,
+            color: Colors.white,
+            size: 28,
+          ),
         ),
       ),
     );
@@ -248,9 +354,9 @@ class _DashboardState extends State<Dashboard> {
               Text(
                 tip.title,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: darkMode ? TColors.white : TColors.black,
-                    ),
+                  fontWeight: FontWeight.bold,
+                  color: darkMode ? TColors.white : TColors.black,
+                ),
               ),
             ],
           ),
@@ -259,9 +365,9 @@ class _DashboardState extends State<Dashboard> {
             child: Text(
               tip.content,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: darkMode ? TColors.grey : Colors.grey.shade600,
-                    height: 1.4,
-                  ),
+                color: darkMode ? TColors.grey : Colors.grey.shade600,
+                height: 1.4,
+              ),
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
             ),
@@ -277,7 +383,7 @@ class _DashboardState extends State<Dashboard> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(
         _healthTips.length,
-        (index) => _buildDot(
+            (index) => _buildDot(
           isActive: index == _currentPage,
           darkMode: darkMode,
         ),
@@ -302,14 +408,14 @@ class _DashboardState extends State<Dashboard> {
   }
 
   Widget _buildHealthMetricsList(
-    BuildContext context,
-    bool darkMode,
-    BloodGlucoseController glucoseController,
-    BloodPressureController pressureController,
-    WeightController weightController,
-    ExerciseController exerciseController,
-    DiabetesRiskController diabetesRiskController,
-  ) {
+      BuildContext context,
+      bool darkMode,
+      BloodGlucoseController glucoseController,
+      BloodPressureController pressureController,
+      WeightController weightController,
+      ExerciseController exerciseController,
+      DiabetesRiskController diabetesRiskController,
+      ) {
     return Column(
       children: [
         // Blood Glucose Card
@@ -344,13 +450,33 @@ class _DashboardState extends State<Dashboard> {
     );
   }
 
-  // Blood Glucose Card
+  // Blood Glucose Card - 移除了外层的 GestureDetector，保留内层的
   Widget _buildGlucoseCard(
       BuildContext context, bool darkMode, BloodGlucoseController controller) {
     final hasData = controller.past14DaysCount.value > 0;
 
     return GestureDetector(
-      onTap: () => Get.to(() => const BloodGlucoseAnalyticsScreen()),
+      onTap: () {
+        final flowManager = TutorialFlowManager.instance;
+
+        if (flowManager.shouldShowTutorialFor(TutorialStep.dashboardGlucoseCard)) {
+          print('🎯 Glucose card clicked in tutorial mode');
+
+          flowManager.hideOverlay().then((_) {
+            // 先推进步骤，再导航
+            flowManager.currentStep.value = TutorialStep.analyticsTimeRange;
+            flowManager.saveCurrentStep();
+
+            // 延迟导航，确保状态已保存
+            Future.delayed(const Duration(milliseconds: 100), () {
+              Get.to(() => const BloodGlucoseAnalyticsScreen());
+            });
+          });
+        } else {
+          // 正常模式：直接导航
+          Get.to(() => const BloodGlucoseAnalyticsScreen());
+        }
+      },
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(24),
@@ -400,7 +526,7 @@ class _DashboardState extends State<Dashboard> {
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                           color:
-                              darkMode ? Colors.white : const Color(0xFF2D3748),
+                          darkMode ? Colors.white : const Color(0xFF2D3748),
                         ),
                       ),
                       Text(
@@ -436,10 +562,10 @@ class _DashboardState extends State<Dashboard> {
                       fontWeight: FontWeight.bold,
                       color: controller.averageValue.value >= 0
                           ? controller.getGlucoseLevelColor(
-                              controller.averageValue.value)
+                          controller.averageValue.value)
                           : (darkMode
-                              ? Colors.grey.shade400
-                              : Colors.grey.shade600),
+                          ? Colors.grey.shade400
+                          : Colors.grey.shade600),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -491,7 +617,7 @@ class _DashboardState extends State<Dashboard> {
                     child: SizedBox(
                       height: 120,
                       child:
-                          _buildGlucoseDistributionChart(controller, darkMode),
+                      _buildGlucoseDistributionChart(controller, darkMode),
                     ),
                   ),
                 ],
@@ -589,7 +715,7 @@ class _DashboardState extends State<Dashboard> {
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                           color:
-                              darkMode ? Colors.white : const Color(0xFF2D3748),
+                          darkMode ? Colors.white : const Color(0xFF2D3748),
                         ),
                       ),
                       Text(
@@ -623,14 +749,14 @@ class _DashboardState extends State<Dashboard> {
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
                       color: controller.systolicAverage.value > 0 &&
-                              controller.diastolicAverage.value > 0
+                          controller.diastolicAverage.value > 0
                           ? controller.getBPLevelColor(
-                              controller.systolicAverage.value.round(),
-                              controller.diastolicAverage.value.round(),
-                            )
+                        controller.systolicAverage.value.round(),
+                        controller.diastolicAverage.value.round(),
+                      )
                           : (darkMode
-                              ? Colors.grey.shade400
-                              : Colors.grey.shade600),
+                          ? Colors.grey.shade400
+                          : Colors.grey.shade600),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -715,7 +841,7 @@ class _DashboardState extends State<Dashboard> {
       value = 'No Data';
     } else if (hasSingleRecord) {
       subtitle =
-          'Last Record: ${TFormatter.formatLastRecordDate(controller.latestWeightRecord.value!.logDateTime)} | All Periods';
+      'Last Record: ${TFormatter.formatLastRecordDate(controller.latestWeightRecord.value!.logDateTime)} | All Periods';
       value = '${controller.weightCurrent.value.toStringAsFixed(1)} kg';
     } else {
       final change =
@@ -723,7 +849,7 @@ class _DashboardState extends State<Dashboard> {
       final changePrefix = change >= 0 ? 'Increase' : 'Decrease';
       changeText = '$changePrefix ${change.abs().toStringAsFixed(1)} kg';
       subtitle =
-          'Last Record: ${TFormatter.formatLastRecordDate(controller.latestWeightRecord.value!.logDateTime)} | All Periods';
+      'Last Record: ${TFormatter.formatLastRecordDate(controller.latestWeightRecord.value!.logDateTime)} | All Periods';
       value = '${controller.weightCurrent.value.toStringAsFixed(1)} kg';
     }
 
@@ -778,7 +904,7 @@ class _DashboardState extends State<Dashboard> {
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                           color:
-                              darkMode ? Colors.white : const Color(0xFF2D3748),
+                          darkMode ? Colors.white : const Color(0xFF2D3748),
                         ),
                       ),
                       Text(
@@ -836,7 +962,7 @@ class _DashboardState extends State<Dashboard> {
                   style: TextStyle(
                     fontSize: 14,
                     color:
-                        darkMode ? Colors.grey.shade400 : Colors.grey.shade600,
+                    darkMode ? Colors.grey.shade400 : Colors.grey.shade600,
                   ),
                 ),
               ],
@@ -911,7 +1037,7 @@ class _DashboardState extends State<Dashboard> {
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                           color:
-                              darkMode ? Colors.white : const Color(0xFF2D3748),
+                          darkMode ? Colors.white : const Color(0xFF2D3748),
                         ),
                       ),
                       Text(
@@ -942,13 +1068,13 @@ class _DashboardState extends State<Dashboard> {
                         : 'No Data',
                     style: TextStyle(
                       fontSize:
-                          controller.weeklyExerciseMinutes.value > 0 ? 32 : 24,
+                      controller.weeklyExerciseMinutes.value > 0 ? 32 : 24,
                       fontWeight: FontWeight.bold,
                       color: controller.weeklyExerciseMinutes.value > 0
                           ? const Color(0xFF4A90E2)
                           : (darkMode
-                              ? Colors.grey.shade500
-                              : Colors.grey.shade400),
+                          ? Colors.grey.shade500
+                          : Colors.grey.shade400),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -964,13 +1090,13 @@ class _DashboardState extends State<Dashboard> {
                 ])),
             const SizedBox(height: 20),
             Obx(() => Text(
-                  'Weekly Goal: ${controller.weeklyExerciseGoal} min',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color:
-                        darkMode ? Colors.grey.shade400 : Colors.grey.shade600,
-                  ),
-                )),
+              'Weekly Goal: ${controller.weeklyExerciseGoal} min',
+              style: TextStyle(
+                fontSize: 14,
+                color:
+                darkMode ? Colors.grey.shade400 : Colors.grey.shade600,
+              ),
+            )),
           ],
         ),
       ),
@@ -1074,7 +1200,9 @@ class _DashboardState extends State<Dashboard> {
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
                         valueColor: AlwaysStoppedAnimation<Color>(
-                          darkMode ? Colors.grey.shade500 : Colors.grey.shade400,
+                          darkMode
+                              ? Colors.grey.shade500
+                              : Colors.grey.shade400,
                         ),
                       ),
                     ),
@@ -1084,7 +1212,9 @@ class _DashboardState extends State<Dashboard> {
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w600,
-                        color: darkMode ? Colors.grey.shade500 : Colors.grey.shade400,
+                        color: darkMode
+                            ? Colors.grey.shade500
+                            : Colors.grey.shade400,
                       ),
                     ),
                   ],
@@ -1098,7 +1228,8 @@ class _DashboardState extends State<Dashboard> {
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
-                    color: darkMode ? Colors.grey.shade500 : Colors.grey.shade400,
+                    color:
+                    darkMode ? Colors.grey.shade500 : Colors.grey.shade400,
                   ),
                 );
               }
@@ -1164,7 +1295,7 @@ class _DashboardState extends State<Dashboard> {
               // Larger radius
               showTitle: true,
               title:
-                  '${((controller.normalCount.value / controller.past14DaysCount.value) * 100).toInt()}%',
+              '${((controller.normalCount.value / controller.past14DaysCount.value) * 100).toInt()}%',
               titleStyle: const TextStyle(
                 fontSize: 14, // Slightly larger text
                 fontWeight: FontWeight.bold,
@@ -1178,7 +1309,7 @@ class _DashboardState extends State<Dashboard> {
               radius: 35,
               showTitle: true,
               title:
-                  '${((controller.highCount.value / controller.past14DaysCount.value) * 100).toInt()}%',
+              '${((controller.highCount.value / controller.past14DaysCount.value) * 100).toInt()}%',
               titleStyle: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
@@ -1192,7 +1323,7 @@ class _DashboardState extends State<Dashboard> {
               radius: 35,
               showTitle: true,
               title:
-                  '${((controller.lowCount.value / controller.past14DaysCount.value) * 100).toInt()}%',
+              '${((controller.lowCount.value / controller.past14DaysCount.value) * 100).toInt()}%',
               titleStyle: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
@@ -1279,7 +1410,7 @@ class _DashboardState extends State<Dashboard> {
                   style: TextStyle(
                     fontSize: 12,
                     color:
-                        darkMode ? Colors.grey.shade400 : Colors.grey.shade600,
+                    darkMode ? Colors.grey.shade400 : Colors.grey.shade600,
                   ),
                 );
               },
@@ -1308,9 +1439,9 @@ class _DashboardState extends State<Dashboard> {
             ),
           ),
           topTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           rightTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
         borderData: FlBorderData(show: false),
         minX: 0,
@@ -1438,7 +1569,7 @@ class _DashboardState extends State<Dashboard> {
                   style: TextStyle(
                     fontSize: 12,
                     color:
-                        darkMode ? Colors.grey.shade400 : Colors.grey.shade600,
+                    darkMode ? Colors.grey.shade400 : Colors.grey.shade600,
                   ),
                 );
               },
@@ -1467,9 +1598,9 @@ class _DashboardState extends State<Dashboard> {
             ),
           ),
           topTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           rightTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
         borderData: FlBorderData(show: false),
         minX: 0,
@@ -1556,7 +1687,7 @@ class _DashboardState extends State<Dashboard> {
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                           color:
-                              darkMode ? Colors.white : const Color(0xFF2D3748),
+                          darkMode ? Colors.white : const Color(0xFF2D3748),
                         ),
                       ),
                       Text(
@@ -1592,10 +1723,10 @@ class _DashboardState extends State<Dashboard> {
                       fontWeight: FontWeight.bold,
                       color: controller.currentScore.value > 0
                           ? controller
-                              .getRiskLevelColor(controller.currentScore.value)
+                          .getRiskLevelColor(controller.currentScore.value)
                           : (darkMode
-                              ? Colors.grey.shade400
-                              : Colors.grey.shade600),
+                          ? Colors.grey.shade400
+                          : Colors.grey.shade600),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -1694,7 +1825,7 @@ class _DashboardState extends State<Dashboard> {
                   style: TextStyle(
                     fontSize: 12,
                     color:
-                        darkMode ? Colors.grey.shade400 : Colors.grey.shade600,
+                    darkMode ? Colors.grey.shade400 : Colors.grey.shade600,
                   ),
                 );
               },
@@ -1723,9 +1854,9 @@ class _DashboardState extends State<Dashboard> {
             ),
           ),
           topTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           rightTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
         borderData: FlBorderData(show: false),
         minX: 0,

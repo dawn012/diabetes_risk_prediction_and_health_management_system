@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:icons_plus/icons_plus.dart';
 
 import '../../../../common/loaders/loaders.dart';
+import '../../../../common/widgets/dialogs/image_preview_dialog.dart';
 import '../../../../common/widgets/images/t_circular_image.dart';
 import '../../../../utils/constants/admin_colors.dart';
 import '../../../../utils/formatters/formatter.dart';
@@ -141,12 +142,26 @@ class AdminProfileScreen extends StatelessWidget {
                 GestureDetector(
                   onTap: () {
                     if (hasProfileImage || selectedImage != null) {
-                      _showImagePreview(
-                        context,
-                        selectedImage != null
-                            ? MemoryImage(selectedImage)
-                            : NetworkImage(admin.profileImg) as ImageProvider,
-                      );
+                      if (selectedImage != null) {
+                        // Use memory image preview
+                        ImagePreviewDialog.showMemoryImage(
+                          context: context,
+                          imageBytes: selectedImage,
+                          title: '$username\'s Avatar',
+                          subtitle: 'Previewing...',
+                          maxWidth: 400,
+                          maxHeight: 400,
+                        );
+                      } else if (hasProfileImage) {
+                        // Use network image preview
+                        ImagePreviewDialog.showNetworkImage(
+                          context: context,
+                          imageUrl: admin.profileImg,
+                          title: '$username\'s Avatar',
+                          maxWidth: 400,
+                          maxHeight: 400,
+                        );
+                      }
                     }
                   },
                   child: selectedImage != null

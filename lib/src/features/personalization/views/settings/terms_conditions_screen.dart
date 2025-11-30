@@ -17,8 +17,12 @@ class TermsConditionsScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: darkMode ? TColors.dark : TColors.light,
       appBar: TAppBar(
-        title: Text(TTexts.termsTitle),
+        title: Text(TTexts.termsTitle,
+          style: TextStyle(color: TColors.white),
+        ),
         showBackArrow: true,
+        backgroundColor: TColors.primary,
+        iconTheme: IconThemeData(color: TColors.white),
       ),
       body: SingleChildScrollView(
         child: Column(

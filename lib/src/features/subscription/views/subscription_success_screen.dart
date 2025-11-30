@@ -9,6 +9,7 @@ import '../../../utils/helpers/helper_functions.dart';
 import '../controllers/payment_controller.dart';
 import '../controllers/subscription_controller.dart';
 import '../models/user_subscription_model.dart';
+import 'subscription_history_screen.dart';
 
 class SubscriptionSuccessScreen extends StatelessWidget {
   const SubscriptionSuccessScreen({super.key});
@@ -405,7 +406,7 @@ class SubscriptionSuccessScreen extends StatelessWidget {
                     child: TextButton(
                       onPressed: () {
                         // Navigate to subscription details page
-                        Get.offAllNamed('/subscription-details');
+                        Get.offAll(() => SubscriptionHistoryScreen());
                       },
                       style: TextButton.styleFrom(
                         foregroundColor: darkMode ? Colors.grey[400] : Colors.grey[600],

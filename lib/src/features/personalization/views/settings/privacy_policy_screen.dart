@@ -17,8 +17,13 @@ class PrivacyPolicyScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: darkMode ? TColors.dark : TColors.light,
       appBar: TAppBar(
-        title: Text(TTexts.privacyPolicyTitle),
+        title: Text(
+          TTexts.privacyPolicyTitle,
+          style: TextStyle(color: TColors.white),
+        ),
         showBackArrow: true,
+        backgroundColor: TColors.primary,
+        iconTheme: IconThemeData(color: TColors.white),
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -78,18 +83,18 @@ class PrivacyPolicyScreen extends StatelessWidget {
                                   .textTheme
                                   .headlineMedium!
                                   .copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
+                                    fontWeight: FontWeight.bold,
+                                  ),
                             ),
                             const SizedBox(height: 4),
                             Text(
                               TTexts.privacyPolicySubtitle,
                               style:
-                              Theme.of(context).textTheme.bodyMedium!.apply(
-                                color: darkMode
-                                    ? TColors.darkGrey
-                                    : TColors.textSecondary,
-                              ),
+                                  Theme.of(context).textTheme.bodyMedium!.apply(
+                                        color: darkMode
+                                            ? TColors.darkGrey
+                                            : TColors.textSecondary,
+                                      ),
                             ),
                           ],
                         ),
@@ -122,12 +127,13 @@ class PrivacyPolicyScreen extends StatelessWidget {
                         const SizedBox(width: TSizes.xs),
                         Text(
                           '${TTexts.lastUpdated}: November 11, 2025',
-                          style: Theme.of(context).textTheme.bodySmall!.copyWith(
-                            color: darkMode
-                                ? TColors.darkGrey
-                                : TColors.textSecondary,
-                            fontWeight: FontWeight.w500,
-                          ),
+                          style:
+                              Theme.of(context).textTheme.bodySmall!.copyWith(
+                                    color: darkMode
+                                        ? TColors.darkGrey
+                                        : TColors.textSecondary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                         ),
                       ],
                     ),
@@ -141,7 +147,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
             // Content Sections with enhanced design
             Padding(
               padding:
-              const EdgeInsets.symmetric(horizontal: TSizes.defaultSpace),
+                  const EdgeInsets.symmetric(horizontal: TSizes.defaultSpace),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -187,9 +193,9 @@ class PrivacyPolicyScreen extends StatelessWidget {
                                   .textTheme
                                   .titleLarge!
                                   .copyWith(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 18,
-                              ),
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 18,
+                                  ),
                             ),
                           ],
                         ),
@@ -197,11 +203,11 @@ class PrivacyPolicyScreen extends StatelessWidget {
                         Text(
                           'DiaTrack ("we" or "the app") values your privacy. This Privacy Policy explains how we collect, use, store, and protect your personal information.\n\nBy using this app, you agree to the data practices described in this Privacy Policy.',
                           style: Theme.of(context).textTheme.bodyMedium!.apply(
-                            color: darkMode
-                                ? TColors.darkGrey
-                                : TColors.textSecondary,
-                            heightFactor: 1.6,
-                          ),
+                                color: darkMode
+                                    ? TColors.darkGrey
+                                    : TColors.textSecondary,
+                                heightFactor: 1.6,
+                              ),
                         ),
                       ],
                     ),
@@ -214,7 +220,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                     iconColor: TColors.primary,
                     title: 'Information We Collect',
                     content:
-                    'We may collect the following types of information:\n\nAccount Information:\n• Name, email address\n• Login credentials (securely encrypted)\n• Profile picture (optional)\n\nHealth Data:\n• Blood glucose, blood pressure, weight, and body fat\n• Height, age, gender\n• Daily activity duration and sleep records\n• Stress levels, water intake\n• Medication adherence and diet quality score\n\nUsage Data:\n• Frequency of app usage and feature access\n• Device information (model, OS)\n• IP address and log data\n\nCommunity Interactions:\n• Posts, comments, and likes\n• Achievements and leaderboard data',
+                        'We may collect the following types of information:\n\nAccount Information:\n• Name, email address\n• Login credentials (securely encrypted)\n• Profile picture (optional)\n\nHealth Data:\n• Blood glucose, blood pressure, weight, and body fat\n• Height, age, gender\n• Daily activity duration and sleep records\n• Stress levels, water intake\n• Medication adherence and diet quality score\n\nUsage Data:\n• Frequency of app usage and feature access\n• Device information (model, OS)\n• IP address and log data\n\nCommunity Interactions:\n• Posts, comments, and likes\n• Achievements and leaderboard data',
                     darkMode: darkMode,
                   ),
                   _buildSection(
@@ -224,7 +230,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                     iconColor: TColors.warning,
                     title: 'How We Use Your Information',
                     content:
-                    'We use the collected information to:\n\n• Provide core services (data tracking, risk prediction, meal recommendations)\n• Deliver personalized health insights and content\n• Analyze app performance and improve user experience\n• Process subscription payments and manage accounts\n• Send important notifications (e.g., policy updates, feature changes)\n• Prevent fraud and abuse\n• Comply with legal obligations',
+                        'We use the collected information to:\n\n• Provide core services (data tracking, risk prediction, meal recommendations)\n• Deliver personalized health insights and content\n• Analyze app performance and improve user experience\n• Process subscription payments and manage accounts\n• Send important notifications (e.g., policy updates, feature changes)\n• Prevent fraud and abuse\n• Comply with legal obligations',
                     darkMode: darkMode,
                   ),
                   _buildSection(
@@ -234,7 +240,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                     iconColor: TColors.success,
                     title: 'Data Security',
                     content:
-                    'We implement the following measures to protect your data:\n\n• All data transmission is secured with TLS/SSL encryption\n• Passwords are hashed using industry standards (bcrypt)\n• Data is stored securely in Firebase cloud servers\n• Regular security audits and vulnerability scans\n• Strict access control for employees\n• Automated backups and disaster recovery\n\nHowever, no system is completely secure. We encourage you to use a strong password and update it regularly.',
+                        'We implement the following measures to protect your data:\n\n• All data transmission is secured with TLS/SSL encryption\n• Passwords are hashed using industry standards (bcrypt)\n• Data is stored securely in Firebase cloud servers\n• Regular security audits and vulnerability scans\n• Strict access control for employees\n• Automated backups and disaster recovery\n\nHowever, no system is completely secure. We encourage you to use a strong password and update it regularly.',
                     darkMode: darkMode,
                   ),
                   _buildSection(
@@ -244,7 +250,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                     iconColor: TColors.secondary,
                     title: 'Data Sharing',
                     content:
-                    'We do not sell your personal information. Data sharing occurs only in the following cases:\n\nService Providers:\n• Firebase (data hosting)\n• Stripe (payment processing)\n• Google Analytics (anonymous usage analytics)\n\nAll providers comply with strict data protection standards.\n\nLegal Requirements:\n• When required by law or regulation\n• To protect our or others\' legal rights\n\nUser Consent:\n• With your explicit permission (e.g., sharing with medical institutions)',
+                        'We do not sell your personal information. Data sharing occurs only in the following cases:\n\nService Providers:\n• Firebase (data hosting)\n• Stripe (payment processing)\n• Google Analytics (anonymous usage analytics)\n\nAll providers comply with strict data protection standards.\n\nLegal Requirements:\n• When required by law or regulation\n• To protect our or others\' legal rights\n\nUser Consent:\n• With your explicit permission (e.g., sharing with medical institutions)',
                     darkMode: darkMode,
                   ),
                   _buildSection(
@@ -254,7 +260,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                     iconColor: Color(0xFF8B5CF6),
                     title: 'Community Data',
                     content:
-                    'Content you share in the community (posts, comments) may be visible to other users. Please avoid sharing sensitive health information in public posts.\n\nWe reserve the right to remove any content that violates community guidelines.',
+                        'Content you share in the community (posts, comments) may be visible to other users. Please avoid sharing sensitive health information in public posts.\n\nWe reserve the right to remove any content that violates community guidelines.',
                     darkMode: darkMode,
                   ),
                   _buildSection(
@@ -264,7 +270,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                     iconColor: Color(0xFFEC4899),
                     title: 'Location Data',
                     content:
-                    'This app does not actively collect real-time location data. IP addresses are used only for essential service features, such as localized recommendations.',
+                        'This app does not actively collect real-time location data. IP addresses are used only for essential service features, such as localized recommendations.',
                     darkMode: darkMode,
                   ),
                   _buildSection(
@@ -274,7 +280,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                     iconColor: Color(0xFF06B6D4),
                     title: 'Third-Party Links',
                     content:
-                    'The app may contain external links (e.g., health articles or partner websites). We are not responsible for third-party privacy practices. Please review their privacy policies when visiting such sites.',
+                        'The app may contain external links (e.g., health articles or partner websites). We are not responsible for third-party privacy practices. Please review their privacy policies when visiting such sites.',
                     darkMode: darkMode,
                   ),
                   _buildSection(
@@ -284,7 +290,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                     iconColor: TColors.primary,
                     title: 'Your Rights',
                     content:
-                    'You have the following rights:\n\nAccess:\n• View the data we hold about you\n\nCorrection:\n• Update or correct inaccurate information\n\nDeletion:\n• Request deletion of your account and data\n\nRestriction:\n• Limit certain uses of your data\n\nPortability:\n• Export your data in a structured format\n\nWithdrawal of Consent:\n• Withdraw consent for data processing at any time\n\nTo exercise these rights, please contact us at ${TTexts.supportEmail}',
+                        'You have the following rights:\n\nAccess:\n• View the data we hold about you\n\nCorrection:\n• Update or correct inaccurate information\n\nDeletion:\n• Request deletion of your account and data\n\nRestriction:\n• Limit certain uses of your data\n\nPortability:\n• Export your data in a structured format\n\nWithdrawal of Consent:\n• Withdraw consent for data processing at any time\n\nTo exercise these rights, please contact us at ${TTexts.supportEmail}',
                     darkMode: darkMode,
                   ),
                   _buildSection(
@@ -294,7 +300,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                     iconColor: TColors.warning,
                     title: 'Data Retention',
                     content:
-                    'We retain your data until:\n\n• You delete your account\n• Your account remains inactive for 2 consecutive years\n• Legal retention periods expire\n\nOnce deleted, data will be permanently erased within 30 days (backups within 90 days).',
+                        'We retain your data until:\n\n• You delete your account\n• Your account remains inactive for 2 consecutive years\n• Legal retention periods expire\n\nOnce deleted, data will be permanently erased within 30 days (backups within 90 days).',
                     darkMode: darkMode,
                   ),
                   _buildSection(
@@ -304,7 +310,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                     iconColor: TColors.error,
                     title: 'Children\'s Privacy',
                     content:
-                    'This app is not intended for children under 13 years old. If we learn that we have inadvertently collected such data, we will promptly delete it.',
+                        'This app is not intended for children under 13 years old. If we learn that we have inadvertently collected such data, we will promptly delete it.',
                     darkMode: darkMode,
                   ),
                   _buildSection(
@@ -314,7 +320,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                     iconColor: TColors.info,
                     title: 'Policy Updates',
                     content:
-                    'We may update this Privacy Policy from time to time. Significant changes will be notified via in-app message or email. Continued use of the app constitutes acceptance of the revised policy.',
+                        'We may update this Privacy Policy from time to time. Significant changes will be notified via in-app message or email. Continued use of the app constitutes acceptance of the revised policy.',
                     darkMode: darkMode,
                   ),
                   _buildSection(
@@ -324,7 +330,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                     iconColor: TColors.success,
                     title: 'Contact Us',
                     content:
-                    'If you have any questions or concerns about this Privacy Policy, please contact us:\n\n• Email: ${TTexts.supportEmail}\n• Phone: ${TTexts.supportPhone}\n• Address: DiaTrack Health Solutions\n  Penang, Malaysia',
+                        'If you have any questions or concerns about this Privacy Policy, please contact us:\n\n• Email: ${TTexts.supportEmail}\n• Phone: ${TTexts.supportPhone}\n• Address: DiaTrack Health Solutions\n  Penang, Malaysia',
                     darkMode: darkMode,
                   ),
                   const SizedBox(height: TSizes.spaceBtwSections),
@@ -393,10 +399,10 @@ class PrivacyPolicyScreen extends StatelessWidget {
                                     .textTheme
                                     .titleLarge!
                                     .copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: TColors.success,
-                                  fontSize: 20,
-                                ),
+                                      fontWeight: FontWeight.bold,
+                                      color: TColors.success,
+                                      fontSize: 20,
+                                    ),
                               ),
                               const SizedBox(height: TSizes.sm),
                               Text(
@@ -405,11 +411,11 @@ class PrivacyPolicyScreen extends StatelessWidget {
                                     .textTheme
                                     .bodyMedium!
                                     .apply(
-                                  color: darkMode
-                                      ? TColors.darkGrey
-                                      : TColors.textSecondary,
-                                  heightFactor: 1.6,
-                                ),
+                                      color: darkMode
+                                          ? TColors.darkGrey
+                                          : TColors.textSecondary,
+                                      heightFactor: 1.6,
+                                    ),
                               ),
                             ],
                           ),
@@ -511,9 +517,9 @@ class PrivacyPolicyScreen extends StatelessWidget {
                   child: Text(
                     title,
                     style: Theme.of(context).textTheme.titleLarge!.copyWith(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 17,
-                    ),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 17,
+                        ),
                   ),
                 ),
                 Container(
@@ -538,9 +544,9 @@ class PrivacyPolicyScreen extends StatelessWidget {
             child: Text(
               content,
               style: Theme.of(context).textTheme.bodyMedium!.apply(
-                color: darkMode ? TColors.darkGrey : TColors.textSecondary,
-                heightFactor: 1.6,
-              ),
+                    color: darkMode ? TColors.darkGrey : TColors.textSecondary,
+                    heightFactor: 1.6,
+                  ),
             ),
           ),
         ],

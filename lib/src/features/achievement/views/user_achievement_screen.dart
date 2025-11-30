@@ -1,8 +1,8 @@
-// user_achievement_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../common/loaders/circular_loader.dart';
+import '../../../common/widgets/appbar/appbar.dart';
 import '../../../common/widgets/tab_selector/custom_tab_selector.dart';
 import '../../../utils/constants/colors.dart';
 import '../../../utils/constants/enums.dart';
@@ -13,6 +13,7 @@ import '../controllers/user_achievement_controller.dart';
 import '../controllers/achievement_controller.dart';
 import '../models/achievement_display_data.dart';
 import 'leaderboard_screen.dart';
+import 'makeup_guide_screen.dart';
 
 class UserAchievementScreen extends StatelessWidget {
   const UserAchievementScreen({super.key});
@@ -27,13 +28,9 @@ class UserAchievementScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: isDark ? TColors.darkBackground : Colors.grey[50],
-      appBar: AppBar(
+      appBar: TAppBar(
         backgroundColor: TColors.primary,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Get.back(),
-        ),
+        showBackArrow: true,
         title: const Text(
           'Achievement',
           style: TextStyle(
@@ -42,7 +39,18 @@ class UserAchievementScreen extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
-        centerTitle: true,
+        iconTheme: IconThemeData(color: TColors.white),
+        actions: [
+          IconButton(
+            icon: Icon(
+              Icons.info_outline_rounded,
+              color: TColors.white,
+            ),
+            onPressed: () {
+              Get.to(() => const MakeupGuideScreen());
+            },
+          ),
+        ],
       ),
       body: Obx(() {
         if (controller.isLoading.value) {

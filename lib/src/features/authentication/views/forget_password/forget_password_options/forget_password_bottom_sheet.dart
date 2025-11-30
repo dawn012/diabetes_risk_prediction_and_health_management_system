@@ -34,15 +34,15 @@ class ForgetPasswordScreen {
             ),
             const SizedBox(height: TSizes.defaultSize - 10.0),
 
-            ForgetPasswordBtnWidget(
-              onTap: () {
-                Navigator.pop(context);
-                Get.to(() => const ForgetPasswordPhoneScreen());
-              },
-              title: TTexts.phoneNo,
-              subTitle: TTexts.resetViaPhone,
-              btnIcon: Icons.mobile_friendly_rounded,
-            ),
+            // ForgetPasswordBtnWidget(
+            //   onTap: () {
+            //     Navigator.pop(context);
+            //     Get.to(() => const ForgetPasswordPhoneScreen());
+            //   },
+            //   title: TTexts.phoneNo,
+            //   subTitle: TTexts.resetViaPhone,
+            //   btnIcon: Icons.mobile_friendly_rounded,
+            // ),
           ],
         ),
       ),

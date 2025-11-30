@@ -71,8 +71,14 @@ export class CommunityAchievementService {
 
     logsSnapshot.docs.forEach((doc) => {
       const data = doc.data();
-      if (data.physicalActivity && data.physicalActivity.steps > 0) {
-        totalSteps += data.physicalActivity.steps;
+      const id = data.logId || doc.id;
+
+      // 可选：只认 steps_* 的 log
+      if (!id.startsWith("steps_")) return;
+
+      const steps = data.steps || 0;
+      if (steps > 0) {
+        totalSteps += steps;
       }
     });
 
@@ -80,7 +86,7 @@ export class CommunityAchievementService {
   }
 
   /**
-   * 🆕 帖子创建时的成就更新
+   * 帖子创建时的成就更新
    * 同时更新 periodic 和 permanent 成就
    */
   static async handlePostCreated(
@@ -121,16 +127,16 @@ export class CommunityAchievementService {
   }
 
   /**
-   * 🆕 评论创建时的成就更新
+   * 评论创建时的成就更新
    * 同时更新 periodic 和 permanent 成就
    */
-  static async handleCommentCreated(userId: string): Promise<void> {
+  static async handleCommentCreated(userId: string, postId: string): Promise<void> {
     try {
       // 1. 更新周期性成就：评论数
       await this.incrementAchievementByDataType(userId, "communityComment");
 
       // 2. 更新永久成就：支持性成员（不同帖子的评论数）
-      await this.incrementAchievementByDataType(userId, "supportiveMember");
+      await this.incrementSupportiveMemberIfNewPost(userId, postId);
 
       // 3. 更新活跃天数
       await this.incrementActiveDaysIfNewDay(userId);
@@ -144,7 +150,7 @@ export class CommunityAchievementService {
   }
 
   /**
-   * 🆕 增量更新活跃天数（需要检查是否是新的一天）
+   * 增量更新活跃天数（需要检查是否是新的一天）
    */
   static async incrementActiveDaysIfNewDay(userId: string): Promise<void> {
     try {
@@ -174,7 +180,7 @@ export class CommunityAchievementService {
           "communityActiveDay"
         );
 
-        functions.logger.log(`📅 New active day recorded for user ${userId}`);
+        functions.logger.log(`New active day recorded for user ${userId}`);
       }
     } catch (error) {
       functions.logger.error("❌ Error incrementing active days:", error);
@@ -182,7 +188,55 @@ export class CommunityAchievementService {
   }
 
   /**
-   * 🆕 核心方法：根据 dataType 增量更新成就
+   * 支持性成员：只在“第一次评论某个 post”时 +1
+   * 使用 supportiveMemberRecords 作为去重记录
+   */
+  private static async incrementSupportiveMemberIfNewPost(
+    userId: string,
+    postId: string
+  ): Promise<void> {
+    try {
+      // 1. 先检查这个 user + post 是否已经被记录过
+      const recordQuery = await db
+        .collection("supportiveMemberRecords")
+        .where("userId", "==", userId)
+        .where("postId", "==", postId)
+        .limit(1)
+        .get();
+
+      if (!recordQuery.empty) {
+        // 已经算过这篇 post，不再 +1
+        functions.logger.log(
+          `SupportiveMember already counted for user ${userId} on post ${postId}`
+        );
+        return;
+      }
+
+      // 2. 写入一条去重记录（只增不减）
+      const recordRef = db.collection("supportiveMemberRecords").doc();
+      await recordRef.set({
+        recordId: recordRef.id,
+        userId,
+        postId,
+        firstCommentAt: Date.now(),
+      });
+
+      // 3. 真正去给 supportiveMember 成就 +1
+      await this.incrementAchievementByDataType(userId, "supportiveMember");
+
+      functions.logger.log(
+        `✅ SupportiveMember incremented for user ${userId} on new post ${postId}`
+      );
+    } catch (error) {
+      functions.logger.error(
+        "❌ Error incrementing supportiveMember for new post:",
+        error
+      );
+    }
+  }
+
+  /**
+   * 核心方法：根据 dataType 增量更新成就
    */
   private static async incrementAchievementByDataType(
     userId: string,
@@ -222,7 +276,7 @@ export class CommunityAchievementService {
   }
 
   /**
-   * 🆕 增量更新成就进度（统一方法，支持 periodic 和 permanent）
+   * 增量更新成就进度（统一方法，支持 periodic 和 permanent）
    */
   private static async incrementAchievementProgress(
     userId: string,
@@ -243,7 +297,7 @@ export class CommunityAchievementService {
       let existingPoints = 0;
 
       if (userAchievementQuery.empty) {
-        // 🔧 创建新的 userAchievement（初始 count = 1）
+        // 创建新的 userAchievement（初始 count = 1）
         userAchievementRef = db.collection("userAchievements").doc();
 
         await userAchievementRef.set({
@@ -259,7 +313,7 @@ export class CommunityAchievementService {
         });
 
         functions.logger.log(
-          `🆕 Created userAchievement: ${userId} - ${achievementId} (count: 1)`
+          `Created userAchievement: ${userId} - ${achievementId} (count: 1)`
         );
       } else {
         // 🔧 更新现有的 userAchievement，currentCount + 1
@@ -276,7 +330,7 @@ export class CommunityAchievementService {
         });
 
         functions.logger.log(
-          `📈 Incremented achievement: ${userId} - ${achievementId} (count: ${currentCount})`
+          `Incremented achievement: ${userId} - ${achievementId} (count: ${currentCount})`
         );
       }
 
@@ -300,7 +354,7 @@ export class CommunityAchievementService {
   }
 
   /**
-   * 🆕 更新非社区类的永久成就（Gold 次数、总等级次数、终身步数）
+   * 更新非社区类的永久成就（Gold 次数、总等级次数、终身步数）
    * 这些成就需要重新计算，保留原有逻辑
    */
   static async updateNonCommunityPermanentAchievements(
@@ -320,7 +374,7 @@ export class CommunityAchievementService {
         const achievementId = achievementDoc.id;
         const dataType = achievement.dataType;
 
-        // 🔧 跳过社区相关的永久成就（这些已经通过增量更新处理）
+        // 跳过社区相关的永久成就（这些已经通过增量更新处理）
         const communityDataTypes = [
           "totalPosts",
           "generalPosts",
@@ -338,9 +392,10 @@ export class CommunityAchievementService {
         let currentCount = 0;
 
         switch (dataType) {
-        case "lifetimeSteps":
-          currentCount = await this.countTotalSteps(userId);
-          break;
+        // 不再每天重算 lifetimeSteps
+        //         case "lifetimeSteps":
+        //           currentCount = await this.countTotalSteps(userId);
+        //           break;
 
         case "glucoseGoldCount":
           currentCount = await this.countGoldAchievements(
@@ -395,7 +450,7 @@ export class CommunityAchievementService {
           continue;
         }
 
-        // 🔧 只有当 count > 0 时才更新成就
+        // 只有当 count > 0 时才更新成就
         if (currentCount > 0) {
           updatePromises.push(
             this.updateAchievementProgress(
@@ -467,7 +522,7 @@ export class CommunityAchievementService {
         });
 
         functions.logger.log(
-          `📊 Updated progress: ${userId} - ${achievementId} (count: ${currentCount})`
+          `Updated progress: ${userId} - ${achievementId} (count: ${currentCount})`
         );
       }
 
@@ -544,7 +599,7 @@ export class CommunityAchievementService {
       await userAchievementRef.update(updateData);
 
       functions.logger.log(
-        `🎉 Level changed: ${existingLevel} → ${newLevel}, Points: ${existingPoints} → ${newPoints}`
+        `Level changed: ${existingLevel} → ${newLevel}, Points: ${existingPoints} → ${newPoints}`
       );
 
       // 更新用户总分（仅周期性成就）
@@ -558,50 +613,50 @@ export class CommunityAchievementService {
 
         functions.logger.log(
           pointsDiff > 0
-            ? `💰 Awarded ${pointsDiff} points to user ${userId}`
-            : `📉 Deducted ${Math.abs(pointsDiff)} points from user ${userId}`
+            ? `Awarded ${pointsDiff} points to user ${userId}`
+            : `Deducted ${Math.abs(pointsDiff)} points from user ${userId}`
         );
       }
 
       // 记录成就历史（如果是周期性成就且达到新等级）
-      if (
-        achievementType === "periodic" &&
-        newLevel !== "none" &&
-        newLevel !== existingLevel
-      ) {
-        await this.recordAchievementHistory(
-          userId,
-          achievementId,
-          newLevel as "bronze" | "silver" | "gold"
-        );
-      }
+      //       if (
+      //         achievementType === "periodic" &&
+      //         newLevel !== "none" &&
+      //         newLevel !== existingLevel
+      //       ) {
+      //         await this.recordAchievementHistory(
+      //           userId,
+      //           achievementId,
+      //           newLevel as "bronze" | "silver" | "gold"
+      //         );
+      //       }
     }
   }
 
   /**
    * 记录成就历史
    */
-  private static async recordAchievementHistory(
-    userId: string,
-    achievementId: string,
-    level: "bronze" | "silver" | "gold"
-  ): Promise<void> {
-    try {
-      const historyRef = db.collection("achievementHistory").doc();
-
-      await historyRef.set({
-        historyId: historyRef.id,
-        userId,
-        achievementId,
-        level,
-        achievedAt: Date.now(),
-      });
-
-      functions.logger.log(
-        `📝 Recorded achievement history: ${userId} - ${achievementId} - ${level}`
-      );
-    } catch (error) {
-      functions.logger.error("❌ Error recording achievement history:", error);
-    }
-  }
+//   private static async recordAchievementHistory(
+//     userId: string,
+//     achievementId: string,
+//     level: "bronze" | "silver" | "gold"
+//   ): Promise<void> {
+//     try {
+//       const historyRef = db.collection("achievementHistory").doc();
+//
+//       await historyRef.set({
+//         historyId: historyRef.id,
+//         userId,
+//         achievementId,
+//         level,
+//         achievedAt: Date.now(),
+//       });
+//
+//       functions.logger.log(
+//         `📝 Recorded achievement history: ${userId} - ${achievementId} - ${level}`
+//       );
+//     } catch (error) {
+//       functions.logger.error("❌ Error recording achievement history:", error);
+//     }
+//   }
 }

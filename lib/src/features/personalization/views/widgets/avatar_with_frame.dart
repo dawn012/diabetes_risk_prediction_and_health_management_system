@@ -23,7 +23,7 @@ class AvatarWithFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.find<AvatarFrameController>();
+    final controller = Get.put(AvatarFrameController());
     final userController = UserController.instance;
 
     return Obx(() {

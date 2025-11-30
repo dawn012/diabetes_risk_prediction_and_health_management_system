@@ -3,8 +3,10 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:showcaseview/showcaseview.dart';
 
 import '../../../../common/widgets/appbar/appbar.dart';
+import '../../../../services/tutorial_flow_manager.dart';
 import '../../../../utils/constants/colors.dart';
 import '../../../../utils/constants/enums.dart';
 import '../../../../utils/constants/health_data_range.dart';
@@ -14,6 +16,7 @@ import '../../../../utils/helpers/helper_functions.dart';
 import '../../controllers/blood_glucose_controller.dart';
 import '../health_data_entry/health_data_entry_screen.dart';
 import 'widgets/health_analytics_time_range_selector.dart';
+import 'widgets/health_data_list_screen.dart';
 import 'widgets/health_distribution_chart.dart';
 import 'widgets/health_statistics_table.dart';
 import 'widgets/health_trends_chart.dart';
@@ -27,6 +30,22 @@ class BloodGlucoseAnalyticsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = Get.find<BloodGlucoseController>();
     final darkMode = THelperFunctions.isDarkMode(context);
+    final flowManager = TutorialFlowManager.instance;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (context.mounted &&
+          flowManager.isTutorialActive.value &&
+          flowManager.shouldShowTutorialFor(TutorialStep.analyticsTimeRange)) {
+        print('🎬 Showing analytics tutorial for: ${flowManager.currentStep.value}');
+
+        // 延迟确保页面完全加载
+        Future.delayed(const Duration(milliseconds: 600), () {
+          if (context.mounted && !flowManager.showOverlay.value) {
+            flowManager.showCurrentStepOverlay(context);
+          }
+        });
+      }
+    });
 
     return Scaffold(
       backgroundColor: darkMode ? const Color(0xFF0A0A0B) : TColors.light,
@@ -70,14 +89,36 @@ class BloodGlucoseAnalyticsScreen extends StatelessWidget {
                 'Custom Range (${start.day}/${start.month}/${start.year % 100} - ${end.day}/${end.month}/${end.year % 100})';
               }
 
-              return HealthAnalyticsTimeRangeSelector(
+              Widget timeRangeContent = HealthAnalyticsTimeRangeSelector(
                 selectedTimeRange: displayText,
                 onTap: () => _showTimeRangePicker(context, controller, darkMode),
               );
+
+              // 在教学模式下包装 Showcase
+              if (flowManager.shouldShowTutorialFor(TutorialStep.analyticsTimeRange)) {
+                return Container(
+                  key: flowManager.timeRangeKey,
+                  child: timeRangeContent,
+                );
+              }
+
+              return timeRangeContent;
             }),
 
             /// Last Record Info
-            Obx(() => _buildLastRecordInfo(context, controller, darkMode)),
+            Obx(() {
+              Widget lastRecordContent = _buildLastRecordInfo(context, controller, darkMode);
+
+              // 在教学模式下包装 Showcase
+              if (flowManager.shouldShowTutorialFor(TutorialStep.analyticsLastRecord)) {
+                return Container(
+                  key: flowManager.lastRecordLabelKey,
+                  child: lastRecordContent,
+                );
+              }
+
+              return lastRecordContent;
+            }),
 
             /// Legend
             _buildLegend(context, darkMode),
@@ -86,7 +127,6 @@ class BloodGlucoseAnalyticsScreen extends StatelessWidget {
 
             /// Statistics Cards
             Obx(() {
-              // Format average value display
               final lowestDisplay = controller.lowestValue.value >= 0
                   ? controller.lowestValue.value.toStringAsFixed(1)
                   : '-';
@@ -96,147 +136,201 @@ class BloodGlucoseAnalyticsScreen extends StatelessWidget {
               final averageDisplay = controller.averageValue.value >= 0
                   ? controller.averageValue.value.toStringAsFixed(1)
                   : '-';
-
-              // Determine if taps are enabled
               final hasRecords = controller.totalCount.value > 0;
 
-              return Column(
-                children: [
-                  HealthStatisticsTable(
-                    title: 'Blood Glucose',
-                    selectedFilter: controller.selectedPeriodFilter.value,
-                    onFilterTap: () => PeriodFilter.show(
-                      context: context,
-                      selectedValue: controller.selectedPeriodFilter.value,
-                      onValueChanged: (filter) {
-                        controller.updatePeriodFilter(filter);
-                      },
-                      options: PhysiologicalTimePeriod.getAllDisplayNames(),
-                    ),
-                    statisticsRows: [
-                      StatisticsRow(
-                        label: 'Glucose Level',
-                        lowestValue: lowestDisplay,
-                        highestValue: highestDisplay,
-                        averageValue: averageDisplay,
-                        lowestColor: controller
-                            .getGlucoseLevelColor(controller.lowestValue.value),
-                        highestColor: controller
-                            .getGlucoseLevelColor(controller.highestValue.value),
-                        averageColor: controller
-                            .getGlucoseLevelColor(controller.averageValue.value),
-                        onLowestTap: hasRecords ? () => controller.navigateToLowestRecord() : null,
-                        onHighestTap: hasRecords ? () => controller.navigateToHighestRecord() : null,
-                        onAverageTap: hasRecords ? () => controller.showAllRecords() : null,
-                      ),
-                    ],
+              Widget statisticsContent = HealthStatisticsTable(
+                title: 'Blood Glucose',
+                selectedFilter: controller.selectedPeriodFilter.value,
+                onFilterTap: () => PeriodFilter.show(
+                  context: context,
+                  selectedValue: controller.selectedPeriodFilter.value,
+                  onValueChanged: (filter) {
+                    controller.updatePeriodFilter(filter);
+                  },
+                  options: PhysiologicalTimePeriod.getAllDisplayNames(),
+                ),
+                statisticsRows: [
+                  StatisticsRow(
+                    label: 'Glucose Level',
+                    lowestValue: lowestDisplay,
+                    highestValue: highestDisplay,
+                    averageValue: averageDisplay,
+                    lowestColor: controller.getGlucoseLevelColor(controller.lowestValue.value),
+                    highestColor: controller.getGlucoseLevelColor(controller.highestValue.value),
+                    averageColor: controller.getGlucoseLevelColor(controller.averageValue.value),
+                    onLowestTap: hasRecords ? () => controller.navigateToLowestRecord() : null,
+                    onHighestTap: hasRecords ? () => controller.navigateToHighestRecord() : null,
+                    onAverageTap: hasRecords ? () => controller.showAllRecords() : null,
                   ),
                 ],
               );
+
+              // 只有在教学模式下才包装 Showcase
+              if (flowManager.shouldShowTutorialFor(TutorialStep.analyticsStatistics)) {
+                statisticsContent = Container(
+                  key: flowManager.analyticsStatisticsKey,
+                  child: statisticsContent,
+                );
+              }
+
+              return statisticsContent;
             }),
 
             const SizedBox(height: TSizes.defaultSpace),
 
             /// Distribution Chart
-            Obx(() => HealthDistributionChart(
-                  title: 'Distribution',
-                  distributionData: [
-                    DistributionData(
-                      label: 'Normal',
-                      count: controller.normalCount.value,
-                      color: TColors.glucoseNormal,
-                      onTap: () => controller.showNormalRecords(),
-                    ),
-                    DistributionData(
-                      label: 'High',
-                      count: controller.highCount.value,
-                      color: TColors.glucoseHigh,
-                      onTap: () => controller.showHighRecords(),
-                    ),
-                    DistributionData(
-                      label: 'Low',
-                      count: controller.lowCount.value,
-                      color: TColors.glucoseLow,
-                      onTap: () => controller.showLowRecords(),
-                    ),
-                    DistributionData(
-                      label: 'Total',
-                      count: controller.totalCount.value,
-                      color: darkMode ? TColors.grey : TColors.darkGrey,
-                      onTap: () => controller.showAllRecords(),
-                    ),
-                  ],
-                  pieChartSections: controller.totalCount.value > 0
-                      ? [
-                          PieChartSectionData(
-                            value: controller.normalCount.value.toDouble(),
-                            color: TColors.glucoseNormal,
-                            radius: 25,
-                            showTitle: false,
-                          ),
-                          PieChartSectionData(
-                            value: controller.highCount.value.toDouble(),
-                            color: TColors.glucoseHigh,
-                            radius: 25,
-                            showTitle: false,
-                          ),
-                          PieChartSectionData(
-                            value: controller.lowCount.value.toDouble(),
-                            color: TColors.glucoseLow,
-                            radius: 25,
-                            showTitle: false,
-                          ),
-                        ]
-                      : [],
-                  hasData: controller.totalCount.value > 0,
-                )),
+            Obx(() {
+              Widget distributionContent = HealthDistributionChart(
+                title: 'Distribution',
+                distributionData: [
+                  DistributionData(
+                    label: 'Normal',
+                    count: controller.normalCount.value,
+                    color: TColors.glucoseNormal,
+                    onTap: () => controller.showNormalRecords(),
+                  ),
+                  DistributionData(
+                    label: 'High',
+                    count: controller.highCount.value,
+                    color: TColors.glucoseHigh,
+                    onTap: () => controller.showHighRecords(),
+                  ),
+                  DistributionData(
+                    label: 'Low',
+                    count: controller.lowCount.value,
+                    color: TColors.glucoseLow,
+                    onTap: () => controller.showLowRecords(),
+                  ),
+                  DistributionData(
+                    label: 'Total',
+                    count: controller.totalCount.value,
+                    color: darkMode ? TColors.grey : TColors.darkGrey,
+                    onTap: () async {  // 改为 async
+                      final flowManager = TutorialFlowManager.instance;
+
+                      // 在教学模式下处理点击Total
+                      if (flowManager.shouldShowTutorialFor(TutorialStep.analyticsClickTotal)) {
+                        print('🎯 Total clicked in tutorial mode');
+
+                        // 按照 Dashboard 的模式：先隐藏 overlay，推进步骤，然后直接导航
+                        flowManager.hideOverlay();
+                        flowManager.currentStep.value = TutorialStep.analyticsDeleteRecord;
+                        flowManager.saveCurrentStep();
+
+                        // 直接导航，不需要异步等待
+                        Get.to(() => HealthDataListScreen(
+                          title: 'All Glucose Records',
+                          healthDataType: HealthDataType.bloodGlucose,
+                          filterType: 'all',
+                        ));
+                      } else {
+                        // 正常模式：使用原有功能
+                        controller.showAllRecords();
+                      }
+                    },
+                  ),
+                ],
+                pieChartSections: controller.totalCount.value > 0
+                    ? [
+                  PieChartSectionData(
+                    value: controller.normalCount.value.toDouble(),
+                    color: TColors.glucoseNormal,
+                    radius: 25,
+                    showTitle: false,
+                  ),
+                  PieChartSectionData(
+                    value: controller.highCount.value.toDouble(),
+                    color: TColors.glucoseHigh,
+                    radius: 25,
+                    showTitle: false,
+                  ),
+                  PieChartSectionData(
+                    value: controller.lowCount.value.toDouble(),
+                    color: TColors.glucoseLow,
+                    radius: 25,
+                    showTitle: false,
+                  ),
+                ]
+                    : [],
+                hasData: controller.totalCount.value > 0,
+              );
+
+              // 根据不同步骤使用不同的 key
+              if (flowManager.shouldShowTutorialFor(TutorialStep.analyticsDistribution)) {
+                // Distribution 步骤：使用 analyticsDistributionKey
+                distributionContent = Container(
+                  key: flowManager.analyticsDistributionKey,
+                  child: distributionContent,
+                );
+              } else if (flowManager.shouldShowTutorialFor(TutorialStep.analyticsClickTotal)) {
+                // Click Total 步骤：使用 analyticsClickTotalKey
+                distributionContent = Container(
+                  key: flowManager.analyticsClickTotalKey,
+                  child: distributionContent,
+                );
+              }
+
+              return distributionContent;
+            }),
 
             const SizedBox(height: TSizes.defaultSpace),
 
             /// Trends Chart
-            Obx(() => HealthTrendsChart(
-                  title: 'Blood Glucose Trends',
-                  selectedFilter: controller.selectedTrendFilter.value,
-                  onFilterTap: () => PeriodFilter.show(
-                    context: context,
-                    selectedValue: controller.selectedTrendFilter.value,
-                    onValueChanged: (filter) {
-                      controller.updateTrendFilter(filter);
-                    },
-                    options: [
-                      'All',
-                      'Before Meal',
-                      'After Meal',
-                      'Before Exercise',
-                      'After Exercise',
-                      'Wake-up',
-                      'Bedtime',
-                      'Others'
-                    ],
+            Obx(() {
+              Widget trendsContent = HealthTrendsChart(
+                title: 'Blood Glucose Trends',
+                selectedFilter: controller.selectedTrendFilter.value,
+                onFilterTap: () => PeriodFilter.show(
+                  context: context,
+                  selectedValue: controller.selectedTrendFilter.value,
+                  onValueChanged: (filter) {
+                    controller.updateTrendFilter(filter);
+                  },
+                  options: [
+                    'All',
+                    'Before Meal',
+                    'After Meal',
+                    'Before Exercise',
+                    'After Exercise',
+                    'Wake-up',
+                    'Bedtime',
+                    'Others'
+                  ],
+                ),
+                lineBarData: [
+                  LineChartBarData(
+                    isCurved: true,
+                    color: TColors.primary,
+                    barWidth: 3,
+                    dotData: const FlDotData(show: true),
+                    belowBarData: BarAreaData(show: false),
+                    spots: controller.trendsData,
                   ),
-                  lineBarData: [
-                    LineChartBarData(
-                      isCurved: true,
-                      color: TColors.primary,
-                      barWidth: 3,
-                      dotData: const FlDotData(show: true),
-                      belowBarData: BarAreaData(show: false),
-                      spots: controller.trendsData,
-                    ),
-                  ],
-                  labels: controller.trendsLabels,
-                  minY: 0,
-                  maxY: HealthDataRanges.maxGlucoseMmolL,
-                  yAxisUnit: 'mmol/L',
-                  hasData: controller.trendsData.isNotEmpty,
-                  timeRange: controller.selectedTimeRange.value,
-                  periodFilter: controller.selectedPeriodFilter.value,
-                  trendFilter: controller.selectedTrendFilter.value,
-                  legendItems: [
-                    LegendItem(label: 'Blood Glucose', color: TColors.primary),
-                  ],
-                  originalDateTimes: controller.trendsOriginalDateTimes,
-                )),
+                ],
+                labels: controller.trendsLabels,
+                minY: 0,
+                maxY: HealthDataRanges.maxGlucoseMmolL,
+                yAxisUnit: 'mmol/L',
+                hasData: controller.trendsData.isNotEmpty,
+                timeRange: controller.selectedTimeRange.value,
+                periodFilter: controller.selectedPeriodFilter.value,
+                trendFilter: controller.selectedTrendFilter.value,
+                legendItems: [
+                  LegendItem(label: 'Blood Glucose', color: TColors.primary),
+                ],
+                originalDateTimes: controller.trendsOriginalDateTimes,
+              );
+
+              // 只有在教学模式下才包装 Showcase
+              if (flowManager.shouldShowTutorialFor(TutorialStep.analyticsTrends)) {
+                trendsContent = Container(
+                  key: flowManager.analyticsTrendsKey,
+                  child: trendsContent,
+                );
+              }
+
+              return trendsContent;
+            }),
 
             const SizedBox(height: TSizes.defaultSpace),
 
@@ -350,6 +444,7 @@ class BloodGlucoseAnalyticsScreen extends StatelessWidget {
                       style: const TextStyle(
                         color: TColors.primary,
                         fontWeight: FontWeight.w600,
+                        fontSize: 12
                       ),
                     )),
                     const SizedBox(width: TSizes.xs),
@@ -822,9 +917,9 @@ class BloodGlucoseAnalyticsScreen extends StatelessWidget {
                   Text(
                     'Comparison Type',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
@@ -833,28 +928,28 @@ class BloodGlucoseAnalyticsScreen extends StatelessWidget {
             /// Comparison Filter Options
             ...comparisonFilters
                 .map((filter) => ListTile(
-                      title: Text(
-                        filter,
-                        style: TextStyle(
-                          color: darkMode ? TColors.white : TColors.black,
-                          fontWeight: filter ==
-                                  controller.selectedComparisonFilter.value
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                        ),
-                      ),
-                      selected:
-                          filter == controller.selectedComparisonFilter.value,
-                      selectedTileColor: TColors.primary.withOpacity(0.1),
-                      onTap: () {
-                        controller.updateComparisonFilter(filter);
-                        Get.back();
-                      },
-                      trailing:
-                          filter == controller.selectedComparisonFilter.value
-                              ? const Icon(Icons.check, color: TColors.primary)
-                              : null,
-                    ))
+              title: Text(
+                filter,
+                style: TextStyle(
+                  color: darkMode ? TColors.white : TColors.black,
+                  fontWeight: filter ==
+                      controller.selectedComparisonFilter.value
+                      ? FontWeight.bold
+                      : FontWeight.normal,
+                ),
+              ),
+              selected:
+              filter == controller.selectedComparisonFilter.value,
+              selectedTileColor: TColors.primary.withOpacity(0.1),
+              onTap: () {
+                controller.updateComparisonFilter(filter);
+                Get.back();
+              },
+              trailing:
+              filter == controller.selectedComparisonFilter.value
+                  ? const Icon(Icons.check, color: TColors.primary)
+                  : null,
+            ))
                 .toList(),
 
             const SizedBox(height: TSizes.defaultSpace),

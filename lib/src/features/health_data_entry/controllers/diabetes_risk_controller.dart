@@ -357,6 +357,25 @@ class DiabetesRiskController extends GetxController {
     ));
   }
 
+  /// Delete diabetes risk prediction
+  void deleteDiabetesPrediction(String predictionId) async {
+    try {
+      final userId = _authRepo.authUser?.uid;
+      if (userId == null) return;
+
+      await _predictionRepo.deleteDiabetesPrediction(userId, predictionId);
+      TLoaders.successSnackBar(
+          title: 'Success',
+          message: 'Diabetes risk record deleted successfully'
+      );
+    } catch (e) {
+      TLoaders.errorSnackBar(
+          title: 'Error',
+          message: 'Failed to delete diabetes risk record'
+      );
+    }
+  }
+
   /// Refresh data
   Future<void> refreshData() async {
     _calculateStatistics();

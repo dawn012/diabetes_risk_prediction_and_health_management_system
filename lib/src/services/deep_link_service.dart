@@ -269,10 +269,17 @@ class DeepLinkService extends GetxService {
   }
 
   Future<void> _handlePaymentScheme(Uri uri) async {
-    final pathSegments = uri.pathSegments;
-    if (pathSegments.isEmpty) return;
+    // final pathSegments = uri.pathSegments;
+    // if (pathSegments.isEmpty) return;
+    //
+    // final subscriptionId = pathSegments[0];
+    final subscriptionId = uri.queryParameters['subscription_id'];
 
-    final subscriptionId = pathSegments[0];
+    if (subscriptionId == null || subscriptionId.isEmpty) {
+      print('No subscription_id found in PayPal deep link: $uri');
+      return;
+    }
+
     await _handleUpdatePaymentMethod(subscriptionId);
   }
 

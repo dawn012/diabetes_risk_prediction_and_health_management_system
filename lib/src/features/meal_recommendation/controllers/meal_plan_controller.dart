@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:icons_plus/icons_plus.dart';
@@ -5,6 +7,7 @@ import 'package:icons_plus/icons_plus.dart';
 import '../../../common/loaders/loaders.dart';
 import '../../../common/widgets/dialogs/dialog.dart';
 import '../../../data/repositories/meal_recommendation/meal_repository.dart';
+import '../../../services/meal_hive_storage_manager.dart';
 import '../../../utils/constants/colors.dart';
 import '../../../utils/constants/enums.dart';
 import '../../../utils/constants/meal_time_constants.dart';
@@ -35,16 +38,32 @@ class MealPlanController extends GetxController {
   final statusFilters = ['all', 'completed', 'cancelled', 'expired'];
   final sortOptions = ['date_desc', 'date_asc', 'adherence_desc', 'adherence_asc'];
 
+  final hasTempMealPlan = false.obs;
+  Timer? _tempPlanCheckTimer;
+
   @override
   void onInit() {
     super.onInit();
     _initializeMealPlans();
+    _setupTempPlanTimer();
   }
 
   @override
   void onClose() {
+    _tempPlanCheckTimer?.cancel();
     searchController.dispose();
     super.onClose();
+  }
+
+  /// 设置临时计划定时检查器
+  void _setupTempPlanTimer() {
+    // 立即检查一次
+    _checkForTempPlan();
+
+    // 每2秒检查一次
+    _tempPlanCheckTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      _checkForTempPlan();
+    });
   }
 
   /// Initialize meal plans
@@ -52,6 +71,61 @@ class MealPlanController extends GetxController {
     await loadActiveMealPlan();
     await loadPastMealPlans();
     _listenToActiveMealPlan();
+  }
+
+  /// 检查 Hive 中是否有临时计划
+  Future<void> _checkForTempPlan() async {
+    try {
+      final mealHiveStorage = Get.find<MealHiveStorageManager>();
+      final hasPlan = mealHiveStorage.hasActiveMealPlan();
+
+      print('🔍 Checking temp plan: hasPlan=$hasPlan');
+
+      if (hasPlan) {
+        final tempPlan = mealHiveStorage.getActiveMealPlan();
+        final hasValidPlan = tempPlan != null &&
+            tempPlan.scheduledMeals.isNotEmpty &&
+            tempPlan.scheduledMeals.any((meal) => meal.meal != null);
+
+        print('🔍 Temp plan details: hasValidPlan=$hasValidPlan, mealCount=${tempPlan?.scheduledMeals.length}');
+
+        if (hasTempMealPlan.value != hasValidPlan) {
+          hasTempMealPlan.value = hasValidPlan;
+          print('✅ Temp plan status updated: $hasValidPlan');
+          update(); // 强制更新界面
+        }
+      } else {
+        if (hasTempMealPlan.value != false) {
+          hasTempMealPlan.value = false;
+          print('✅ Temp plan status updated: false');
+          update(); // 强制更新界面
+        }
+      }
+    } catch (e) {
+      print('❌ Error checking for temp plan: $e');
+      hasTempMealPlan.value = false;
+      update(); // 强制更新界面
+    }
+  }
+
+  /// 丢弃临时计划
+  Future<void> discardTempPlan() async {
+    try {
+      final mealHiveStorage = Get.find<MealHiveStorageManager>();
+      await mealHiveStorage.deleteMealPlan('active_meal_plan');
+      hasTempMealPlan.value = false;
+
+      TLoaders.successSnackBar(
+        title: 'Plan Discarded',
+        message: 'Temporary meal plan has been removed',
+      );
+    } catch (e) {
+      TLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to discard temporary plan',
+      );
+      print('Error discarding temp plan: $e');
+    }
   }
 
   /// Listen to active meal plan changes
@@ -471,6 +545,7 @@ class MealPlanController extends GetxController {
       loadActiveMealPlan(),
       loadPastMealPlans(),
     ]);
+    _checkForTempPlan();
   }
 
   /// Check if has active meal plan

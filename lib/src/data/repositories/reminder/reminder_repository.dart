@@ -44,8 +44,11 @@ class ReminderRepository extends GetxController {
     };
 
     // 2. 处理 endDate
-    if (reminder.endDate != null) {
-      // endDate 使用当天的 23:59:59，然后转 UTC
+    if (reminder.repeatType == RepeatType.once) {
+      // Once 类型使用 2099 作为占位符，表示"无限期"
+      json[FirebaseFieldNames.endDate] = Timestamp.fromDate(DateTime(2099, 12, 31));
+    } else if (reminder.endDate != null) {
+      // 重复类型才使用实际的 endDate
       final endDateWithTime = DateTime(
         reminder.endDate!.year,
         reminder.endDate!.month,
@@ -56,7 +59,7 @@ class ReminderRepository extends GetxController {
       );
       json[FirebaseFieldNames.endDate] = Timestamp.fromDate(endDateWithTime);
     } else {
-      // 使用 2099 作为占位符
+      // 如果没有设置 endDate，也使用 2099
       json[FirebaseFieldNames.endDate] = Timestamp.fromDate(DateTime(2099, 12, 31));
     }
 
@@ -71,7 +74,7 @@ class ReminderRepository extends GetxController {
 
     return remindersRef
         .where(FirebaseFieldNames.userId, isEqualTo: currentUserId)
-        .orderBy(FirebaseFieldNames.nextTriggerTime)
+        .orderBy(FirebaseFieldNames.baseTime)
         .snapshots()
         .map((querySnapshot) {
       return querySnapshot.docs
@@ -89,7 +92,7 @@ class ReminderRepository extends GetxController {
 
       final snapshot = await remindersRef
           .where(FirebaseFieldNames.userId, isEqualTo: currentUserId)
-          .orderBy(FirebaseFieldNames.nextTriggerTime)
+          .orderBy(FirebaseFieldNames.baseTime)
           .get();
 
       return snapshot.docs

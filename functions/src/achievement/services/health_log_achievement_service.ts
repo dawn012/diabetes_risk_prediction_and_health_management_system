@@ -33,6 +33,76 @@ export class HealthLogAchievementService {
       return 0;
     }
 
+    // 特别处理 steps（你现在 steps 在根层）
+    if (config.dataType === "steps") {
+      const docs = logsSnapshot.docs;
+
+      // 你可以在 config.trackingStrategy 里为 steps 配
+      // - "totalSteps"：算当月总步数
+      // - "qualifiedDays"：算达标天数（>= dailyTarget）
+      // - "uniqueDays"：只算有 steps 的天数
+      switch (config.trackingStrategy) {
+      case "totalSteps": {
+        let totalSteps = 0;
+        for (const doc of docs) {
+          const data = doc.data();
+          const id = data.logId || doc.id;
+
+          // 可选：只认 steps_* 的 log
+          if (!id.startsWith("steps_")) continue;
+
+          const steps = data.steps || 0;
+          if (steps > 0) {
+            totalSteps += steps;
+          }
+        }
+        return totalSteps;
+      }
+
+      case "qualifiedDays": {
+        const dailyTarget = config.stepsConfig?.dailyTarget || 8000;
+        const dailySteps = new Map<string, number>();
+
+        for (const doc of docs) {
+          const data = doc.data();
+          const id = data.logId || doc.id;
+          if (!id.startsWith("steps_")) continue;
+
+          const steps = data.steps || 0;
+          if (steps <= 0) continue;
+
+          const dateKey = DateUtils.getDateKey(data.logDateTime);
+          dailySteps.set(dateKey, (dailySteps.get(dateKey) || 0) + steps);
+        }
+
+        let qualifiedDays = 0;
+        for (const steps of dailySteps.values()) {
+          if (steps >= dailyTarget) qualifiedDays++;
+        }
+        return qualifiedDays;
+      }
+
+      case "uniqueDays": {
+        const daySet = new Set<string>();
+        for (const doc of docs) {
+          const data = doc.data();
+          const id = data.logId || doc.id;
+          if (!id.startsWith("steps_")) continue;
+
+          const steps = data.steps || 0;
+          if (steps > 0) {
+            const dateKey = DateUtils.getDateKey(data.logDateTime);
+            daySet.add(dateKey);
+          }
+        }
+        return daySet.size;
+      }
+
+      default:
+        return 0;
+      }
+    }
+
     switch (config.trackingStrategy) {
     case "uniqueDays":
       return this.countUniqueDays(logsSnapshot.docs, config.dataType);
@@ -41,6 +111,8 @@ export class HealthLogAchievementService {
       return this.sumDuration(logsSnapshot.docs);
 
     case "totalSteps":
+      // 这里是旧版 physicalActivity.steps，用于旧 schema，
+      // 如果你以后完全不用 physicalActivity.steps，可以删掉这行
       return this.countTotalSteps(logsSnapshot.docs);
 
     case "qualifiedDays":
@@ -184,7 +256,7 @@ export class HealthLogAchievementService {
       );
 
     case "steps":
-      return data.physicalActivity && data.physicalActivity.steps > 0;
+      return typeof data.steps === "number" && data.steps > 0;
 
     default:
       return false;
@@ -192,7 +264,7 @@ export class HealthLogAchievementService {
   }
 
   /**
-   * 更新用户成就进度（修改版：支持删除空进度）
+   * 更新用户成就进度（支持删除空进度）
    */
   static async updateAchievementProgress(
     userId: string,
@@ -208,14 +280,14 @@ export class HealthLogAchievementService {
         .limit(1)
         .get();
 
-      // 🔧 如果进度为 0，删除 userAchievement（如果存在）
+      // 如果进度为 0，删除 userAchievement（如果存在）
       if (currentCount === 0) {
         if (!userAchievementQuery.empty) {
           const doc = userAchievementQuery.docs[0];
           await doc.ref.delete();
 
           functions.logger.log(
-            `🗑️ Deleted userAchievement (no progress): ${userId} - ${achievementId}`
+            `Deleted userAchievement (no progress): ${userId} - ${achievementId}`
           );
 
           // 如果之前有积分，需要扣除
@@ -230,7 +302,7 @@ export class HealthLogAchievementService {
               });
 
             functions.logger.log(
-              `📉 Deducted ${existingPoints} points from user ${userId}`
+              `Deducted ${existingPoints} points from user ${userId}`
             );
           }
         }
@@ -442,7 +514,7 @@ export class HealthLogAchievementService {
           deletedCount++;
 
           functions.logger.log(
-            `🗑️ Deleted: ${achievementId} for user ${userId}`
+            `Deleted: ${achievementId} for user ${userId}`
           );
         }
       }
@@ -463,7 +535,7 @@ export class HealthLogAchievementService {
   }
 
   /**
-   * 🆕 更新所有 periodic 成就的 Gold 动态天数
+   * 更新所有 periodic 成就的 Gold 动态天数
    */
   static async updateGoldDynamicCriteria(): Promise<void> {
     try {

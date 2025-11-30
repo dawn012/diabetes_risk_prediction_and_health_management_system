@@ -17,6 +17,7 @@ class TAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.automaticallyImplyLeading = false,
     this.bottom,
     this.customBackAction,
+    this.isCenter = true,
   });
 
   final Widget? title;
@@ -29,6 +30,7 @@ class TAppBar extends StatelessWidget implements PreferredSizeWidget {
   final bool automaticallyImplyLeading;
   final PreferredSizeWidget? bottom;
   final VoidCallback? customBackAction;
+  final bool isCenter;
 
   @override
   Widget build(BuildContext context) {
@@ -53,6 +55,7 @@ class TAppBar extends StatelessWidget implements PreferredSizeWidget {
         backgroundColor: backgroundColor,
         iconTheme: iconTheme,
         elevation: 0,
+        centerTitle: isCenter,
         // Add padding to prevent tab from squishing title
         toolbarHeight: TDeviceUtils.getAppBarHeight() + (bottom != null ? 8 : 0),
       ),

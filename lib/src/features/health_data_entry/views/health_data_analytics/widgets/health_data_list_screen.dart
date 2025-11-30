@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../../common/widgets/dialogs/dialog.dart';
+import '../../../../../services/tutorial_flow_manager.dart';
 import '../../../../../utils/constants/colors.dart';
 import '../../../../../utils/constants/enums.dart';
 import '../../../../../utils/constants/sizes.dart';
@@ -32,6 +33,7 @@ class HealthDataListScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final darkMode = THelperFunctions.isDarkMode(context);
+    final flowManager = TutorialFlowManager.instance;
 
     return Scaffold(
       backgroundColor: darkMode ? const Color(0xFF0A0A0B) : TColors.light,
@@ -59,6 +61,21 @@ class HealthDataListScreen extends StatelessWidget {
   }
 
   Widget _buildBody(BuildContext context, bool darkMode) {
+    final flowManager = TutorialFlowManager.instance;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // 只在血糖数据类型且是删除记录教学步骤时才显示教学
+      if (flowManager.shouldShowTutorialFor(TutorialStep.analyticsDeleteRecord) &&
+          healthDataType == HealthDataType.bloodGlucose) {
+        print('🎬 Starting delete record tutorial for blood glucose');
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (context.mounted && !flowManager.showOverlay.value) {
+            flowManager.showCurrentStepOverlay(context);
+          }
+        });
+      }
+    });
+
     // Get the appropriate controller based on health data type
     switch (healthDataType) {
       case HealthDataType.bloodGlucose:
@@ -67,7 +84,7 @@ class HealthDataListScreen extends StatelessWidget {
           final healthDataList = _getFilteredList(controller.getFilteredData());
           return healthDataList.isEmpty
               ? _buildEmptyState(context, darkMode)
-              : _buildDataList(context, darkMode, healthDataList);
+              : _buildDataList(context, darkMode, healthDataList, healthDataList);
         });
 
       case HealthDataType.bloodPressure:
@@ -76,7 +93,7 @@ class HealthDataListScreen extends StatelessWidget {
           final healthDataList = _getFilteredList(controller.getFilteredData());
           return healthDataList.isEmpty
               ? _buildEmptyState(context, darkMode)
-              : _buildDataList(context, darkMode, healthDataList);
+              : _buildDataList(context, darkMode, healthDataList, healthDataList);
         });
 
       case HealthDataType.bodyComposition:
@@ -85,7 +102,7 @@ class HealthDataListScreen extends StatelessWidget {
           final healthDataList = _getFilteredList(controller.getFilteredData());
           return healthDataList.isEmpty
               ? _buildEmptyState(context, darkMode)
-              : _buildDataList(context, darkMode, healthDataList);
+              : _buildDataList(context, darkMode, healthDataList, healthDataList);
         });
 
       case HealthDataType.physicalActivity:
@@ -94,7 +111,7 @@ class HealthDataListScreen extends StatelessWidget {
           final healthDataList = _getFilteredList(controller.getFilteredData());
           return healthDataList.isEmpty
               ? _buildEmptyState(context, darkMode)
-              : _buildDataList(context, darkMode, healthDataList);
+              : _buildDataList(context, darkMode, healthDataList, healthDataList);
         });
 
       case HealthDataType.diabetesRisk:
@@ -119,17 +136,20 @@ class HealthDataListScreen extends StatelessWidget {
         final controller = Get.find<BloodGlucoseController>();
         switch (filterType) {
           case 'normal':
-            return data.where((d) =>
-            controller.getGlucoseLevel(d.bloodGlucose.glucoseLevel) == HealthLevel.normal
-            ).toList();
+            return data
+                .where((d) =>
+            controller.getGlucoseLevel(d.bloodGlucose.glucoseLevel) == HealthLevel.normal)
+                .toList();
           case 'high':
-            return data.where((d) =>
-            controller.getGlucoseLevel(d.bloodGlucose.glucoseLevel) == HealthLevel.high
-            ).toList();
+            return data
+                .where((d) =>
+            controller.getGlucoseLevel(d.bloodGlucose.glucoseLevel) == HealthLevel.high)
+                .toList();
           case 'low':
-            return data.where((d) =>
-            controller.getGlucoseLevel(d.bloodGlucose.glucoseLevel) == HealthLevel.low
-            ).toList();
+            return data
+                .where((d) =>
+            controller.getGlucoseLevel(d.bloodGlucose.glucoseLevel) == HealthLevel.low)
+                .toList();
         }
         break;
 
@@ -137,21 +157,25 @@ class HealthDataListScreen extends StatelessWidget {
         final controller = Get.find<BloodPressureController>();
         switch (filterType) {
           case 'normal':
-            return data.where((d) =>
-            controller.getBPLevel(d.bloodPressure.systolic, d.bloodPressure.diastolic) == 'normal'
-            ).toList();
+            return data
+                .where((d) =>
+            controller.getBPLevel(d.bloodPressure.systolic, d.bloodPressure.diastolic) == 'normal')
+                .toList();
           case 'elevated':
-            return data.where((d) =>
-            controller.getBPLevel(d.bloodPressure.systolic, d.bloodPressure.diastolic) == 'elevated'
-            ).toList();
+            return data
+                .where((d) =>
+            controller.getBPLevel(d.bloodPressure.systolic, d.bloodPressure.diastolic) == 'elevated')
+                .toList();
           case 'high':
-            return data.where((d) =>
-            controller.getBPLevel(d.bloodPressure.systolic, d.bloodPressure.diastolic) == 'high'
-            ).toList();
+            return data
+                .where((d) =>
+            controller.getBPLevel(d.bloodPressure.systolic, d.bloodPressure.diastolic) == 'high')
+                .toList();
           case 'low':
-            return data.where((d) =>
-            controller.getBPLevel(d.bloodPressure.systolic, d.bloodPressure.diastolic) == 'low'
-            ).toList();
+            return data
+                .where((d) =>
+            controller.getBPLevel(d.bloodPressure.systolic, d.bloodPressure.diastolic) == 'low')
+                .toList();
         }
         break;
 
@@ -172,8 +196,7 @@ class HealthDataListScreen extends StatelessWidget {
   }
 
   /// Apply filtering for diabetes risk data
-  List<DiabetesRiskPredictionModel> _getFilteredDiabetesRiskList(
-      List<DiabetesRiskPredictionModel> data) {
+  List<DiabetesRiskPredictionModel> _getFilteredDiabetesRiskList(List<DiabetesRiskPredictionModel> data) {
     if (filterType == null || filterType == 'all') {
       return data;
     }
@@ -181,17 +204,11 @@ class HealthDataListScreen extends StatelessWidget {
     final controller = Get.find<DiabetesRiskController>();
     switch (filterType) {
       case 'low':
-        return data
-            .where((d) => controller.getRiskLevel(d.riskScore) == 'low')
-            .toList();
+        return data.where((d) => controller.getRiskLevel(d.riskScore) == 'low').toList();
       case 'medium':
-        return data
-            .where((d) => controller.getRiskLevel(d.riskScore) == 'medium')
-            .toList();
+        return data.where((d) => controller.getRiskLevel(d.riskScore) == 'medium').toList();
       case 'high':
-        return data
-            .where((d) => controller.getRiskLevel(d.riskScore) == 'high')
-            .toList();
+        return data.where((d) => controller.getRiskLevel(d.riskScore) == 'high').toList();
     }
 
     return data;
@@ -237,7 +254,7 @@ class HealthDataListScreen extends StatelessWidget {
   }
 
   /// Data List Widget for Health Data
-  Widget _buildDataList(BuildContext context, bool darkMode, List<HealthDataModel> healthDataList) {
+  Widget _buildDataList(BuildContext context, bool darkMode, List<HealthDataModel> healthDataList, List<HealthDataModel> fullDataList) {
     // Group data by date
     final groupedData = <String, List<HealthDataModel>>{};
 
@@ -250,12 +267,10 @@ class HealthDataListScreen extends StatelessWidget {
     final sortedGroups = groupedData.entries.toList()
       ..sort((a, b) {
         final dateA = healthDataList
-            .firstWhere((d) =>
-        DateFormat('EEEE, M/d/yyyy').format(d.logDateTime) == a.key)
+            .firstWhere((d) => DateFormat('EEEE, M/d/yyyy').format(d.logDateTime) == a.key)
             .logDateTime;
         final dateB = healthDataList
-            .firstWhere((d) =>
-        DateFormat('EEEE, M/d/yyyy').format(d.logDateTime) == b.key)
+            .firstWhere((d) => DateFormat('EEEE, M/d/yyyy').format(d.logDateTime) == b.key)
             .logDateTime;
         return dateB.compareTo(dateA);
       });
@@ -274,17 +289,14 @@ class HealthDataListScreen extends StatelessWidget {
         // Group by physiological time period
         final periodGroups = <PhysiologicalTimePeriod, List<HealthDataModel>>{};
         for (final data in dayData) {
-          periodGroups
-              .putIfAbsent(data.physiologicalTimePeriod, () => [])
-              .add(data);
+          periodGroups.putIfAbsent(data.physiologicalTimePeriod, () => []).add(data);
         }
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             /// Date Header
-            if (groupIndex == 0 ||
-                sortedGroups[groupIndex - 1].key != dateLabel)
+            if (groupIndex == 0 || sortedGroups[groupIndex - 1].key != dateLabel)
               Container(
                 margin: const EdgeInsets.only(bottom: TSizes.md),
                 child: Text(
@@ -317,8 +329,15 @@ class HealthDataListScreen extends StatelessWidget {
                   ),
 
                   /// Records in this period
-                  ...periodData.map((data) =>
-                      _buildHealthDataItem(context, data, darkMode)),
+                  ...periodData.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final data = entry.value;
+                    // 计算在完整列表中的索引
+                    final globalIndex = fullDataList.indexWhere((item) => item.logId == data.logId);
+                    final isFirstRecord = globalIndex == 0;
+
+                    return _buildHealthDataItem(context, data, darkMode, isFirstRecord);
+                  }),
 
                   const SizedBox(height: TSizes.md),
                 ],
@@ -333,8 +352,7 @@ class HealthDataListScreen extends StatelessWidget {
   }
 
   /// Data List Widget for Diabetes Risk
-  Widget _buildDiabetesRiskList(BuildContext context, bool darkMode,
-      List<DiabetesRiskPredictionModel> predictionList) {
+  Widget _buildDiabetesRiskList(BuildContext context, bool darkMode, List<DiabetesRiskPredictionModel> predictionList) {
     // Group data by date
     final groupedData = <String, List<DiabetesRiskPredictionModel>>{};
 
@@ -347,12 +365,10 @@ class HealthDataListScreen extends StatelessWidget {
     final sortedGroups = groupedData.entries.toList()
       ..sort((a, b) {
         final dateA = predictionList
-            .firstWhere((d) =>
-        DateFormat('EEEE, M/d/yyyy').format(d.predictionDateTime) == a.key)
+            .firstWhere((d) => DateFormat('EEEE, M/d/yyyy').format(d.predictionDateTime) == a.key)
             .predictionDateTime;
         final dateB = predictionList
-            .firstWhere((d) =>
-        DateFormat('EEEE, M/d/yyyy').format(d.predictionDateTime) == b.key)
+            .firstWhere((d) => DateFormat('EEEE, M/d/yyyy').format(d.predictionDateTime) == b.key)
             .predictionDateTime;
         return dateB.compareTo(dateA);
       });
@@ -372,8 +388,7 @@ class HealthDataListScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             /// Date Header
-            if (groupIndex == 0 ||
-                sortedGroups[groupIndex - 1].key != dateLabel)
+            if (groupIndex == 0 || sortedGroups[groupIndex - 1].key != dateLabel)
               Container(
                 margin: const EdgeInsets.only(bottom: TSizes.md),
                 child: Text(
@@ -386,8 +401,7 @@ class HealthDataListScreen extends StatelessWidget {
               ),
 
             /// Records
-            ...dayData.map((data) =>
-                _buildDiabetesRiskItem(context, data, darkMode)),
+            ...dayData.map((data) => _buildDiabetesRiskItem(context, data, darkMode)),
 
             const SizedBox(height: TSizes.md),
           ],
@@ -397,15 +411,51 @@ class HealthDataListScreen extends StatelessWidget {
   }
 
   /// Health Data Item Widget
-  Widget _buildHealthDataItem(
-      BuildContext context, HealthDataModel data, bool darkMode) {
+  Widget _buildHealthDataItem(BuildContext context, HealthDataModel data, bool darkMode, bool isFirstRecord) {
     final levelColor = _getHealthDataColor(data, healthDataType);
+    final flowManager = TutorialFlowManager.instance;
+
+    Widget deleteButton = GestureDetector(
+      onTap: () => _showDeleteDialog(context, data, isFirstRecord),
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: darkMode ? Colors.grey.shade700 : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Icon(
+          Icons.delete_outline,
+          color: darkMode ? Colors.grey.shade400 : Colors.grey.shade600,
+          size: 18,
+        ),
+      ),
+    );
+
+    // 只在教学模式下，且是第一个记录，且是血糖数据时才添加教学 key
+    if (flowManager.shouldShowTutorialFor(TutorialStep.analyticsDeleteRecord) &&
+        isFirstRecord &&
+        healthDataType == HealthDataType.bloodGlucose) {
+      deleteButton = Container(
+        key: flowManager.dataListRecordKey,
+        child: deleteButton,
+      );
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: TSizes.sm),
       child: GestureDetector(
-        onTap: () => Get.to(() => HealthDataEntryScreen(editData: data)),
-        onLongPress: () => _showDeleteDialog(context, data),
+        onTap: () {
+          // 在教学模式下禁用编辑功能
+          if (!flowManager.shouldShowTutorialFor(TutorialStep.analyticsDeleteRecord)) {
+            Get.to(() => HealthDataEntryScreen(editData: data));
+          }
+        },
+        onLongPress: () {
+          // 在教学模式下禁用长按删除
+          if (!flowManager.shouldShowTutorialFor(TutorialStep.analyticsDeleteRecord)) {
+            _showDeleteDialog(context, data, isFirstRecord);
+          }
+        },
         child: Container(
           padding: const EdgeInsets.all(TSizes.md),
           decoration: BoxDecoration(
@@ -471,25 +521,7 @@ class HealthDataListScreen extends StatelessWidget {
               ),
 
               /// Delete Button
-              GestureDetector(
-                onTap: () => _showDeleteDialog(context, data),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: darkMode
-                        ? Colors.grey.shade700
-                        : Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Icon(
-                    Icons.delete_outline,
-                    color: darkMode
-                        ? Colors.grey.shade400
-                        : Colors.grey.shade600,
-                    size: 18,
-                  ),
-                ),
-              ),
+              deleteButton,
             ],
           ),
         ),
@@ -498,8 +530,7 @@ class HealthDataListScreen extends StatelessWidget {
   }
 
   /// Diabetes Risk Item Widget
-  Widget _buildDiabetesRiskItem(
-      BuildContext context, DiabetesRiskPredictionModel prediction, bool darkMode) {
+  Widget _buildDiabetesRiskItem(BuildContext context, DiabetesRiskPredictionModel prediction, bool darkMode) {
     final controller = Get.find<DiabetesRiskController>();
     final riskColor = controller.getRiskLevelColor(prediction.riskScore);
     final riskLevel = controller.getRiskLevel(prediction.riskScore);
@@ -559,11 +590,8 @@ class HealthDataListScreen extends StatelessWidget {
                         children: [
                           Text(
                             'Diabetes Risk Score',
-                            style:
-                            Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: darkMode
-                                  ? TColors.white
-                                  : TColors.black,
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: darkMode ? TColors.white : TColors.black,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -573,10 +601,7 @@ class HealthDataListScreen extends StatelessWidget {
                             children: [
                               Text(
                                 prediction.riskScore.toStringAsFixed(1),
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .headlineSmall
-                                    ?.copyWith(
+                                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                                   color: riskColor,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -584,17 +609,11 @@ class HealthDataListScreen extends StatelessWidget {
                               const SizedBox(width: 4),
                               Text(
                                 'pts',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodyMedium
-                                    ?.copyWith(color: riskColor),
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: riskColor),
                               ),
                               const SizedBox(width: 8),
                               Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
-                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(
                                   color: riskColor.withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(12),
@@ -617,12 +636,21 @@ class HealthDataListScreen extends StatelessWidget {
                 ),
               ),
 
-              /// Arrow
-              Icon(
-                Icons.arrow_forward_ios,
-                size: 16,
-                color: darkMode ? Colors.grey.shade500 : Colors.grey.shade400,
-              ),
+              GestureDetector(
+                onTap: () => _showDeleteDiabetesRiskDialog(context, prediction),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: darkMode ? Colors.grey.shade700 : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Icon(
+                    Icons.delete_outline,
+                    color: darkMode ? Colors.grey.shade400 : Colors.grey.shade600,
+                    size: 18,
+                  ),
+                ),
+              )
             ],
           ),
         ),
@@ -631,12 +659,36 @@ class HealthDataListScreen extends StatelessWidget {
   }
 
   /// Show Delete Confirmation Dialog
-  void _showDeleteDialog(BuildContext context, HealthDataModel data) {
+  void _showDeleteDialog(BuildContext context, HealthDataModel data, bool isFirstRecord) async {
+    final flowManager = TutorialFlowManager.instance;
+
+    // 如果在教学模式下，先隐藏 tutorial overlay
+    if (flowManager.shouldShowTutorialFor(TutorialStep.analyticsDeleteRecord) &&
+        healthDataType == HealthDataType.bloodGlucose &&
+        isFirstRecord) {
+      await flowManager.hideOverlay();
+    }
+
     TDialog.deleteDialog(
       title: 'Delete Record',
-      message:
-      'Are you sure you want to delete this health record? This action cannot be undone.',
-      onConfirm: () => _deleteHealthRecord(data.logId),
+      message: 'Are you sure you want to delete this health record? This action cannot be undone.',
+      onConfirm: () {
+        _deleteHealthRecord(data.logId);
+
+        // 只在血糖数据类型且是删除记录教学步骤且是第一个记录时才处理教学流程
+        final flowManager = TutorialFlowManager.instance;
+        if (flowManager.shouldShowTutorialFor(TutorialStep.analyticsDeleteRecord) &&
+            healthDataType == HealthDataType.bloodGlucose &&
+            isFirstRecord) {
+          // 延迟一下让用户看到删除成功的反馈
+          Future.delayed(const Duration(milliseconds: 500), () {
+            // 返回到 Analytics 页面
+            Get.back();
+            // 完成教学步骤
+            flowManager.completeTutorial();
+          });
+        }
+      },
     );
   }
 
@@ -669,6 +721,24 @@ class HealthDataListScreen extends StatelessWidget {
     }
   }
 
+  /// Show Delete Confirmation Dialog for Diabetes Risk
+  void _showDeleteDiabetesRiskDialog(BuildContext context, DiabetesRiskPredictionModel prediction) {
+    TDialog.deleteDialog(
+      title: 'Delete Record',
+      message: 'Are you sure you want to delete this diabetes risk assessment? This action cannot be undone.',
+      onConfirm: () {
+        _deleteDiabetesRiskRecord(prediction.predictionId);
+      },
+    );
+  }
+
+  /// Delete diabetes risk record
+  void _deleteDiabetesRiskRecord(String predictionId) {
+    if (Get.isRegistered<DiabetesRiskController>()) {
+      Get.find<DiabetesRiskController>().deleteDiabetesPrediction(predictionId);
+    }
+  }
+
   /// Get health data color based on type and values
   Color _getHealthDataColor(HealthDataModel data, HealthDataType type) {
     switch (type) {
@@ -678,10 +748,7 @@ class HealthDataListScreen extends StatelessWidget {
 
       case HealthDataType.bloodPressure:
         final controller = Get.find<BloodPressureController>();
-        return controller.getBPLevelColor(
-            data.bloodPressure.systolic,
-            data.bloodPressure.diastolic
-        );
+        return controller.getBPLevelColor(data.bloodPressure.systolic, data.bloodPressure.diastolic);
 
       case HealthDataType.bodyComposition:
         final controller = Get.find<WeightController>();
@@ -784,13 +851,10 @@ class HealthDataListScreen extends StatelessWidget {
           activityString = activity;
         }
         if (duration > 0) {
-          activityString +=
-          activityString.isEmpty ? '${duration} min' : ', ${duration} min';
+          activityString += activityString.isEmpty ? '${duration} min' : ', ${duration} min';
         }
         if (intensity != IntensityLevel.moderate) {
-          activityString += activityString.isEmpty
-              ? intensity.displayName
-              : ', ${intensity.displayName}';
+          activityString += activityString.isEmpty ? intensity.displayName : ', ${intensity.displayName}';
         }
         return activityString.isEmpty ? 'No data' : activityString;
 
@@ -864,12 +928,8 @@ class HealthDataListScreen extends StatelessWidget {
         final weight = data.bodyComposition.weight;
         final bodyFat = data.bodyComposition.bodyFat;
 
-        final weightColor = weight > 0
-            ? controller.getWeightStatusColor(weight)
-            : TColors.darkGrey;
-        final bodyFatColor = bodyFat > 0
-            ? controller.getBodyFatStatusColor(bodyFat)
-            : TColors.darkGrey;
+        final weightColor = weight > 0 ? controller.getWeightStatusColor(weight) : TColors.darkGrey;
+        final bodyFatColor = bodyFat > 0 ? controller.getBodyFatStatusColor(bodyFat) : TColors.darkGrey;
 
         List<TextSpan> spans = [];
 

@@ -602,14 +602,17 @@ class MealRecommendationForm extends StatelessWidget {
               Obx(() => Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Maximum time you want to spend',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color:
-                      isDark ? TColors.darkGrey : TColors.textSecondary,
+                  Expanded(
+                    child: Text(
+                      'Maximum time you want to spend',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color:
+                        isDark ? TColors.darkGrey : TColors.textSecondary,
+                      ),
                     ),
                   ),
+                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 6),

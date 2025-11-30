@@ -39,17 +39,22 @@ class SubscriptionController extends GetxController {
 
   StreamSubscription? _activeSubscriptionStream;
 
+  // Timer for checking pending subscription
+  Timer? _pendingSubscriptionTimer;
+
   @override
   void onInit() {
     super.onInit();
     loadSubscriptionPlans();
     _startListeningToActiveSubscription();
+    _startPendingSubscriptionTimer();
     _checkPendingSubscription();
   }
 
   @override
   void onClose() {
     _activeSubscriptionStream?.cancel();
+    _stopPendingSubscriptionTimer();
     super.onClose();
   }
 
@@ -64,6 +69,23 @@ class SubscriptionController extends GetxController {
     }, onError: (error) {
       print('Error streaming active subscription: $error');
     });
+  }
+
+  /// 启动定时检查 pending subscription
+  void _startPendingSubscriptionTimer() {
+    // 立即检查一次
+    _checkPendingSubscription();
+
+    // 每秒检查一次
+    _pendingSubscriptionTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      _checkPendingSubscription();
+    });
+  }
+
+  /// 停止定时器
+  void _stopPendingSubscriptionTimer() {
+    _pendingSubscriptionTimer?.cancel();
+    _pendingSubscriptionTimer = null;
   }
 
   /// Load subscription plans
@@ -429,11 +451,20 @@ class SubscriptionController extends GetxController {
       }
 
       final hasPending = await subscriptionRepo.hasPendingSubscription(userId);
-      hasPendingSubscription.value = hasPending;
 
+      // 只有在状态发生变化时才更新，避免不必要的重绘
+      if (hasPendingSubscription.value != hasPending) {
+        hasPendingSubscription.value = hasPending;
+
+        // 如果 pending subscription 完成，刷新订阅状态
+        if (!hasPending) {
+          await loadActiveSubscription();
+          print('Pending subscription completed, refreshing status...');
+        }
+      }
     } catch (e) {
       print('Error checking pending subscription: $e');
-      hasPendingSubscription.value = false;
+      // 出错时不更新状态，避免频繁的错误状态切换
     }
   }
 
@@ -460,6 +491,7 @@ class SubscriptionController extends GetxController {
   /// Refresh subscription status
   Future<void> refreshSubscriptionStatus() async {
     await loadActiveSubscription();
+    await _checkPendingSubscription();
   }
 
   /// Get days remaining for active subscription

@@ -16,7 +16,7 @@ import { getAchievementConfigs } from "../config/achievement_config";
 /**
  * 健康数据创建
  */
-export const onHealthLogCreated = onDocumentCreated(
+export const onHealthLogAchievementCreated = onDocumentCreated(
   "healthLogs/{userId}/logs/{logId}",
   async (event) => {
     const { userId, logId } = event.params;
@@ -34,7 +34,7 @@ export const onHealthLogCreated = onDocumentCreated(
 /**
  * 健康数据更新
  */
-export const onHealthLogUpdated = onDocumentUpdated(
+export const onHealthLogAchievementUpdated = onDocumentUpdated(
   "healthLogs/{userId}/logs/{logId}",
   async (event) => {
     const { userId, logId } = event.params;
@@ -55,8 +55,7 @@ export const onHealthLogUpdated = onDocumentUpdated(
       beforeData.bodyComposition?.weight !== afterData.bodyComposition?.weight;
     const activityChanged =
       beforeData.physicalActivity?.duration !== afterData.physicalActivity?.duration;
-    const stepsChanged =
-      beforeData.physicalActivity?.steps !== afterData.physicalActivity?.steps;
+    const stepsChanged = beforeData.steps !== afterData.steps;
 
     if (
       dateTimeChanged ||
@@ -66,7 +65,7 @@ export const onHealthLogUpdated = onDocumentUpdated(
       activityChanged ||
       stepsChanged
     ) {
-      functions.logger.log(`🔄 Health log updated: ${userId} - ${logId}`);
+      functions.logger.log(`Health log updated: ${userId} - ${logId}`);
 
       // 处理补签和成就更新
       await processAchievementsWithMakeup(userId, logId, afterData, beforeData);
@@ -77,7 +76,7 @@ export const onHealthLogUpdated = onDocumentUpdated(
 /**
  * 健康数据删除
  */
-export const onHealthLogDeleted = onDocumentDeleted(
+export const onHealthLogAchievementDeleted = onDocumentDeleted(
   "healthLogs/{userId}/logs/{logId}",
   async (event) => {
     const { userId, logId } = event.params;

@@ -150,8 +150,11 @@ class _HelpSupportScreenState extends State<HelpSupportScreen> {
     return Scaffold(
       backgroundColor: darkMode ? TColors.dark : TColors.light,
       appBar: TAppBar(
-        title: Text(TTexts.helpSupportTitle),
+        title: Text(TTexts.helpSupportTitle, style: TextStyle(color: TColors.white),),
         showBackArrow: true,
+        backgroundColor: TColors.primary,
+        iconTheme: IconThemeData(color: TColors.white),
+
       ),
       body: SingleChildScrollView(
         child: Column(

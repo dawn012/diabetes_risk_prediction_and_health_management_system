@@ -28,6 +28,7 @@ class AddReminderController extends GetxController {
   final hasEndDate = false.obs;
   final isLoading = false.obs;
   final isEditing = false.obs;
+  var isInitialized = false.obs;
 
   // Original reminder for editing
   ReminderModel? originalReminder;
@@ -65,18 +66,29 @@ class AddReminderController extends GetxController {
     snoozeDuration.value = reminder.snoozeDuration;
 
     // Handle interval time
-    if (reminder.intervalTime != null) {
-      final minutes = reminder.intervalTime!;
-      if (minutes % (24 * 60) == 0) {
-        intervalTime.value = minutes ~/ (24 * 60);
-        intervalUnit.value = 'day';
-      } else if (minutes % 60 == 0) {
-        intervalTime.value = minutes ~/ 60;
-        intervalUnit.value = 'hour';
+    if (reminder.repeatType == RepeatType.fixedInterval) {
+      // Handle interval time
+      if (reminder.intervalTime != null) {
+        final minutes = reminder.intervalTime!;
+        if (minutes % (24 * 60) == 0) {
+          intervalTime.value = minutes ~/ (24 * 60);
+          intervalUnit.value = 'day';
+        } else if (minutes % 60 == 0) {
+          intervalTime.value = minutes ~/ 60;
+          intervalUnit.value = 'hour';
+        } else {
+          intervalTime.value = minutes;
+          intervalUnit.value = 'minute';
+        }
       } else {
-        intervalTime.value = minutes;
+        // 如果没有 intervalTime，设置默认值
+        intervalTime.value = 1;
         intervalUnit.value = 'minute';
       }
+    } else {
+      // 对于其他类型，设置默认值
+      intervalTime.value = 1;
+      intervalUnit.value = 'minute';
     }
 
     // Handle end date
@@ -211,7 +223,6 @@ class AddReminderController extends GetxController {
       DateTime? finalEndDate;
       if (selectedRepeatType.value != RepeatType.once) {
         if (hasEndDate.value) {
-          // endDate 设置为当天 23:59:59
           finalEndDate = DateTime(
             endDate.value.year,
             endDate.value.month,
@@ -233,6 +244,7 @@ class AddReminderController extends GetxController {
           intervalTime: getIntervalInMinutes(),
           endDate: finalEndDate,
           snoozeDuration: snoozeDuration.value,
+          isActive: true,
         );
 
         await _reminderRepo.updateReminder(updatedReminder);

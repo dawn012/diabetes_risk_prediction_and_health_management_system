@@ -20,7 +20,7 @@ class HealthDataRanges {
   static const double maxGlucoseMmolL = 35.0;
 
   // ===== Body Composition =====
-  static const double minWeightKg = 0.0; // kg
+  static const double minWeightKg = 25.0; // kg
   static const double maxWeightKg = 300.0;
 
   // ===== Height (cm) =====

@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:icons_plus/icons_plus.dart';
 
 import '../../../../common/loaders/circular_loader.dart';
+import '../../../../common/widgets/appbar/appbar.dart';
 import '../../../../common/widgets/dialogs/dialog.dart';
 import '../../../../utils/constants/colors.dart';
 import '../../../../utils/constants/sizes.dart';
@@ -23,13 +24,9 @@ class AvatarFrameManagerScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: isDark ? TColors.dark : Colors.grey[50],
-      appBar: AppBar(
+      appBar: TAppBar(
         backgroundColor: TColors.primary,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios, color: Colors.white),
-          onPressed: () => Get.back(),
-        ),
+        showBackArrow: true,
         title: Text(
           'Avatar Frames',
           style: TextStyle(
@@ -38,19 +35,7 @@ class AvatarFrameManagerScreen extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
-        centerTitle: true,
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                TColors.primary,
-                TColors.primary.withOpacity(0.8),
-              ],
-            ),
-          ),
-        ),
+        iconTheme: IconThemeData(color: TColors.white),
       ),
       body: Obx(() {
         return Column(

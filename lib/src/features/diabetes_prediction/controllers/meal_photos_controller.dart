@@ -635,22 +635,45 @@ class MealPhotosController extends GetxController {
       return;
     }
 
-    final totalGL = validMeals.fold(0.0, (sum, meal) => sum + meal.totalGL);
-    final avgGL = totalGL / validMeals.length;
+    // Get all valid GL values
+    final validGLs = validMeals.map((m) => m.totalGL).toList();
+    final totalGL = validGLs.fold(0.0, (sum, gl) => sum + gl);
+    final avgGL = totalGL / validGLs.length;
 
-    // Determine health status
-    final highGLCount = validMeals.where((m) => m.glCategory == 'high').length;
-    final isHealthy = avgGL < 15 && highGLCount < (validMeals.length * 0.3);
-
-    // Generate warnings
+    // 与 Cloud Function 相同的健康评估逻辑
+    bool isHealthy = true;
     final warnings = <String>[];
-    if (avgGL >= 15) {
-      warnings.add('Average GL is high - consider lower GL foods');
-    }
-    if (highGLCount > validMeals.length * 0.3) {
-      warnings.add('Too many high GL meals detected');
+
+    // GL 阈值 (与 Cloud Function 保持一致)
+    const lowThreshold = 10;
+    const mediumThreshold = 20;
+    const highThreshold = 20;
+
+    // 主要判断逻辑：平均GL在中等范围也算健康
+    if (avgGL > highThreshold) {
+      warnings.add('High average glycemic load (${avgGL.toStringAsFixed(1)}) - may cause frequent blood sugar spikes');
+      isHealthy = false;
+    } else if (avgGL > mediumThreshold) {
+      warnings.add('Moderate average glycemic load (${avgGL.toStringAsFixed(1)}) - consider reducing high-GI foods');
+      // 平均GL在中等范围仍然算健康
+      isHealthy = true;
     }
 
+    // 检查高GL餐次比例 (超过40%就不健康)
+    final highGLCount = validMeals.where((m) => m.totalGL > highThreshold).length;
+    if (highGLCount > validMeals.length * 0.4) {
+      warnings.add('$highGLCount out of ${validMeals.length} meals have high GL - try to balance with low-GI foods');
+      isHealthy = false;
+    }
+
+    // // 检查极高GL餐次 (>30)
+    // final veryHighGLCount = validMeals.where((m) => m.totalGL > 30).length;
+    // if (veryHighGLCount > 0) {
+    //   warnings.add('$veryHighGLCount meal(s) have very high GL (>30) - consider portion control');
+    //   isHealthy = false;
+    // }
+
+    // 检查是否有无法分析的照片
     final errorCount = meals.where((m) => m.hasError).length;
     if (errorCount > 0) {
       warnings.add('$errorCount photo(s) were not food items and excluded from analysis');
@@ -664,14 +687,14 @@ class MealPhotosController extends GetxController {
       warnings: warnings,
       mealCount: validMeals.length,
       glThresholds: {
-        'low': 10,
-        'medium': 20,
-        'high': 20,
+        'low': lowThreshold,
+        'medium': mediumThreshold,
+        'high': highThreshold,
       },
       assessmentDate: DateTime.now(),
     );
 
-    print('✅ Assessment calculated: avgGL=${avgGL}, healthy=$isHealthy, validMeals=${validMeals.length}');
+    print('✅ Assessment calculated: avgGL=${avgGL.toStringAsFixed(1)}, healthy=$isHealthy, validMeals=${validMeals.length}');
 
     await _saveToCache();
   }

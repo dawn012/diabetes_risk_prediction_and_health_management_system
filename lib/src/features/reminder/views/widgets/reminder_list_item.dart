@@ -4,6 +4,7 @@ import 'package:icons_plus/icons_plus.dart';
 
 import '../../../../utils/constants/colors.dart';
 import '../../../../utils/helpers/helper_functions.dart';
+import '../../controllers/add_reminder_controller.dart';
 import '../../controllers/reminder_controller.dart';
 import '../../models/reminder_model.dart';
 import '../add_reminder_form.dart';
@@ -30,7 +31,7 @@ class ReminderListItem extends StatelessWidget {
           if (isSelectionMode) {
             controller.toggleReminderSelection(reminder.reminderId);
           } else {
-            _showEditDialog(context);
+            _showEditDialog(context, reminder);
           }
         },
         onLongPress: () {
@@ -246,14 +247,27 @@ class ReminderListItem extends StatelessWidget {
     }
   }
 
-  void _showEditDialog(BuildContext context) {
+  void _showEditDialog(BuildContext context, ReminderModel reminderToEdit) {
+    final controller = Get.put(AddReminderController());
+
+    if (reminderToEdit != null) {
+      controller.initializeForEditing(reminderToEdit);
+    } else {
+      controller.clearForm();
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => AddReminderForm(
-        reminderToEdit: reminder,
-        isEditing: true,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: AddReminderForm(
+          reminderToEdit: reminder,
+          isEditing: true,
+        ),
       ),
     );
   }

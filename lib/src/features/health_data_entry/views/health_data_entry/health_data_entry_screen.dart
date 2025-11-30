@@ -3,9 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../common/loaders/loaders.dart';
+import '../../../../common/widgets/appbar/appbar.dart';
 import '../../../../common/widgets/dialogs/dialog.dart';
+import '../../../../services/tutorial_flow_manager.dart';
 import '../../../../utils/constants/colors.dart';
 import '../../../../utils/constants/enums.dart';
+import '../../../../utils/constants/physiological_period_constants.dart';
 import '../../../../utils/constants/sizes.dart';
 import '../../../../utils/helpers/helper_functions.dart';
 import '../../controllers/health_data_entry_controller.dart';
@@ -15,35 +19,68 @@ class HealthDataEntryScreen extends StatelessWidget {
   final HealthDataModel? editData;
   final List<String>? initialSections;
 
-  const HealthDataEntryScreen({super.key, this.editData, this.initialSections});
+  const HealthDataEntryScreen({
+    super.key,
+    this.editData,
+    this.initialSections,
+  });
+
+  void _initializeTutorial(BuildContext context, TutorialFlowManager flowManager) {
+    if (flowManager.shouldShowTutorialFor(TutorialStep.dataEntryIntro)) {
+      // 显示时间和周期选择介绍
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (context.mounted) {
+          flowManager.showCurrentStepOverlay(context);
+        }
+      });
+    } else if (flowManager.shouldShowTutorialFor(TutorialStep.dataEntryGlucose)) {
+      // 显示血糖输入教学
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (context.mounted) {
+          flowManager.showCurrentStepOverlay(context);
+        }
+      });
+    } else if (flowManager.shouldShowTutorialFor(TutorialStep.dataEntrySave)) {
+      // 显示保存按钮教学
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (context.mounted) {
+          flowManager.showCurrentStepOverlay(context);
+        }
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.put(HealthDataEntryController(editData: editData, initialSections: initialSections));
+    final controller = Get.put(HealthDataEntryController(
+      editData: editData,
+      initialSections: initialSections,
+    ));
     final darkMode = THelperFunctions.isDarkMode(context);
     final isEditing = editData != null;
+    final flowManager = TutorialFlowManager.instance;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeTutorial(context, flowManager);
+    });
 
     return Scaffold(
       backgroundColor: darkMode ? TColors.dark : Colors.grey.shade50,
-      appBar: AppBar(
+      appBar: TAppBar(
         automaticallyImplyLeading: false,
         backgroundColor: darkMode ? TColors.dark : Colors.grey.shade50,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back),
-          onPressed: () => Get.back(),
-        ),
+        showBackArrow: true,
         title: Text(
           isEditing ? 'Edit Health Data' : 'Add Health Data',
           style: TextStyle(
               color: darkMode ? TColors.white : TColors.black,
-              fontWeight: FontWeight.bold,
-              fontSize: 20),
+              fontWeight: FontWeight.w600,
+              fontSize: 18),
         ),
         actions: [
           if (isEditing)
             IconButton(
-              icon: Icon(
+              icon: const Icon(
                 Icons.delete_outline,
                 color: Colors.red,
               ),
@@ -58,36 +95,45 @@ class HealthDataEntryScreen extends StatelessWidget {
               padding: const EdgeInsets.all(TSizes.defaultSpace),
               child: Column(
                 children: [
-                  /// Time Section
-                  _buildTimeSection(context, darkMode, controller),
+                  Container(
+                    key: flowManager.timeSelectionKey,
+                    child: Column(
+                      children: [
+                        /// Time Section
+                        _buildTimeSection(context, darkMode, controller),
 
-                  SizedBox(height: TSizes.spaceBtwItems),
+                        const SizedBox(height: TSizes.spaceBtwItems),
 
-                  /// Period Section
-                  _buildPeriodSection(context, darkMode, controller),
+                        /// Period Section
+                        _buildPeriodSection(context, darkMode, controller),
+                      ],
+                    ),
+                  ),
 
-                  SizedBox(height: TSizes.spaceBtwSections),
+                  const SizedBox(height: TSizes.spaceBtwSections),
 
                   /// Active Health Metrics
                   Obx(() => Column(
                     children: controller.activeSections
                         .map((section) => _buildHealthMetricSection(
-                        context, section, darkMode, controller))
+                        context, section, darkMode, controller, flowManager))
                         .toList(),
                   )),
 
-                  SizedBox(height: TSizes.spaceBtwItems),
+                  const SizedBox(height: TSizes.spaceBtwItems),
 
                   /// Add Others Section
-                  Obx(() =>
-                      _buildAddOthersSection(context, darkMode, controller)),
+                  Obx(() => _buildAddOthersSection(context, darkMode, controller)),
                 ],
               ),
             ),
           ),
 
           /// Bottom Buttons
-          _buildBottomButtons(context, darkMode, controller, isEditing),
+          Container(
+            key: flowManager.dataEntrySaveKey,
+            child: _buildBottomButtons(context, darkMode, controller, isEditing, flowManager),
+          ),
         ],
       ),
     );
@@ -113,7 +159,7 @@ class HealthDataEntryScreen extends StatelessWidget {
               color: darkMode ? TColors.white : TColors.black,
             ),
           ),
-          Spacer(),
+          const Spacer(),
           GestureDetector(
             onTap: () => _showDateTimePicker(context, darkMode, controller),
             child: Obx(() => Row(
@@ -128,13 +174,13 @@ class HealthDataEntryScreen extends StatelessWidget {
                       controller.selectedTime.value.minute,
                     ),
                   ),
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: TColors.primary,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                SizedBox(width: TSizes.xs),
-                Icon(
+                const SizedBox(width: TSizes.xs),
+                const Icon(
                   Icons.keyboard_arrow_down,
                   color: TColors.primary,
                 ),
@@ -166,20 +212,20 @@ class HealthDataEntryScreen extends StatelessWidget {
               color: darkMode ? TColors.white : TColors.black,
             ),
           ),
-          Spacer(),
+          const Spacer(),
           GestureDetector(
             onTap: () => _showPeriodPicker(context, darkMode, controller),
             child: Obx(() => Row(
               children: [
                 Text(
                   controller.selectedPeriod.value.displayName,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: TColors.primary,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                SizedBox(width: TSizes.xs),
-                Icon(
+                const SizedBox(width: TSizes.xs),
+                const Icon(
                   Icons.keyboard_arrow_down,
                   color: TColors.primary,
                 ),
@@ -192,9 +238,13 @@ class HealthDataEntryScreen extends StatelessWidget {
   }
 
   /// Health Metric Section Builder
-  Widget _buildHealthMetricSection(BuildContext context, String section,
-      bool darkMode, HealthDataEntryController controller) {
-    return Container(
+  Widget _buildHealthMetricSection(
+      BuildContext context,
+      String section,
+      bool darkMode,
+      HealthDataEntryController controller,
+      TutorialFlowManager flowManager) {
+    Widget sectionContent = Container(
       margin: const EdgeInsets.only(bottom: TSizes.spaceBtwItems),
       padding: const EdgeInsets.all(TSizes.md),
       decoration: BoxDecoration(
@@ -210,7 +260,7 @@ class HealthDataEntryScreen extends StatelessWidget {
           Row(
             children: [
               _getSectionIcon(section),
-              SizedBox(width: TSizes.sm),
+              const SizedBox(width: TSizes.sm),
               Text(
                 section,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -218,32 +268,46 @@ class HealthDataEntryScreen extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              Spacer(),
-              GestureDetector(
-                onTap: () => controller.removeSection(section),
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.close,
-                    size: 16,
-                    color: Colors.grey.shade600,
+              const Spacer(),
+              // 在教学模式下隐藏关闭按钮
+              if (!flowManager.shouldShowTutorialFor(TutorialStep.dataEntryGlucose) ||
+                  section != 'Blood Glucose')
+                GestureDetector(
+                  onTap: () => controller.removeSection(section),
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.close,
+                      size: 16,
+                      color: Colors.grey.shade600,
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
 
-          SizedBox(height: TSizes.md),
+          const SizedBox(height: TSizes.md),
 
           /// Input Fields
           ..._buildSectionInputs(section, darkMode, controller),
         ],
       ),
     );
+
+    // 如果是血糖部分且在教学流程中，添加 key
+    if (section == 'Blood Glucose' &&
+        flowManager.shouldShowTutorialFor(TutorialStep.dataEntryGlucose)) {
+      return Container(
+        key: flowManager.glucoseInputKey,
+        child: sectionContent,
+      );
+    }
+
+    return sectionContent;
   }
 
   /// Build inputs for each section
@@ -281,7 +345,7 @@ class HealthDataEntryScreen extends StatelessWidget {
               LengthLimitingTextInputFormatter(3),
             ],
           ),
-          SizedBox(height: TSizes.sm),
+          const SizedBox(height: TSizes.sm),
           _buildInputField(
             'Diastolic',
             'Enter diastolic',
@@ -295,7 +359,7 @@ class HealthDataEntryScreen extends StatelessWidget {
               LengthLimitingTextInputFormatter(3),
             ],
           ),
-          SizedBox(height: TSizes.sm),
+          const SizedBox(height: TSizes.sm),
           _buildInputField(
             'Pulse',
             'Enter pulse',
@@ -325,7 +389,7 @@ class HealthDataEntryScreen extends StatelessWidget {
               FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
             ],
           ),
-          SizedBox(height: TSizes.sm),
+          const SizedBox(height: TSizes.sm),
           _buildInputField(
             'Body Fat',
             'Enter body fat',
@@ -352,7 +416,7 @@ class HealthDataEntryScreen extends StatelessWidget {
             fieldKey: 'activityType',
             keyboardType: TextInputType.text,
           ),
-          SizedBox(height: TSizes.sm),
+          const SizedBox(height: TSizes.sm),
           _buildInputField(
             'Duration',
             'Enter duration',
@@ -366,7 +430,7 @@ class HealthDataEntryScreen extends StatelessWidget {
               LengthLimitingTextInputFormatter(4),
             ],
           ),
-          SizedBox(height: TSizes.sm),
+          const SizedBox(height: TSizes.sm),
           _buildIntensitySelector(darkMode, controller),
         ];
 
@@ -522,7 +586,7 @@ class HealthDataEntryScreen extends StatelessWidget {
                           ? Colors.grey.shade400
                           : Colors.grey.shade600,
                     ),
-                    contentPadding: EdgeInsets.symmetric(vertical: 8),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 8),
                   ),
                   onChanged: (_) {
                     // Clear error when user starts typing
@@ -538,13 +602,13 @@ class HealthDataEntryScreen extends StatelessWidget {
               if (fieldKey != null)
                 Obx(() {
                   final error = controller.getFieldError(fieldKey);
-                  if (error == null) return SizedBox(height: 4);
+                  if (error == null) return const SizedBox(height: 4);
 
                   return Padding(
-                    padding: EdgeInsets.only(top: 4),
+                    padding: const EdgeInsets.only(top: 4),
                     child: Text(
                       error,
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: TColors.error,
                         fontSize: 11,
                       ),
@@ -564,7 +628,7 @@ class HealthDataEntryScreen extends StatelessWidget {
     final availableSections = controller.getAvailableSections();
 
     if (availableSections.isEmpty) {
-      return SizedBox.shrink();
+      return const SizedBox.shrink();
     }
 
     return Container(
@@ -588,7 +652,7 @@ class HealthDataEntryScreen extends StatelessWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
-          SizedBox(height: TSizes.sm),
+          const SizedBox(height: TSizes.sm),
           Wrap(
             spacing: TSizes.sm,
             runSpacing: TSizes.sm,
@@ -610,16 +674,16 @@ class HealthDataEntryScreen extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       _getSectionIcon(section),
-                      SizedBox(width: TSizes.xs),
+                      const SizedBox(width: TSizes.xs),
                       Text(
                         section,
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: TColors.primary,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      SizedBox(width: TSizes.xs),
-                      Icon(
+                      const SizedBox(width: TSizes.xs),
+                      const Icon(
                         Icons.add,
                         size: 16,
                         color: TColors.primary,
@@ -637,7 +701,7 @@ class HealthDataEntryScreen extends StatelessWidget {
 
   /// Bottom Buttons
   Widget _buildBottomButtons(BuildContext context, bool darkMode,
-      HealthDataEntryController controller, bool isEditing) {
+      HealthDataEntryController controller, bool isEditing, TutorialFlowManager flowManager) {
     return Container(
       padding: const EdgeInsets.all(TSizes.defaultSpace),
       decoration: BoxDecoration(
@@ -670,12 +734,12 @@ class HealthDataEntryScreen extends StatelessWidget {
                 ),
               ),
             ),
-            SizedBox(width: TSizes.md),
+            const SizedBox(width: TSizes.md),
             Expanded(
               child: Obx(() => ElevatedButton(
                 onPressed: controller.isLoading.value
                     ? null
-                    : () => _handleSave(controller, isEditing),
+                    : () => _handleSave(controller, isEditing, flowManager),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: TColors.primary,
                   padding: const EdgeInsets.symmetric(vertical: TSizes.md),
@@ -687,12 +751,12 @@ class HealthDataEntryScreen extends StatelessWidget {
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
                     valueColor:
-                    AlwaysStoppedAnimation<Color>(Colors.white),
+                    const AlwaysStoppedAnimation<Color>(Colors.white),
                   ),
                 )
                     : Text(
                   isEditing ? 'Update' : 'Save',
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w600,
                   ),
@@ -750,14 +814,14 @@ class HealthDataEntryScreen extends StatelessWidget {
     final date = await showDatePicker(
       context: context,
       initialDate: controller.selectedDate.value,
-      firstDate: DateTime.now().subtract(Duration(days: 365)),
-      lastDate: DateTime.now(),
+      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+      lastDate: DateTime.now(), // 不能选择未来日期
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: darkMode
-                ? ColorScheme.dark(primary: TColors.primary)
-                : ColorScheme.light(primary: TColors.primary),
+                ? const ColorScheme.dark(primary: TColors.primary)
+                : const ColorScheme.light(primary: TColors.primary),
           ),
           child: child!,
         );
@@ -767,6 +831,12 @@ class HealthDataEntryScreen extends StatelessWidget {
     if (date != null) {
       controller.selectedDate.value = date;
 
+      // 计算当前日期可选的最晚时间
+      final now = DateTime.now();
+      final isToday = date.year == now.year &&
+          date.month == now.month &&
+          date.day == now.day;
+
       // Show Time Picker
       final time = await showTimePicker(
         context: context,
@@ -775,8 +845,8 @@ class HealthDataEntryScreen extends StatelessWidget {
           return Theme(
             data: Theme.of(context).copyWith(
               colorScheme: darkMode
-                  ? ColorScheme.dark(primary: TColors.primary)
-                  : ColorScheme.light(primary: TColors.primary),
+                  ? const ColorScheme.dark(primary: TColors.primary)
+                  : const ColorScheme.light(primary: TColors.primary),
             ),
             child: child!,
           );
@@ -784,7 +854,28 @@ class HealthDataEntryScreen extends StatelessWidget {
       );
 
       if (time != null) {
-        controller.selectedTime.value = time;
+        // 验证时间不能超过当前时间
+        if (isToday) {
+          final selectedDateTime = DateTime(
+            date.year,
+            date.month,
+            date.day,
+            time.hour,
+            time.minute,
+          );
+
+          if (selectedDateTime.isAfter(now)) {
+            // 时间超过当前时间，显示警告
+            TLoaders.warningSnackBar(
+              title: 'Invalid Time',
+              message: 'Cannot select future time. Please choose a time in the past.',
+            );
+            return;
+          }
+        }
+
+        // 时间有效，更新
+        controller.updateTime(time);
       }
     }
   }
@@ -795,11 +886,14 @@ class HealthDataEntryScreen extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       backgroundColor: darkMode ? TColors.darkerGrey : Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius:
-        BorderRadius.vertical(top: Radius.circular(TSizes.cardRadiusLg)),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(TSizes.cardRadiusLg)),
       ),
       isScrollControlled: true,
+      // 添加约束限制最大高度
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.6, // 最多占屏幕60%
+      ),
       builder: (context) => SafeArea(
         child: SingleChildScrollView(
           child: Container(
@@ -815,10 +909,12 @@ class HealthDataEntryScreen extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                SizedBox(height: TSizes.md),
+                const SizedBox(height: TSizes.md),
+
+                // Period options
                 ...PhysiologicalTimePeriod.values
                     .map((period) => ListTile(
-                  contentPadding: EdgeInsets.symmetric(horizontal: 0),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 0),
                   title: Text(
                     period.displayName,
                     style: TextStyle(
@@ -831,11 +927,14 @@ class HealthDataEntryScreen extends StatelessWidget {
                   },
                   trailing: Obx(() {
                     return controller.selectedPeriod.value == period
-                        ? Icon(Icons.check, color: TColors.primary)
+                        ? const Icon(Icons.check, color: TColors.primary)
                         : const SizedBox.shrink();
                   }),
                 ))
                     .toList(),
+
+                // 添加底部间距，确保最后一个选项不会被遮挡
+                const SizedBox(height: TSizes.sm),
               ],
             ),
           ),
@@ -857,15 +956,84 @@ class HealthDataEntryScreen extends StatelessWidget {
 
   /// Handle Save
   void _handleSave(
-      HealthDataEntryController controller, bool isEditing) async {
+      HealthDataEntryController controller,
+      bool isEditing,
+      TutorialFlowManager flowManager) async {
     try {
+      // Tutorial 模式验证
+      if (flowManager.shouldShowTutorialFor(TutorialStep.dataEntrySave)) {
+        final glucoseText = controller.glucoseController.text.trim();
+        if (glucoseText.isEmpty) {
+          TLoaders.warningSnackBar(
+            title: 'Enter Glucose Value',
+            message: 'Please enter your blood glucose value before saving.',
+          );
+          return;
+        }
+
+        final glucoseValue = double.tryParse(glucoseText);
+        if (glucoseValue == null || glucoseValue <= 0) {
+          TLoaders.warningSnackBar(
+            title: 'Invalid Glucose Value',
+            message: 'Please enter a valid glucose value.',
+          );
+          return;
+        }
+      }
+
+      // 执行保存操作
       if (isEditing) {
         await controller.updateHealthData();
       } else {
         await controller.saveHealthData();
       }
+
+      // Tutorial 模式处理
+      if (flowManager.shouldShowTutorialFor(TutorialStep.dataEntrySave)) {
+        print('🎯 Data entry saved in tutorial mode');
+
+        TLoaders.successSnackBar(
+          title: 'Record Saved!',
+          message: 'Your glucose reading has been recorded successfully.',
+        );
+
+        await flowManager.hideOverlay();
+
+        flowManager.currentStep.value = TutorialStep.dashboardGlucoseCard;
+        flowManager.saveCurrentStep();
+        flowManager.isTutorialActive.value = true;
+
+        print('📍 Step set to: ${flowManager.currentStep.value}');
+
+        // 不直接 Get.back()，让 controller 处理返回
+        // controller.saveHealthData() 会自动调用 Get.back() 并刷新 Dashboard
+
+        // 等待返回 Dashboard 后显示 overlay
+        Future.delayed(const Duration(milliseconds: 600), () {
+          final currentContext = Get.context;
+          if (currentContext != null &&
+              currentContext.mounted &&
+              flowManager.isTutorialActive.value &&
+              flowManager.currentStep.value == TutorialStep.dashboardGlucoseCard) {
+            print('🎬 Showing glucose card tutorial');
+            flowManager.showCurrentStepOverlay(currentContext);
+          }
+        });
+
+        return; // 添加 return，避免执行后面的代码
+      }
+
+      // 非 tutorial 模式：controller 已经自动处理了返回
+
     } catch (e) {
-      // Error handling is done in the controller
+      print('Error saving health data: $e');
+
+      if (flowManager.shouldShowTutorialFor(TutorialStep.dataEntrySave)) {
+        TLoaders.errorSnackBar(
+          title: 'Save Failed',
+          message: 'Failed to save your record. Please try again.',
+        );
+      }
     }
   }
 

@@ -61,6 +61,7 @@ dependencies:
   dotted_border: ^3.1.0
   confetti: ^0.8.0
   universal_html: ^2.3.0
+  showcaseview: ^5.0.1
 
   #-- MEDIA PROCESSING PACKAGES
   image_picker: ^1.1.2  # pick images

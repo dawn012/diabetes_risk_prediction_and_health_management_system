@@ -533,7 +533,7 @@ class DiabetesRiskDetailScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          'GL ${totalGL.toStringAsFixed(1)}',
+                          'GL ${totalGL.toStringAsFixed(2)}',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 11,
@@ -645,7 +645,7 @@ class DiabetesRiskDetailScreen extends StatelessWidget {
                       style: TextStyle(fontWeight: FontWeight.w600),
                     ),
                     Text(
-                      '${meal.totalGL.toStringAsFixed(1)} (${meal.glCategory.toUpperCase()})',
+                      '${meal.totalGL.toStringAsFixed(2)} (${meal.glCategory.toUpperCase()})',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: _getGLColor(meal.glCategory),
@@ -701,7 +701,7 @@ class DiabetesRiskDetailScreen extends StatelessWidget {
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Text(
-                                      '${food.glycemicLoad!.toStringAsFixed(1)} (${food.glCategory})',
+                                      '${food.glycemicLoad!.toStringAsFixed(2)} (${food.glCategory})',
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.bold,
@@ -859,7 +859,7 @@ class DiabetesRiskDetailScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Average GL: ${assessment.avgGLPerMeal.toStringAsFixed(1)} per meal',
+                        'Average GL: ${assessment.avgGLPerMeal.toStringAsFixed(2)} per meal',
                         style: TextStyle(
                           fontSize: 12,
                           color: darkMode ? TColors.darkGrey : TColors.darkerGrey,

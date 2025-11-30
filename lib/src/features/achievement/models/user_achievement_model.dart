@@ -4,6 +4,38 @@ import '../../../utils/constants/enums.dart';
 import '../../../utils/constants/firebase_field_names.dart';
 import 'achievement_model.dart';
 
+/// Makeup history entry
+class MakeupHistoryEntry {
+  final String dateKey;
+  final String logId;
+  final int timestamp;
+
+  const MakeupHistoryEntry({
+    required this.dateKey,
+    required this.logId,
+    required this.timestamp,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'dateKey': dateKey,
+      'logId': logId,
+      'timestamp': timestamp,
+    };
+  }
+
+  factory MakeupHistoryEntry.fromJson(Map<String, dynamic> json) {
+    return MakeupHistoryEntry(
+      dateKey: json['dateKey'] ?? '',
+      logId: json['logId'] ?? '',
+      timestamp: json['timestamp'] ?? 0,
+    );
+  }
+
+  @override
+  String toString() => 'MakeupHistoryEntry(dateKey: $dateKey, logId: $logId)';
+}
+
 class UserAchievementModel {
   final String userAchievementId;
   final String userId;
@@ -13,6 +45,8 @@ class UserAchievementModel {
   final AchievementStatus status;
   final DateTime startedAt;
   final DateTime? completedAt;
+  final List<MakeupHistoryEntry> makeupHistory;
+  final int makeupUsed;
 
   const UserAchievementModel({
     required this.userAchievementId,
@@ -23,6 +57,8 @@ class UserAchievementModel {
     required this.status,
     required this.startedAt,
     this.completedAt,
+    this.makeupHistory = const [],
+    this.makeupUsed = 0,
   });
 
   /// Static function to create an empty user achievement model
@@ -36,6 +72,8 @@ class UserAchievementModel {
       status: AchievementStatus.inProgress,
       startedAt: DateTime.now(),
       completedAt: null,
+      makeupHistory: const [],
+      makeupUsed: 0,
     );
   }
 
@@ -49,6 +87,8 @@ class UserAchievementModel {
     AchievementStatus? status,
     DateTime? startedAt,
     DateTime? completedAt,
+    List<MakeupHistoryEntry>? makeupHistory,
+    int? makeupUsed,
   }) {
     return UserAchievementModel(
       userAchievementId: userAchievementId ?? this.userAchievementId,
@@ -59,6 +99,8 @@ class UserAchievementModel {
       status: status ?? this.status,
       startedAt: startedAt ?? this.startedAt,
       completedAt: completedAt ?? this.completedAt,
+      makeupHistory: makeupHistory ?? this.makeupHistory,
+      makeupUsed: makeupUsed ?? this.makeupUsed,
     );
   }
 
@@ -74,6 +116,9 @@ class UserAchievementModel {
       FirebaseFieldNames.startedAt: startedAt.millisecondsSinceEpoch,
       if (completedAt != null)
         FirebaseFieldNames.completedAt: completedAt!.millisecondsSinceEpoch,
+      if (makeupHistory.isNotEmpty)
+        'makeupHistory': makeupHistory.map((e) => e.toJson()).toList(),
+      'makeupUsed': makeupUsed,
     };
   }
 
@@ -83,8 +128,15 @@ class UserAchievementModel {
     final data = document.data();
     if (data == null) return UserAchievementModel.empty();
 
-    // 注意：这里需要从其他地方获取完整的 AchievementModel
-    // 在实际使用中，你可能需要在 Repository 层处理这个逻辑
+    // Parse makeup history
+    List<MakeupHistoryEntry> makeupHistory = [];
+    if (data['makeupHistory'] != null) {
+      final historyList = data['makeupHistory'] as List;
+      makeupHistory = historyList
+          .map((item) => MakeupHistoryEntry.fromJson(item as Map<String, dynamic>))
+          .toList();
+    }
+
     return UserAchievementModel(
       userAchievementId: data[FirebaseFieldNames.userAchievementId] ?? document.id,
       userId: data[FirebaseFieldNames.userId] ?? '',
@@ -104,12 +156,19 @@ class UserAchievementModel {
           ? DateTime.fromMillisecondsSinceEpoch(
           data[FirebaseFieldNames.completedAt])
           : null,
+      makeupHistory: makeupHistory,
+      makeupUsed: data['makeupUsed'] ?? 0,
     );
+  }
+
+  /// Check if a specific log ID is a makeup
+  bool isMakeupLog(String logId) {
+    return makeupHistory.any((entry) => entry.logId == logId);
   }
 
   @override
   String toString() {
-    return 'UserAchievementModel{userAchievementId: $userAchievementId, userId: $userId, achievement: ${achievement.achievementTitle}, currentLevel: ${currentLevel.displayName}, status: ${status.displayName}}';
+    return 'UserAchievementModel{userAchievementId: $userAchievementId, userId: $userId, achievement: ${achievement.achievementTitle}, currentLevel: ${currentLevel.displayName}, status: ${status.displayName}, makeupUsed: $makeupUsed}';
   }
 
   @override

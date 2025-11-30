@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../../../common/widgets/appbar/appbar.dart';
 import '../../../../../utils/constants/sizes.dart';
 import '../../../../../utils/constants/text_strings.dart';
 import '../../../../../utils/validators/user_profile_validator.dart';
@@ -15,7 +16,9 @@ class ForgetPasswordMailScreen extends StatelessWidget {
     final controller = Get.put(ForgetPasswordController());
 
     return Scaffold(
-      appBar: AppBar(),
+      appBar: TAppBar(
+        showBackArrow: true,
+      ),
       body: Padding(
         padding: const EdgeInsets.all(TSizes.defaultSpace),
         child: Column(

@@ -74,7 +74,7 @@ class FCMService {
     }
   }
 
-  /// ✅ FIX: Ensure Firebase is initialized before use
+  /// Ensure Firebase is initialized before use
   @pragma('vm:entry-point')
   static Future<void> _ensureFirebaseInitialized() async {
     try {
@@ -121,14 +121,14 @@ class FCMService {
     await _createNotificationChannel();
   }
 
-  /// ✅ FIX: Static handler that ensures Firebase initialization
+  /// Static handler that ensures Firebase initialization
   @pragma('vm:entry-point')
   static Future<void> _handleNotificationResponse(NotificationResponse response) async {
     print('🔔 Notification Response Received');
     print('Action ID: ${response.actionId}');
     print('Payload: ${response.payload}');
 
-    // ✅ CRITICAL: Ensure Firebase is initialized before processing
+    // Ensure Firebase is initialized before processing
     await _ensureFirebaseInitialized();
 
     // Process the action
@@ -199,11 +199,17 @@ class FCMService {
     print('Reminder ID: $reminderId');
 
     if (type == 'reminder_notification' && reminderId != null) {
-      // Use delayed navigation
-      Future.delayed(Duration.zero, () {
+      // 🔧 同样使用延迟执行
+      Future.delayed(const Duration(milliseconds: 500), () {
         try {
           if (Get.context != null) {
             Get.to(() => const ReminderScreen());
+          } else {
+            Future.delayed(const Duration(seconds: 1), () {
+              if (Get.context != null) {
+                Get.to(() => const ReminderScreen());
+              }
+            });
           }
         } catch (e) {
           print('❌ Error navigating to reminder screen: $e');
@@ -285,20 +291,20 @@ class FCMService {
   void _setupMessageHandlers() {
     // Foreground messages
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      print('Received foreground reminder: ${message.notification?.title}');
-      _showLocalNotification(message);
+      print('Received foreground reminder, data: ${message.data}');
+      showLocalNotification(message);
     });
 
     // Background message opened
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      print('App opened from background reminder: ${message.notification?.title}');
+      print('App opened from background reminder, data: ${message.data}');
       _handleNotificationClick(message.data);
     });
 
     // Terminated state message
     messaging.getInitialMessage().then((RemoteMessage? message) {
       if (message != null) {
-        print('App opened from terminated state: ${message.notification?.title}');
+        print('App opened from terminated state, data: ${message.data}');
         _handleNotificationClick(message.data);
       }
     });
@@ -321,13 +327,16 @@ class FCMService {
 
   /// Display a local notification with action buttons
   @pragma('vm:entry-point')
-  Future<void> _showLocalNotification(RemoteMessage message) async {
+  Future<void> showLocalNotification(RemoteMessage message) async {
     final data = message.data;
     final reminderId = data['reminderId'];
     final scheduleId = data['scheduleId'];
     final snoozeDuration = int.tryParse(data['snoozeDuration'] ?? '5') ?? 5;
 
-    // Android notification style with action buttons
+    // 从 data 取标题和内容（Cloud Function 已经塞进 data 里了）
+    final title = data['reminderTitle'] ?? 'Reminder';
+    final body = data['reminderDescription'] ?? 'Time to track your health!';
+
     final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
       _channelId,
       _channelName,
@@ -352,7 +361,6 @@ class FCMService {
       ],
     );
 
-    // iOS notification style
     const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
@@ -365,7 +373,6 @@ class FCMService {
       iOS: iosDetails,
     );
 
-    // Create payload with all necessary data
     final payload = jsonEncode({
       'type': 'reminder_notification',
       'reminderId': reminderId,
@@ -378,11 +385,10 @@ class FCMService {
 
     final notificationId = DateTime.now().millisecondsSinceEpoch.remainder(100000);
 
-    // Show notification
     await _localNotifications.show(
       notificationId,
-      message.notification?.title ?? 'Reminder',
-      message.notification?.body,
+      title, // 不再用 message.notification?.title
+      body,  // 不再用 message.notification?.body
       details,
       payload: payload,
     );
@@ -517,32 +523,45 @@ class FCMService {
     print('Reminder ID: $reminderId');
 
     if (type == 'reminder_notification' && reminderId != null) {
-      try {
-        final controller = Get.find<ReminderController>();
-        final reminder = controller.getReminderById(reminderId);
-
-        if (reminder != null && Get.context != null) {
-          Get.snackbar(
-            '📋 ${reminder.reminderTitle}',
-            'Time to track your health!',
-            snackPosition: SnackPosition.TOP,
-            duration: const Duration(seconds: 3),
-            onTap: (_) {
-              Get.to(() => const ReminderScreen());
-            },
-          );
-        } else {
-          print('⚠️ Reminder not found: $reminderId');
-          if (Get.context != null) {
-            Get.to(() => const ReminderScreen());
+      // 🔧 使用延迟执行，确保 app 完全启动
+      Future.delayed(const Duration(milliseconds: 500), () {
+        try {
+          // 🔧 检查 Get 是否已初始化
+          if (!Get.isRegistered<ReminderController>()) {
+            Get.put(ReminderController());
           }
+
+          final controller = Get.find<ReminderController>();
+          final reminder = controller.getReminderById(reminderId);
+
+          if (Get.context != null) {
+            if (reminder != null) {
+              Get.snackbar(
+                '📋 ${reminder.reminderTitle}',
+                'Time to track your health!',
+                snackPosition: SnackPosition.TOP,
+                duration: const Duration(seconds: 3),
+                onTap: (_) {
+                  Get.to(() => const ReminderScreen());
+                },
+              );
+            } else {
+              // 如果找不到 reminder，直接跳转到列表页
+              Get.to(() => const ReminderScreen());
+            }
+          } else {
+            print('⚠️ Context not available yet, retrying...');
+            // 再延迟一次
+            Future.delayed(const Duration(seconds: 1), () {
+              if (Get.context != null) {
+                Get.to(() => const ReminderScreen());
+              }
+            });
+          }
+        } catch (e) {
+          print('❌ Error handling notification click: $e');
         }
-      } catch (e) {
-        print('❌ Error handling notification click: $e');
-        if (Get.context != null) {
-          Get.to(() => const ReminderScreen());
-        }
-      }
+      });
     }
   }
 

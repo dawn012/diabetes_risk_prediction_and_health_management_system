@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:icons_plus/icons_plus.dart';
+import '../../../../common/loaders/loaders.dart';
 import '../../../../common/widgets/dialogs/common_confirmation_dialog.dart';
+import '../../../../common/widgets/dialogs/image_preview_dialog.dart';
 import '../../../../common/widgets/pagination/pagination_widget.dart';
 import '../../../../common/widgets/table/reusable_data_table.dart';
 import '../../../../utils/constants/admin_colors.dart';
@@ -255,22 +257,47 @@ class UserManagementScreen extends StatelessWidget {
   }
 
   Widget _buildProfileAvatar(UserModel user, bool isDark) {
+    Widget avatarWidget;
+
     if (user.profileImg.isNotEmpty) {
-      return CircleAvatar(
+      avatarWidget = CircleAvatar(
         radius: 20,
         backgroundImage: NetworkImage(user.profileImg),
         backgroundColor: TAdminColors.primary.withOpacity(0.1),
       );
+    } else {
+      avatarWidget = CircleAvatar(
+        radius: 20,
+        backgroundColor: TAdminColors.primary.withOpacity(0.2),
+        child: Icon(
+          Iconsax.user_bold,
+          size: 16,
+          color: TAdminColors.primary,
+        ),
+      );
     }
 
-    return CircleAvatar(
-      radius: 20,
-      backgroundColor: TAdminColors.primary.withOpacity(0.2),
-      child: Icon(
-        Iconsax.user_bold,
-        size: 16,
-        color: TAdminColors.primary,
-      ),
+    // 添加点击事件
+    return GestureDetector(
+      onTap: () {
+        if (user.profileImg.isNotEmpty) {
+          // 使用网络图片预览
+          ImagePreviewDialog.showNetworkImage(
+            context: Get.context!,
+            imageUrl: user.profileImg,
+            title: '${user.username}\'s Avatar',
+            maxWidth: 400,
+            maxHeight: 400,
+          );
+        } else {
+          // 如果没有头像图片，显示一个提示
+          TLoaders.modernSnackBar(
+            title: 'No Profile Image',
+            message: '${user.username} doesn\'t have a profile image',
+          );
+        }
+      },
+      child: avatarWidget,
     );
   }
 

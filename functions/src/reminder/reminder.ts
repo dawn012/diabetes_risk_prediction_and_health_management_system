@@ -343,6 +343,20 @@ export const cleanupOldSchedules = onSchedule(
 async function createNextSchedule(reminderId: string, reminderData: any) {
   const nowMalaysia = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kuala_Lumpur" }));
 
+  if (reminderData.repeatType !== "once") {
+    const endDateUTC = reminderData.endDate ? reminderData.endDate.toDate() : null;
+    const endDate = endDateUTC ? new Date(endDateUTC.getTime() + 8 * 60 * 60 * 1000) : null;
+
+    // 检查是否是占位符日期（2099）
+    const isPlaceholderDate = endDate && endDate.getFullYear() === 2099;
+
+    if (endDate && !isPlaceholderDate && nowMalaysia > endDate) {
+      functions.logger.log(`⏰ Reminder ${reminderId} has expired, deactivating`);
+      await db.collection("reminders").doc(reminderId).update({ isActive: false });
+      return;
+    }
+  }
+
   const endDateUTC = reminderData.endDate ? reminderData.endDate.toDate() : null;
   const endDate = endDateUTC ? new Date(endDateUTC.getTime() + 8 * 60 * 60 * 1000) : null;
 

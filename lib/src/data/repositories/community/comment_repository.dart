@@ -53,7 +53,6 @@ class CommentRepository extends GetxController {
           .doc(postId)
           .update({
         FirebaseFieldNames.commentCount: FieldValue.increment(1),
-        FirebaseFieldNames.updatedAt: now.millisecondsSinceEpoch,
       });
 
       return commentId;
@@ -255,7 +254,6 @@ class CommentRepository extends GetxController {
           .doc(postId);
       batch.update(postRef, {
         FirebaseFieldNames.commentCount: FieldValue.increment(-1),
-        FirebaseFieldNames.updatedAt: DateTime.now().millisecondsSinceEpoch,
       });
 
       // Commit the batch operation
@@ -278,7 +276,6 @@ class CommentRepository extends GetxController {
     try {
       await _db.collection(FirebaseCollectionNames.comments).doc(commentId).update({
         FirebaseFieldNames.replyCount: FieldValue.increment(increment),
-        FirebaseFieldNames.updatedAt: DateTime.now().millisecondsSinceEpoch,
       });
     } catch (e) {
       // Silently handle error to avoid UI disruption

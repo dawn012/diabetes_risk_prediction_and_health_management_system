@@ -5,6 +5,7 @@
 
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import * as functions from "firebase-functions";
+import * as admin from "firebase-admin";
 import { CommunityAchievementService } from "../services/community_achievement_service";
 
 /**
@@ -20,11 +21,11 @@ export const onPostCreated = onDocumentCreated(
     const postType = postData.postType;
 
     functions.logger.log(
-      `📝 Post created by user: ${userId}, type: ${postType}`
+      `Post created by user: ${userId}, type: ${postType}`
     );
 
     try {
-      // 🆕 统一处理帖子创建的成就更新（包括 periodic 和 permanent）
+      // 统一处理帖子创建的成就更新（包括 periodic 和 permanent）
       await CommunityAchievementService.handlePostCreated(userId, postType);
 
       functions.logger.log(
@@ -49,12 +50,13 @@ export const onCommentCreated = onDocumentCreated(
     if (!commentData) return;
 
     const userId = commentData.authorId;
+    const postId = commentData.postId;
 
-    functions.logger.log(`💬 Comment created by user: ${userId}`);
+    functions.logger.log(`Comment created by user: ${userId} on post: ${postId}`);
 
     try {
-      // 🆕 统一处理评论创建的成就更新（包括 periodic 和 permanent）
-      await CommunityAchievementService.handleCommentCreated(userId);
+      // 统一处理评论创建的成就更新（包括 periodic 和 permanent）
+      await CommunityAchievementService.handleCommentCreated(userId, postId);
 
       functions.logger.log(
         `✅ All achievements updated for comment creation by ${userId}`
@@ -78,16 +80,50 @@ export const onReplyCreated = onDocumentCreated(
     if (!replyData) return;
 
     const userId = replyData.authorId;
+    const commentId = event.params.commentId; // 这里就是父 comment 的 id
 
-    functions.logger.log(`↩️ Reply created by user: ${userId}`);
+    // 1. 先从父 comment 拿 postId
+    let postId: string | undefined;
 
     try {
-      // 🆕 回复也算评论，使用相同的处理逻辑
-      await CommunityAchievementService.handleCommentCreated(userId);
+      const parentCommentSnap = await admin
+        .firestore()
+        .collection("comments")
+        .doc(commentId)
+        .get();
 
-      functions.logger.log(
-        `✅ All achievements updated for reply creation by ${userId}`
+      if (!parentCommentSnap.exists) {
+        functions.logger.warn(
+          `⚠️ Parent comment ${commentId} not found for reply ${event.params.replyId}`
+        );
+      } else {
+        const parentCommentData = parentCommentSnap.data() || {};
+        postId = parentCommentData.postId;  // 父 comment 上的 postId
+      }
+    } catch (error) {
+      functions.logger.error(
+        `❌ Error fetching parent comment ${commentId} for reply:`,
+        error
       );
+    }
+
+    if (!postId) {
+      functions.logger.warn(
+        `⚠️ Reply ${event.params.replyId} has no postId (parent comment missing postId), skip supportiveMember`
+      );
+    }
+
+    functions.logger.log(
+      `↩️ Reply created by user: ${userId} on post: ${postId}`
+    );
+
+    try {
+      // 回复也当作评论，走同一套逻辑
+      await CommunityAchievementService.handleCommentCreated(
+        userId,
+        postId || ""
+      );
+
     } catch (error) {
       functions.logger.error(
         "❌ Error updating achievements for reply creation:",

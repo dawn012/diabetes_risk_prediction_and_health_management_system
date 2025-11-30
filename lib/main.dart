@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
@@ -13,6 +14,23 @@ import 'firebase_options.dart';
 import 'src/data/repositories/authentication/authentication_repository.dart';
 import 'src/data/repositories/notification/notification_repository.dart';
 import 'src/services/fcm_service.dart';
+
+// Background message handler
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  print('📩 Background message received: ${message.messageId}');
+  print('Data: ${message.data}');
+
+  // 初始化 Firebase（只要一次，多次调用也会被 SDK 处理）
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // 初始化并调用你的本地通知
+  final fcmService = FCMService();
+  await fcmService.initialize();
+  await fcmService.showLocalNotification(message);
+}
 
 Future<void> main() async {
   // --- Initialize Flutter bindings ---
@@ -48,6 +66,8 @@ Future<void> main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
   }
+
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
   // --- Inject AuthenticationRepository into GetX dependency system ---
   Get.put(AuthenticationRepository());

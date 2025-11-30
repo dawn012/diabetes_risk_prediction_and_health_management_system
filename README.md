@@ -32,3 +32,7 @@ Body Fat: https://www.medicalnewstoday.com/articles/body-fat-percentage-chart#ho
 
 The Real Food Dietitians Recipes: https://therealfooddietitians.com/
 Joy Bauer Recipes: https://joybauer.com/
+
+adb devices
+adb -s 20dc5ae3 tcpip 5555
+adb connect 192.168.60.152:5555

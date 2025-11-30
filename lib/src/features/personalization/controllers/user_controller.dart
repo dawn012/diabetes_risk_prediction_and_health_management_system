@@ -96,44 +96,55 @@ class UserController extends GetxController {
   /// Save user record from any registration provider
   Future<void> saveUserRecord(UserCredential? userCredentials) async {
     try {
-      if (userCredentials != null) {
-        final String userId = userCredentials.user!.uid;
+      if (userCredentials == null) return;
 
-        // 先检查 Firebase 里是否已经有该用户
-        final DocumentSnapshot userSnapshot = await FirebaseFirestore.instance
-            .collection(FirebaseCollectionNames.users)
-            .doc(userId)
-            .get();
+      final String userId = userCredentials.user!.uid;
 
-        if (userSnapshot.exists) {
-          // 用户已存在，不覆盖数据
-          print('User already exists in Firebase. Skipping save operation.');
-          return;
-        }
+      final DocumentSnapshot userSnapshot = await FirebaseFirestore.instance
+          .collection(FirebaseCollectionNames.users)
+          .doc(userId)
+          .get();
 
-        // 如果用户不存在，才保存数据
-        // Map Data
-        final user = UserModel(
-          userId: userCredentials.user!.uid,
-          username: userCredentials.user!.displayName ?? '',
-          userType: 'user',
-          email: userCredentials.user!.email ?? '',
-          phoneNumber: userCredentials.user!.phoneNumber ?? '',
-          profileImg: userCredentials.user!.photoURL ?? '',
-          joinDate: DateTime.now(),
-          totalScore: 0,
-          isVerify: true,
-          accountAvailable: true,
-        );
+      // 读取现有数据（可能只有 fcmTokens）
+      final data = userSnapshot.data() as Map<String, dynamic>?;
 
-        // Save user data
-        await userRepository.saveUserRecord(user);
+      // 用 email 作为「资料已初始化」的标记
+      final hasProfileEmail = data != null &&
+          data['email'] != null &&
+          (data['email'] as String).isNotEmpty;
+
+      if (hasProfileEmail) {
+        // 已经有基本 profile，不需要再写（避免覆盖别的字段）
+        print('User profile already exists (email found). Skipping save operation.');
+        return;
       }
+
+      // 不存在 doc，或存在但没有 email => 需要创建/补齐 profile
+      print('Creating or completing user profile for $userId');
+
+      final user = UserModel(
+        userId: userId,
+        username: userCredentials.user!.displayName ?? '',
+        userType: 'user',
+        email: userCredentials.user!.email ?? '',
+        phoneNumber: userCredentials.user!.phoneNumber ?? '',
+        profileImg: userCredentials.user!.photoURL ?? '',
+        joinDate: DateTime.now(),
+        totalScore: 0,
+        isVerify: true,
+        accountAvailable: true,
+      );
+
+      // 这里内部用的是 set(..., merge: true)，不会覆盖 fcmTokens 等字段
+      await userRepository.saveUserRecord(user);
+
     } catch (e) {
+      print('Error in saveUserRecord: $e');
       TLoaders.warningSnackBar(
-          title: 'Data not saved',
-          message:
-              'Something went wrong while saving your information. You can re-save your data in your profile.');
+        title: 'Data not saved',
+        message:
+        'Something went wrong while saving your information. You can re-save your data in your profile.',
+      );
     }
   }
 

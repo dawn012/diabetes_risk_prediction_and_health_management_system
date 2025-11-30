@@ -37,6 +37,10 @@ class PostCreateController extends GetxController {
   final isEditingMode = false.obs;
   String? editingPostId;
   bool wasDisabledBeforeEdit = false; // Track if post was disabled
+  String _originalContent = '';
+  String _originalPostType = 'General Discussion';
+  List<String> _originalMediaUrls = [];
+  final hasChanges = false.obs;
 
   // Add this for real-time validation
   final canSubmit = false.obs;
@@ -80,6 +84,7 @@ class PostCreateController extends GetxController {
 
     _hasUnsavedChanges = contentController.text.trim().isNotEmpty || mediaItems.isNotEmpty;
     _updateCanSubmit();
+    _checkForChanges();
   }
 
   void _updateCanSubmit() {
@@ -89,10 +94,68 @@ class PostCreateController extends GetxController {
         mediaItems.any((item) => item.isExisting && item.isDownloadFailed);
     final isUploading = isCreatingPost.value;
 
-    canSubmit.value = hasContent &&
+    // 编辑模式下：需要内容且没有处理中的媒体，并且有变化
+    // 创建模式下：需要内容且没有处理中的媒体
+    final canSubmitNow = hasContent &&
         !hasProcessingMedia &&
         !hasFailedDownloads &&
-        !isUploading;
+        !isUploading &&
+        (isEditingMode.value ? hasChanges.value : true);
+
+    canSubmit.value = canSubmitNow;
+  }
+
+  /// 检查是否有任何修改
+  void _checkForChanges() {
+    if (!isEditingMode.value) {
+      hasChanges.value = contentController.text.trim().isNotEmpty || mediaItems.isNotEmpty;
+      return;
+    }
+
+    // 检查内容是否改变
+    final contentChanged = contentController.text.trim() != _originalContent;
+
+    // 检查帖子类型是否改变
+    final typeChanged = selectedPostType.value != _originalPostType;
+
+    // 检查媒体是否改变
+    final mediaChanged = _hasMediaChanges();
+
+    hasChanges.value = contentChanged || typeChanged || mediaChanged;
+    _updateCanSubmit();
+  }
+
+  /// 检查媒体是否有变化
+  bool _hasMediaChanges() {
+    // 如果媒体数量不同，肯定有变化
+    if (mediaItems.length != _originalMediaUrls.length) {
+      return true;
+    }
+
+    // 检查现有的媒体URL是否有变化
+    final currentExistingUrls = mediaItems
+        .where((item) => item.existingUrl != null)
+        .map((item) => item.existingUrl!)
+        .toList();
+
+    // 如果现有URL数量不同
+    if (currentExistingUrls.length != _originalMediaUrls.length) {
+      return true;
+    }
+
+    // 检查URL是否相同（顺序不重要）
+    final originalSet = _originalMediaUrls.toSet();
+    final currentSet = currentExistingUrls.toSet();
+
+    if (originalSet.length != currentSet.length) {
+      return true;
+    }
+
+    // 检查是否有新增的媒体文件（非现有URL的媒体）
+    final hasNewMedia = mediaItems.any((item) =>
+    item.existingUrl == null && item.file != null);
+
+    return !originalSet.containsAll(currentSet) || hasNewMedia;
   }
 
   /// Initialize controller for editing existing post
@@ -100,6 +163,11 @@ class PostCreateController extends GetxController {
     isEditingMode.value = true;
     editingPostId = post.postId;
     wasDisabledBeforeEdit = post.isDisable; // Track original status
+
+    // 保存原始数据用于比较
+    _originalContent = post.postContent;
+    _originalPostType = post.postType.displayName;
+    _originalMediaUrls = List.from(post.mediaUrls);
 
     // Set content
     contentController.text = post.postContent;
@@ -116,6 +184,7 @@ class PostCreateController extends GetxController {
     }
 
     _hasUnsavedChanges = false;
+    _checkForChanges();
     _updateCanSubmit();
   }
 
@@ -228,12 +297,14 @@ class PostCreateController extends GetxController {
                 onChanged: (value) {
                   if (value != null) {
                     selectedPostType.value = value;
+                    _checkForChanges();
                     Get.back();
                   }
                 },
               ),
               onTap: () {
                 selectedPostType.value = type;
+                _checkForChanges();
                 Get.back();
               },
             ))).toList(),
@@ -465,6 +536,7 @@ class PostCreateController extends GetxController {
     );
     mediaItems.add(processingItem);
     _hasUnsavedChanges = true;
+    _checkForChanges();
     _updateCanSubmit();
 
     try {
@@ -527,6 +599,7 @@ class PostCreateController extends GetxController {
 
       mediaItems.removeAt(index);
       _hasUnsavedChanges = contentController.text.trim().isNotEmpty || mediaItems.isNotEmpty;
+      _checkForChanges();
       _updateCanSubmit();
     }
   }
@@ -808,6 +881,19 @@ class PostCreateController extends GetxController {
       await updatePost();
     } else {
       await createPost();
+    }
+  }
+
+  /// Reset editing state when leaving the screen
+  void resetEditingState() {
+    if (isEditingMode.value) {
+      _originalContent = '';
+      _originalPostType = 'General Discussion';
+      _originalMediaUrls.clear();
+      isEditingMode.value = false;
+      editingPostId = null;
+      wasDisabledBeforeEdit = false;
+      hasChanges.value = false;
     }
   }
 

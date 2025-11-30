@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:icons_plus/icons_plus.dart';
 
+import '../../../../../common/loaders/loaders.dart';
 import '../../../../../common/widgets/dialogs/common_confirmation_dialog.dart';
+import '../../../../../common/widgets/dialogs/image_preview_dialog.dart';
 import '../../../../../data/repositories/authentication/authentication_repository.dart';
 import '../../../../../utils/constants/admin_colors.dart';
 import '../../../../../utils/helpers/helper_functions.dart';
@@ -263,25 +265,46 @@ class AdminSidebar extends StatelessWidget {
 
                           // 如果有头像，显示头像图片
                           if (profileImg.isNotEmpty) {
-                            return CircleAvatar(
-                              radius: 20,
-                              backgroundImage: NetworkImage(profileImg),
-                              backgroundColor: TAdminColors.getSurfaceVariantColor(darkMode),
+                            return GestureDetector(
+                              onTap: () {
+                                // 使用网络图片预览
+                                ImagePreviewDialog.showNetworkImage(
+                                  context: Get.context!,
+                                  imageUrl: profileImg,
+                                  title: '$username\'s Avatar',
+                                  maxWidth: 400,
+                                  maxHeight: 400,
+                                );
+                              },
+                              child: CircleAvatar(
+                                radius: 20,
+                                backgroundImage: NetworkImage(profileImg),
+                                backgroundColor: TAdminColors.getSurfaceVariantColor(darkMode),
+                              ),
                             );
                           }
                           // 如果没有头像，使用用户名的第一个字母
                           else {
-                            return CircleAvatar(
-                              radius: 20,
-                              backgroundColor: TAdminColors.primary,
-                              child: Text(
-                                username.isNotEmpty
-                                    ? username.substring(0, 1).toUpperCase()
-                                    : 'U', // 默认显示 'U'
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 16,
+                            return GestureDetector(
+                              onTap: () {
+                                // 显示默认头像的提示
+                                TLoaders.modernSnackBar(
+                                  title: 'No Profile Image',
+                                  message: 'You don\'t have a profile image',
+                                );
+                              },
+                              child: CircleAvatar(
+                                radius: 20,
+                                backgroundColor: TAdminColors.primary,
+                                child: Text(
+                                  username.isNotEmpty
+                                      ? username.substring(0, 1).toUpperCase()
+                                      : 'U', // 默认显示 'U'
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 16,
+                                  ),
                                 ),
                               ),
                             );

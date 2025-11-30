@@ -38,7 +38,7 @@ class HealthDataValidator {
 
   /// Validate systolic blood pressure
   static String? validateSystolic(int? value) {
-    if (value == null || value <= 0) {
+    if (value == null) {
       return 'Please enter systolic blood pressure';
     }
     if (value < HealthDataRanges.minSystolic ||
@@ -51,7 +51,7 @@ class HealthDataValidator {
 
   /// Validate diastolic blood pressure
   static String? validateDiastolic(int? value) {
-    if (value == null || value <= 0) {
+    if (value == null) {
       return 'Please enter diastolic blood pressure';
     }
     if (value < HealthDataRanges.minDiastolic ||
@@ -64,10 +64,11 @@ class HealthDataValidator {
 
   /// Validate pulse
   static String? validatePulse(int? value) {
-    if (value == null || value <= 0) {
+    if (value == null) {
       return 'Please enter pulse';
     }
-    if (value < HealthDataRanges.minPulse || value > HealthDataRanges.maxPulse) {
+    if (value < HealthDataRanges.minPulse ||
+        value > HealthDataRanges.maxPulse) {
       return 'Pulse must be between '
           '${HealthDataRanges.minPulse} and ${HealthDataRanges.maxPulse} ${HealthDataRanges.unitPulse}';
     }
@@ -76,7 +77,7 @@ class HealthDataValidator {
 
   /// Validate blood glucose level
   static String? validateGlucoseLevel(double? value) {
-    if (value == null || value <= 0) {
+    if (value == null) {
       return 'Please enter blood glucose level';
     }
     if (value < HealthDataRanges.minGlucoseMmolL ||
@@ -89,44 +90,49 @@ class HealthDataValidator {
 
   /// Validate weight
   static String? validateWeight(double? value) {
-    if (value != null && value > 0) {
-      if (value < HealthDataRanges.minWeightKg ||
-          value > HealthDataRanges.maxWeightKg) {
-        return 'Weight must be between '
-            '${HealthDataRanges.minWeightKg} and ${HealthDataRanges.maxWeightKg} ${HealthDataRanges.unitWeight}';
-      }
+    if (value == null) {
+      return 'Please enter weight';
     }
+
+    if (value < HealthDataRanges.minWeightKg ||
+        value > HealthDataRanges.maxWeightKg) {
+      return 'Weight must be between '
+          '${HealthDataRanges.minWeightKg} and ${HealthDataRanges.maxWeightKg} ${HealthDataRanges.unitWeight}';
+    }
+
     return null;
   }
 
   /// Validate body fat percentage
   static String? validateBodyFat(double? value) {
-    if (value != null && value > 0) {
-      if (value < HealthDataRanges.minBodyFatPercent ||
-          value > HealthDataRanges.maxBodyFatPercent) {
-        return 'Body fat percentage must be between '
-            '${HealthDataRanges.minBodyFatPercent} and ${HealthDataRanges.maxBodyFatPercent}${HealthDataRanges.unitBodyFat}';
-      }
+    if (value == null) {
+      return 'Please enter body fat';
     }
+
+    if (value < HealthDataRanges.minBodyFatPercent ||
+        value > HealthDataRanges.maxBodyFatPercent) {
+      return 'Body fat percentage must be between '
+          '${HealthDataRanges.minBodyFatPercent} and ${HealthDataRanges.maxBodyFatPercent}${HealthDataRanges.unitBodyFat}';
+    }
+
     return null;
   }
 
   /// Validate activity type
-  static String? validateActivityType(String? value, int duration) {
-    if (duration > 0 && (value == null || value.trim().isEmpty)) {
-      return 'Please enter activity type when duration is provided';
+  static String? validateActivityType(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Please enter activity type';
     }
     return null;
   }
 
   /// Validate activity duration
-  static String? validateActivityDuration(int? value, String activityType) {
-    if (activityType.isNotEmpty && (value == null || value <= 0)) {
-      return 'Please enter duration when activity type is provided';
+  static String? validateActivityDuration(int? value) {
+    if (value == null) {
+      return 'Please enter activity duration';
     }
-    if (value != null &&
-        (value < 0 || value > HealthDataRanges.maxActivityDurationMin)) {
-      return 'Duration must be between 0 and '
+    if ((value < HealthDataRanges.minActivityDurationMin || value > HealthDataRanges.maxActivityDurationMin)) {
+      return 'Duration must be between ${HealthDataRanges.minActivityDurationMin} and '
           '${HealthDataRanges.maxActivityDurationMin} ${HealthDataRanges.unitDuration}';
     }
     return null;
@@ -151,8 +157,7 @@ class HealthDataValidator {
   }
 
   static bool _hasBodyCompositionData(HealthDataModel data) {
-    return data.bodyComposition.weight > 0 ||
-        data.bodyComposition.bodyFat > 0;
+    return data.bodyComposition.weight > 0 || data.bodyComposition.bodyFat > 0;
   }
 
   static bool _hasPhysicalActivityData(HealthDataModel data) {
@@ -203,10 +208,12 @@ class HealthDataValidator {
     final errors = <String>[];
     final pa = data.physicalActivity;
 
-    final activityTypeError = validateActivityType(pa.activityType, pa.duration);
+    final activityTypeError =
+        validateActivityType(pa.activityType);
     if (activityTypeError != null) errors.add(activityTypeError);
 
-    final durationError = validateActivityDuration(pa.duration, pa.activityType);
+    final durationError =
+        validateActivityDuration(pa.duration);
     if (durationError != null) errors.add(durationError);
 
     return errors;

@@ -10,7 +10,6 @@ import 'src/features/achievement/views/leaderboard_screen.dart';
 import 'src/features/community/views/community_menu.dart';
 import 'src/features/diabetes_prediction/controllers/diabetes_prediction_flow_manager.dart';
 import 'src/features/meal_recommendation/views/meal_home_screen.dart';
-import 'src/features/meal_recommendation/views/meal_recommendation_form.dart';
 import 'src/features/personalization/views/settings/settings.dart';
 import 'src/utils/constants/colors.dart';
 import 'src/utils/helpers/helper_functions.dart';
@@ -45,9 +44,8 @@ class NavigationMenu extends StatelessWidget {
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: SafeArea(
-        // 让 BottomAppBar 也有安全区
         child: Obx(
-          () => BottomAppBar(
+              () => BottomAppBar(
             shape: const CircularNotchedRectangle(),
             notchMargin: 6,
             color: darkMode ? TColors.black : TColors.white,
@@ -68,9 +66,25 @@ class NavigationMenu extends StatelessWidget {
         ),
       ),
       body: Obx(
-        () => controller.screens[controller.selectedIndex.value],
+            () => _buildScreen(controller.selectedIndex.value),
       ),
     );
+  }
+
+  // 根据索引构建对应的屏幕
+  Widget _buildScreen(int index) {
+    switch (index) {
+      case 0:
+        return const Dashboard(); // 使用包装器
+      case 1:
+        return const MealHomeScreen();
+      case 2:
+        return const CommunityMenu();
+      case 3:
+        return const SettingsScreen();
+      default:
+        return const Dashboard();
+    }
   }
 
   Widget _buildNavItem(IconData icon, String label, int index,
@@ -121,7 +135,6 @@ class NavigationController extends GetxController {
     const Dashboard(),
     const MealHomeScreen(),
     const CommunityMenu(),
-    // const MealRecommendationForm(),
     const SettingsScreen(),
   ];
 }

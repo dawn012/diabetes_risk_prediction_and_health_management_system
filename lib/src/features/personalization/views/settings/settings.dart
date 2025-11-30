@@ -2,16 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:icons_plus/icons_plus.dart';
 
+import '../../../../../navigation_menu.dart';
+import '../../../../common/loaders/loaders.dart';
 import '../../../../common/widgets/appbar/appbar.dart';
 import '../../../../common/widgets/custom_shapes/containers/primary_header_container.dart';
+import '../../../../common/widgets/dialogs/dialog.dart';
 import '../../../../common/widgets/list_tiles/user_profile_tile.dart';
 import '../../../../common/widgets/texts/section_heading.dart';
 import '../../../../data/repositories/authentication/authentication_repository.dart';
+import '../../../../services/tutorial_flow_manager.dart';
 import '../../../../utils/constants/colors.dart';
 import '../../../../utils/constants/sizes.dart';
 import '../../../../utils/helpers/helper_functions.dart';
 import '../../../achievement/views/leaderboard_screen.dart';
 import '../../../achievement/views/user_achievement_screen.dart';
+import '../../../health_data_entry/views/dashboard.dart';
 import '../../../notification/views/notification_screen.dart';
 import '../../../reward/views/reward_shop_screen.dart';
 import '../../../subscription/views/subscription_history_screen.dart';
@@ -49,6 +54,7 @@ class SettingsScreen extends StatelessWidget {
                           .headlineMedium!
                           .apply(color: TColors.white),
                     ),
+                    isCenter: false,
                   ),
 
                   /// -- User Profile Card with Points Display
@@ -234,15 +240,29 @@ class SettingsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: TSizes.sm),
 
+                  // _buildSettingItem(
+                  //   context: context,
+                  //   icon: Iconsax.lock_bold,
+                  //   title: 'Account Privacy',
+                  //   subtitle: 'Manage data & privacy settings',
+                  //   iconColor: TColors.error,
+                  //   iconBgColor: TColors.error.withOpacity(0.1),
+                  //   onTap: () {
+                  //     // TODO: Navigate to privacy settings
+                  //   },
+                  //   darkMode: darkMode,
+                  // ),
+
                   _buildSettingItem(
                     context: context,
-                    icon: Iconsax.lock_bold,
-                    title: 'Account Privacy',
-                    subtitle: 'Manage data & privacy settings',
-                    iconColor: TColors.error,
-                    iconBgColor: TColors.error.withOpacity(0.1),
+                    icon: Iconsax.refresh_bold, // 使用刷新图标
+                    title: 'Restart Tutorial',
+                    subtitle: 'Restart the app tutorial guide',
+                    iconColor: TColors.info, // 可以使用 info 颜色
+                    iconBgColor: TColors.info.withOpacity(0.1),
                     onTap: () {
-                      // TODO: Navigate to privacy settings
+                      // 显示确认对话框
+                      _showRestartTutorialConfirmation(context);
                     },
                     darkMode: darkMode,
                   ),
@@ -539,6 +559,37 @@ class SettingsScreen extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  void _showRestartTutorialConfirmation(BuildContext context) {
+    TDialog.confirmDialog(
+      title: 'Restart Tutorial?',
+      message: 'Are you sure you want to restart the tutorial? This will guide you through all the app features again.',
+      confirmText: 'Restart',
+      cancelText: 'Cancel',
+      icon: Iconsax.refresh_bold,
+      iconColor: TColors.info,
+      confirmButtonColor: TColors.primary,
+      onConfirm: () {
+        // 重启教学
+        final tutorialManager = TutorialFlowManager.instance;
+        tutorialManager.resetTutorial();
+
+        // 显示成功消息
+        TLoaders.successSnackBar(
+          title: 'Tutorial Restarted!',
+          message: 'Returning to dashboard to start the tutorial...',
+        );
+
+        // 立即导航回 Dashboard
+        Future.delayed(const Duration(milliseconds: 1000), () {
+          // 重置导航索引到 Dashboard
+          final navController = Get.find<NavigationController>();
+          navController.selectedIndex.value = 0;
+          // 不需要在这里手动启动教学，Dashboard 会自动检测并开始
+        });
+      },
     );
   }
 }

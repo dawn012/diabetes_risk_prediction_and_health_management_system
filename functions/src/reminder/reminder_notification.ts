@@ -12,8 +12,8 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 
 const db = admin.firestore();
 
-// 🔧 Snooze 时间窗口（分钟）
-const SNOOZE_WINDOW_MINUTES = 5;
+// Snooze 时间窗口（分钟）
+// const SNOOZE_WINDOW_MINUTES = 5;
 
 /**
  * ============================================================
@@ -38,7 +38,7 @@ export const onScheduleTriggered = onDocumentUpdated(
 
     // 只在状态从 pending 变为 triggered 时发送通知
     if (beforeData.status === "pending" && afterData.status === "triggered") {
-      functions.logger.log(`📲 Schedule ${scheduleId} triggered, sending notification`);
+      functions.logger.log(`Schedule ${scheduleId} triggered, sending notification`);
 
       try {
         const reminderDoc = await db.collection("reminders").doc(reminderId).get();
@@ -138,18 +138,18 @@ export const handleSnoozeReminder = onCall(async (request) => {
     }
 
     // 4️⃣ 检查 snooze 时间窗口（防止延迟 snooze）
-    const triggeredAt = scheduleData.triggeredAt?.toDate();
-    if (triggeredAt) {
-      const now = new Date();
-      const minutesSinceTrigger = (now.getTime() - triggeredAt.getTime()) / (1000 * 60);
-
-      if (minutesSinceTrigger > SNOOZE_WINDOW_MINUTES) {
-        throw new HttpsError(
-          "deadline-exceeded",
-          `Snooze window expired (${SNOOZE_WINDOW_MINUTES} minutes)`
-        );
-      }
-    }
+    //     const triggeredAt = scheduleData.triggeredAt?.toDate();
+    //     if (triggeredAt) {
+    //       const now = new Date();
+    //       const minutesSinceTrigger = (now.getTime() - triggeredAt.getTime()) / (1000 * 60);
+    //
+    //       if (minutesSinceTrigger > SNOOZE_WINDOW_MINUTES) {
+    //         throw new HttpsError(
+    //           "deadline-exceeded",
+    //           `Snooze window expired (${SNOOZE_WINDOW_MINUTES} minutes)`
+    //         );
+    //       }
+    //     }
 
     // 5️⃣ 计算 snooze 时间（Malaysia 时区）
     const nowMalaysia = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kuala_Lumpur" }));
@@ -195,10 +195,10 @@ export const handleSnoozeReminder = onCall(async (request) => {
         scheduleId: newScheduleRef.id,
         triggerTime: admin.firestore.Timestamp.fromDate(snoozeUntilUTC),
         originalTime: scheduleData.originalTime, // 保留原始时间
-        parentScheduleId: scheduleId, // 🔧 记录父 schedule
-        snoozeCount: (scheduleData.snoozeCount || 0) + 1, // 🔧 累计 snooze 次数
+        parentScheduleId: scheduleId, // 记录父 schedule
+        snoozeCount: (scheduleData.snoozeCount || 0) + 1, // 累计 snooze 次数
         status: "pending",
-        isSnooze: true, // 🔧 标记为 snooze schedule
+        isSnooze: true, // 标记为 snooze schedule
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       };
 
@@ -211,7 +211,7 @@ export const handleSnoozeReminder = onCall(async (request) => {
     });
 
     functions.logger.log(
-      `⏰ Snooze schedule created: Malaysia=${snoozeUntilMalaysia.toISOString()}, ` +
+      `Snooze schedule created: Malaysia=${snoozeUntilMalaysia.toISOString()}, ` +
       `UTC=${snoozeUntilUTC.toISOString()}, snoozeCount=${(scheduleData.snoozeCount || 0) + 1}`
     );
 
@@ -302,7 +302,7 @@ export const handleDismissReminder = onCall(async (request) => {
  */
 
 /**
- * 发送 FCM 推送通知给用户
+ * 发送 FCM 推送通知给用户（data-only）
  */
 async function sendReminderNotification(
   userId: string,
@@ -327,15 +327,12 @@ async function sendReminderNotification(
 
     const message: admin.messaging.MulticastMessage = {
       tokens: fcmTokens,
-      notification: {
-        title: "⏰ " + (reminderData.reminderTitle || "Reminder"),
-        body: reminderData.reminderDescription || "Time to track your health!",
-      },
+      // ❌ 不再使用 notification，改为纯 data-only
       data: {
         type: "reminder_notification",
-        reminderId: reminderId,
-        scheduleId: scheduleId,
-        userId: userId,
+        reminderId,
+        scheduleId,
+        userId,
         reminderTitle: reminderData.reminderTitle || "",
         reminderDescription: reminderData.reminderDescription || "",
         snoozeDuration: (reminderData.snoozeDuration || 5).toString(),
@@ -343,21 +340,19 @@ async function sendReminderNotification(
         screen: "reminder_detail",
         id: reminderId,
       },
+      android: {
+        priority: "high",
+        // ❌ 如果全部走本地通知，可以不需要 android.notification
+        // 保留 priority 确保后台送达可靠
+      },
       apns: {
         payload: {
           aps: {
             sound: "default",
-            badge: 1,
+            // 对 data-only 推送，让 iOS 后台可唤醒
+            contentAvailable: true as any,
             category: "reminder_category",
           },
-        },
-      },
-      android: {
-        priority: "high",
-        notification: {
-          sound: "default",
-          channelId: "reminder_notifications",
-          clickAction: "FLUTTER_NOTIFICATION_CLICK",
         },
       },
       webpush: {
@@ -368,7 +363,7 @@ async function sendReminderNotification(
     };
 
     const response = await admin.messaging().sendEachForMulticast(message);
-    functions.logger.info(`📨 Successfully sent ${response.successCount} notifications`);
+    functions.logger.info(`Successfully sent ${response.successCount} notifications`);
 
     if (response.failureCount > 0) {
       response.responses.forEach((resp, idx) => {
@@ -397,7 +392,7 @@ async function removeInvalidToken(userId: string, invalidToken: string): Promise
     await db.collection("users").doc(userId).update({
       fcmTokens: admin.firestore.FieldValue.arrayRemove(invalidToken),
     });
-    functions.logger.info(`🗑️ Removed invalid token for user ${userId}`);
+    functions.logger.info(`Removed invalid token for user ${userId}`);
   } catch (error) {
     functions.logger.error("❌ Error removing invalid token:", error);
   }
@@ -424,7 +419,7 @@ async function logNotificationSent(
         successCount: successCount,
         status: successCount > 0 ? "delivered" : "failed",
       });
-    functions.logger.log(`📝 Notification log created for reminder ${reminderId}`);
+    functions.logger.log(`Notification log created for reminder ${reminderId}`);
   } catch (error) {
     functions.logger.error("❌ Error logging notification:", error);
   }

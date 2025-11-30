@@ -66,8 +66,8 @@ class EmptyNotificationWidget extends StatelessWidget {
               SizedBox(height: TSizes.xl),
 
               // Action button (if applicable)
-              if (_shouldShowActionButton())
-                _buildActionButton(context),
+              // if (_shouldShowActionButton())
+              //   _buildActionButton(context),
             ],
           ),
         ),

@@ -5,6 +5,7 @@ import '../../../common/loaders/loaders.dart';
 import '../../../data/repositories/authentication/authentication_repository.dart';
 import '../../../data/repositories/health_log/health_log_repository.dart';
 import '../../../utils/constants/enums.dart';
+import '../../../utils/constants/physiological_period_constants.dart';
 import '../../../utils/validators/health_data_validator.dart';
 import '../models/blood_glucose_model.dart';
 import '../models/blood_pressure_model.dart';
@@ -30,6 +31,9 @@ class HealthDataEntryController extends GetxController {
   final activeSections = <String>{}.obs;
   final isLoading = false.obs;
 
+  // Track if user manually selected period
+  final hasManuallySelectedPeriod = false.obs;
+
   // Text Controllers
   final glucoseController = TextEditingController();
   final systolicController = TextEditingController();
@@ -52,8 +56,14 @@ class HealthDataEntryController extends GetxController {
     super.onInit();
     if (editData != null) {
       _populateEditData();
+      // 编辑模式下认为用户已经选择过 period
+      hasManuallySelectedPeriod.value = true;
     } else if (initialSections != null) {
       _populateInitialSections();
+      _updatePeriodBasedOnTime();
+    } else {
+      // 记录时自动检测当前时间的生理周期
+      _updatePeriodBasedOnTime();
     }
   }
 
@@ -113,9 +123,42 @@ class HealthDataEntryController extends GetxController {
     }
   }
 
-  /// Update period
+  /// 根据选择的日期时间自动更新生理周期（仅在用户未手动选择时）
+  void _updatePeriodBasedOnTime() {
+    // 🆕 CHANGED: 只有当用户未手动选择过 period 时才自动更新
+    if (hasManuallySelectedPeriod.value) {
+      return;
+    }
+
+    final selectedDateTime = DateTime(
+      selectedDate.value.year,
+      selectedDate.value.month,
+      selectedDate.value.day,
+      selectedTime.value.hour,
+      selectedTime.value.minute,
+    );
+
+    final autoPeriod =
+        PhysiologicalPeriodConstants.getPeriodForTime(selectedDateTime);
+    selectedPeriod.value = autoPeriod;
+  }
+
+  /// 更新时间选择
+  void updateTime(TimeOfDay time) {
+    selectedTime.value = time;
+    _updatePeriodBasedOnTime(); // 只有未手动选择过才会更新
+  }
+
+  /// 更新日期选择
+  void updateDate(DateTime date) {
+    selectedDate.value = date;
+    _updatePeriodBasedOnTime(); // 只有未手动选择过才会更新
+  }
+
+  /// 🆕 CHANGED: Update period - 标记为手动选择
   void updatePeriod(PhysiologicalTimePeriod period) {
     selectedPeriod.value = period;
+    hasManuallySelectedPeriod.value = true; // 标记用户已手动选择
   }
 
   /// Update intensity level
@@ -230,26 +273,6 @@ class HealthDataEntryController extends GetxController {
     return types;
   }
 
-  // /// 检查时间间隔是否太近（业务逻辑）
-  // Future<bool> _checkTimeIntervalTooClose({
-  //   required String userId,
-  //   required DateTime logDateTime,
-  // }) async {
-  //   // 业务规则：至少10分钟间隔
-  //   const minInterval = Duration(minutes: 10);
-  //   final startTime = logDateTime.subtract(minInterval);
-  //   final endTime = logDateTime.add(minInterval);
-  //
-  //   final nearbyLogs = await _healthLogRepo.findLogsInTimeRange(
-  //     userId: userId,
-  //     startTime: startTime,
-  //     endTime: endTime,
-  //     physiologicalTimePeriod: selectedPeriod.value,
-  //   );
-  //
-  //   return nearbyLogs.isNotEmpty;
-  // }
-
   /// 检查重复数据类型并返回需要覆盖的数据类型列表
   Future<Map<String, dynamic>?> _checkDuplicateDataType({
     required String userId,
@@ -322,8 +345,8 @@ class HealthDataEntryController extends GetxController {
         isValid = false;
       }
 
-      final pulseError = HealthDataValidator.validatePulse(
-          healthData.bloodPressure.pulse);
+      final pulseError =
+          HealthDataValidator.validatePulse(healthData.bloodPressure.pulse);
       if (pulseError != null) {
         fieldErrors['pulse'] = pulseError;
         isValid = false;
@@ -331,44 +354,31 @@ class HealthDataEntryController extends GetxController {
     }
 
     if (activeSections.contains('Weight & Body Fat')) {
-      if (healthData.bodyComposition.weight > 0) {
-        final weightError = HealthDataValidator.validateWeight(
-            healthData.bodyComposition.weight);
-        if (weightError != null) {
-          fieldErrors['weight'] = weightError;
-          isValid = false;
-        }
+      final weightError =
+          HealthDataValidator.validateWeight(healthData.bodyComposition.weight);
+      if (weightError != null) {
+        fieldErrors['weight'] = weightError;
+        isValid = false;
       }
 
-      if (healthData.bodyComposition.bodyFat > 0) {
-        final bodyFatError = HealthDataValidator.validateBodyFat(
-            healthData.bodyComposition.bodyFat);
-        if (bodyFatError != null) {
-          fieldErrors['bodyFat'] = bodyFatError;
-          isValid = false;
-        }
-      }
-
-      // At least one field must be filled
-      if (healthData.bodyComposition.weight <= 0 &&
-          healthData.bodyComposition.bodyFat <= 0) {
-        fieldErrors['weight'] = 'Please enter at least weight or body fat';
+      final bodyFatError = HealthDataValidator.validateBodyFat(
+          healthData.bodyComposition.bodyFat);
+      if (bodyFatError != null) {
+        fieldErrors['bodyFat'] = bodyFatError;
         isValid = false;
       }
     }
 
     if (activeSections.contains('Exercise')) {
       final activityError = HealthDataValidator.validateActivityType(
-          healthData.physicalActivity.activityType,
-          healthData.physicalActivity.duration);
+          healthData.physicalActivity.activityType,);
       if (activityError != null) {
         fieldErrors['activityType'] = activityError;
         isValid = false;
       }
 
       final durationError = HealthDataValidator.validateActivityDuration(
-          healthData.physicalActivity.duration,
-          healthData.physicalActivity.activityType);
+          healthData.physicalActivity.duration,);
       if (durationError != null) {
         fieldErrors['duration'] = durationError;
         isValid = false;
@@ -403,20 +413,6 @@ class HealthDataEntryController extends GetxController {
         return;
       }
 
-      // // 检查时间间隔是否太近（10分钟内）
-      // final isTimeTooClose = await _checkTimeIntervalTooClose(
-      //   userId: userId,
-      //   logDateTime: healthData.logDateTime,
-      // );
-      //
-      // if (isTimeTooClose) {
-      //   TLoaders.warningSnackBar(
-      //     title: 'Time Interval Too Close',
-      //     message: 'Please wait at least 10 minutes between records for the same time period',
-      //   );
-      //   return;
-      // }
-
       // 检查重复数据类型
       final duplicateResult = await _checkDuplicateDataType(
         userId: userId,
@@ -425,7 +421,8 @@ class HealthDataEntryController extends GetxController {
 
       if (duplicateResult != null) {
         final existingLog = duplicateResult['log'] as HealthDataModel;
-        final conflictingTypes = duplicateResult['conflictingTypes'] as List<String>;
+        final conflictingTypes =
+            duplicateResult['conflictingTypes'] as List<String>;
 
         // 询问用户是否覆盖冲突的数据类型
         final shouldOverride = await _showOverrideDialog(conflictingTypes);
@@ -434,20 +431,20 @@ class HealthDataEntryController extends GetxController {
         }
 
         // 只覆盖冲突的数据类型，保留其他数据
-        final mergedData = _createMergedHealthData(existingLog, healthData, conflictingTypes);
+        final mergedData =
+            _createMergedHealthData(existingLog, healthData, conflictingTypes);
         await _healthLogRepo.updateHealthLog(userId, mergedData);
 
         TLoaders.successSnackBar(
           title: 'Success',
-          message: '${conflictingTypes.length} data type(s) updated successfully',
+          message:
+              '${conflictingTypes.length} data type(s) updated successfully',
         );
       } else {
         // 没有重复：创建新记录（会自动合并相同时间的记录）
         await _healthLogRepo.saveHealthLog(userId, healthData);
         TLoaders.successSnackBar(
-            title: 'Success',
-            message: 'Health data saved successfully'
-        );
+            title: 'Success', message: 'Health data saved successfully');
       }
 
       // Refresh the data controllers
@@ -456,7 +453,6 @@ class HealthDataEntryController extends GetxController {
       if (Get.context != null) {
         Navigator.of(Get.context!, rootNavigator: true).pop(true);
       }
-
     } catch (e) {
       TLoaders.errorSnackBar(
         title: 'Error',
@@ -500,7 +496,6 @@ class HealthDataEntryController extends GetxController {
       if (Get.context != null) {
         Navigator.of(Get.context!, rootNavigator: true).pop(true);
       }
-
     } catch (e) {
       TLoaders.errorSnackBar(
         title: 'Error',
@@ -541,7 +536,6 @@ class HealthDataEntryController extends GetxController {
       );
 
       _refreshDataControllers();
-
     } catch (e) {
       TLoaders.errorSnackBar(
         title: 'Error',
@@ -553,7 +547,8 @@ class HealthDataEntryController extends GetxController {
   }
 
   /// 创建合并后的健康数据（只覆盖冲突的数据类型）
-  HealthDataModel _createMergedHealthData(HealthDataModel existing, HealthDataModel newData, List<String> conflictingTypes) {
+  HealthDataModel _createMergedHealthData(HealthDataModel existing,
+      HealthDataModel newData, List<String> conflictingTypes) {
     return HealthDataModel(
       logId: existing.logId,
       logDateTime: existing.logDateTime,
@@ -561,43 +556,52 @@ class HealthDataEntryController extends GetxController {
 
       // 血压数据：只有冲突时才覆盖，否则保留原有数据
       bloodPressure: BloodPressureModel(
-        systolic: conflictingTypes.contains('bloodPressure') && newData.bloodPressure.systolic > 0
+        systolic: conflictingTypes.contains('bloodPressure') &&
+                newData.bloodPressure.systolic > 0
             ? newData.bloodPressure.systolic
             : existing.bloodPressure.systolic,
-        diastolic: conflictingTypes.contains('bloodPressure') && newData.bloodPressure.diastolic > 0
+        diastolic: conflictingTypes.contains('bloodPressure') &&
+                newData.bloodPressure.diastolic > 0
             ? newData.bloodPressure.diastolic
             : existing.bloodPressure.diastolic,
-        pulse: conflictingTypes.contains('bloodPressure') && newData.bloodPressure.pulse > 0
+        pulse: conflictingTypes.contains('bloodPressure') &&
+                newData.bloodPressure.pulse > 0
             ? newData.bloodPressure.pulse
             : existing.bloodPressure.pulse,
       ),
 
       // 血糖数据：只有冲突时才覆盖
       bloodGlucose: BloodGlucoseModel(
-        glucoseLevel: conflictingTypes.contains('bloodGlucose') && newData.bloodGlucose.glucoseLevel > 0
+        glucoseLevel: conflictingTypes.contains('bloodGlucose') &&
+                newData.bloodGlucose.glucoseLevel > 0
             ? newData.bloodGlucose.glucoseLevel
             : existing.bloodGlucose.glucoseLevel,
       ),
 
       // 身体成分数据：只有冲突时才覆盖
       bodyComposition: BodyCompositionModel(
-        weight: conflictingTypes.contains('bodyComposition') && newData.bodyComposition.weight > 0
+        weight: conflictingTypes.contains('bodyComposition') &&
+                newData.bodyComposition.weight > 0
             ? newData.bodyComposition.weight
             : existing.bodyComposition.weight,
-        bodyFat: conflictingTypes.contains('bodyComposition') && newData.bodyComposition.bodyFat > 0
+        bodyFat: conflictingTypes.contains('bodyComposition') &&
+                newData.bodyComposition.bodyFat > 0
             ? newData.bodyComposition.bodyFat
             : existing.bodyComposition.bodyFat,
       ),
 
       // 运动数据：只有冲突时才覆盖
       physicalActivity: PhysicalActivityModel(
-        activityType: conflictingTypes.contains('physicalActivity') && newData.physicalActivity.activityType.isNotEmpty
+        activityType: conflictingTypes.contains('physicalActivity') &&
+                newData.physicalActivity.activityType.isNotEmpty
             ? newData.physicalActivity.activityType
             : existing.physicalActivity.activityType,
-        duration: conflictingTypes.contains('physicalActivity') && newData.physicalActivity.duration > 0
+        duration: conflictingTypes.contains('physicalActivity') &&
+                newData.physicalActivity.duration > 0
             ? newData.physicalActivity.duration
             : existing.physicalActivity.duration,
-        intensityLevel: conflictingTypes.contains('physicalActivity') && newData.physicalActivity.activityType.isNotEmpty
+        intensityLevel: conflictingTypes.contains('physicalActivity') &&
+                newData.physicalActivity.activityType.isNotEmpty
             ? newData.physicalActivity.intensityLevel
             : existing.physicalActivity.intensityLevel,
       ),
@@ -608,37 +612,43 @@ class HealthDataEntryController extends GetxController {
   Future<bool> _showOverrideDialog(List<String> conflictingTypes) async {
     String dataTypesText = conflictingTypes.map((type) {
       switch (type) {
-        case 'bloodGlucose': return 'blood glucose';
-        case 'bloodPressure': return 'blood pressure';
-        case 'bodyComposition': return 'weight & body fat';
-        case 'physicalActivity': return 'exercise';
-        default: return type;
+        case 'bloodGlucose':
+          return 'blood glucose';
+        case 'bloodPressure':
+          return 'blood pressure';
+        case 'bodyComposition':
+          return 'weight & body fat';
+        case 'physicalActivity':
+          return 'exercise';
+        default:
+          return type;
       }
     }).join(', ');
 
     return await Get.dialog<bool>(
-      AlertDialog(
-        title: Text('Duplicate Data Found'),
-        content: Text(
-          'The following data types already exist at this time: $dataTypesText. '
+          AlertDialog(
+            title: Text('Duplicate Data Found'),
+            content: Text(
+              'The following data types already exist at this time: $dataTypesText. '
               'Do you want to override these specific data types? '
               '\n\nOther existing data in this record will be preserved.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(result: false),
-            child: Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Get.back(result: true),
-            child: Text(
-              'Override Selected Data',
-              style: TextStyle(color: Colors.red),
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Get.back(result: false),
+                child: Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Get.back(result: true),
+                child: Text(
+                  'Override Selected Data',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-    ) ?? false;
+        ) ??
+        false;
   }
 
   /// Create HealthDataModel from form input
@@ -657,46 +667,47 @@ class HealthDataEntryController extends GetxController {
       physiologicalTimePeriod: selectedPeriod.value,
       bloodGlucose: BloodGlucoseModel(
         glucoseLevel: activeSections.contains('Blood Glucose') &&
-            glucoseController.text.isNotEmpty
+                glucoseController.text.isNotEmpty
             ? double.tryParse(glucoseController.text) ?? 0.0
             : editData?.bloodGlucose.glucoseLevel ?? 0.0,
       ),
       bloodPressure: BloodPressureModel(
         systolic: activeSections.contains('Blood Pressure & Pulse') &&
-            systolicController.text.isNotEmpty
+                systolicController.text.isNotEmpty
             ? int.tryParse(systolicController.text) ?? 0
             : editData?.bloodPressure.systolic ?? 0,
         diastolic: activeSections.contains('Blood Pressure & Pulse') &&
-            diastolicController.text.isNotEmpty
+                diastolicController.text.isNotEmpty
             ? int.tryParse(diastolicController.text) ?? 0
             : editData?.bloodPressure.diastolic ?? 0,
         pulse: activeSections.contains('Blood Pressure & Pulse') &&
-            pulseController.text.isNotEmpty
+                pulseController.text.isNotEmpty
             ? int.tryParse(pulseController.text) ?? 0
             : editData?.bloodPressure.pulse ?? 0,
       ),
       bodyComposition: BodyCompositionModel(
         weight: activeSections.contains('Weight & Body Fat') &&
-            weightController.text.isNotEmpty
+                weightController.text.isNotEmpty
             ? double.tryParse(weightController.text) ?? 0.0
             : editData?.bodyComposition.weight ?? 0.0,
         bodyFat: activeSections.contains('Weight & Body Fat') &&
-            bodyFatController.text.isNotEmpty
+                bodyFatController.text.isNotEmpty
             ? double.tryParse(bodyFatController.text) ?? 0.0
             : editData?.bodyComposition.bodyFat ?? 0.0,
       ),
       physicalActivity: PhysicalActivityModel(
         activityType: activeSections.contains('Exercise') &&
-            exerciseNameController.text.isNotEmpty
+                exerciseNameController.text.isNotEmpty
             ? exerciseNameController.text
             : editData?.physicalActivity.activityType ?? '',
         duration: activeSections.contains('Exercise') &&
-            durationController.text.isNotEmpty
+                durationController.text.isNotEmpty
             ? int.tryParse(durationController.text) ?? 0
             : editData?.physicalActivity.duration ?? 0,
         intensityLevel: activeSections.contains('Exercise')
             ? selectedIntensityLevel.value
-            : editData?.physicalActivity.intensityLevel ?? IntensityLevel.moderate,
+            : editData?.physicalActivity.intensityLevel ??
+                IntensityLevel.moderate,
       ),
     );
   }

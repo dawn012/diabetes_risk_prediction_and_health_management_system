@@ -197,6 +197,7 @@ class UpdateProfileController extends GetxController {
         title: TTexts.error,
         message: e.toString(),
       );
+      print('applyAllChanges error: $e');
     }
   }
 

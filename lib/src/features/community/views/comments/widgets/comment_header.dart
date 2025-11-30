@@ -81,7 +81,7 @@ class CommentHeader extends StatelessWidget {
                     comment.wasEdited
                         ? '${comment.updatedAt.fromNow()} (edited)'
                         : comment.createdAt.fromNow(),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: isDark ? TColors.darkGrey : TColors.textSecondary,
                     ),
                   ),

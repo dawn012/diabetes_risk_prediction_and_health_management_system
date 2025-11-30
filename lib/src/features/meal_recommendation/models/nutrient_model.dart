@@ -1,14 +1,36 @@
+import 'package:hive/hive.dart';
+
 import '../../../utils/constants/firebase_field_names.dart';
 
+part 'nutrient_model.g.dart';
+
+@HiveType(typeId: 16)
 class NutrientModel {
+  @HiveField(0)
   final double calories;
+
+  @HiveField(1)
   final double protein;
+
+  @HiveField(2)
   final double fat;
+
+  @HiveField(3)
   final double saturatedFat;
+
+  @HiveField(4)
   final double carbohydrates;
+
+  @HiveField(5)
   final double fiber;
+
+  @HiveField(6)
   final double sugar;
+
+  @HiveField(7)
   final double sodium;
+
+  @HiveField(8)
   final double cholesterol;
 
   const NutrientModel({

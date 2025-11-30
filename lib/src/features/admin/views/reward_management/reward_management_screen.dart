@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:icons_plus/icons_plus.dart';
 
+import '../../../../common/loaders/loaders.dart';
 import '../../../../common/widgets/dialogs/common_confirmation_dialog.dart';
+import '../../../../common/widgets/dialogs/image_preview_dialog.dart';
 import '../../../../common/widgets/pagination/pagination_widget.dart';
 import '../../../../common/widgets/table/reusable_data_table.dart';
 import '../../../../utils/constants/admin_colors.dart';
@@ -130,35 +132,56 @@ class RewardManagementScreen extends StatelessWidget {
           final query = controller.searchController.text;
           return Row(
             children: [
-              // Reward Image
-              Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: TAdminColors.getBorderColor(darkMode),
-                    width: 1,
+              // Reward Image with click to preview
+              GestureDetector(
+                onTap: () {
+                  if (reward.icon.isNotEmpty) {
+                    // 使用网络图片预览
+                    ImagePreviewDialog.showNetworkImage(
+                      context: Get.context!,
+                      imageUrl: reward.icon,
+                      title: reward.title,
+                      subtitle: 'Reward Icon',
+                      maxWidth: 400,
+                      maxHeight: 400,
+                    );
+                  } else {
+                    // 显示默认图标的提示
+                    TLoaders.modernSnackBar(
+                      title: 'No Icon',
+                      message: 'This reward doesn\'t have an icon',
+                    );
+                  }
+                },
+                child: Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: TAdminColors.getBorderColor(darkMode),
+                      width: 1,
+                    ),
                   ),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(7),
-                  child: reward.icon.isNotEmpty
-                      ? Image.network(
-                    reward.icon,
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Icon(
-                        Iconsax.gallery_slash_bold,
-                        size: 24,
-                        color: TAdminColors.error,
-                      );
-                    },
-                  )
-                      : Icon(
-                    Iconsax.gallery_bold,
-                    size: 24,
-                    color: TAdminColors.getOnSurfaceVariantColor(darkMode),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(7),
+                    child: reward.icon.isNotEmpty
+                        ? Image.network(
+                      reward.icon,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Icon(
+                          Iconsax.gallery_slash_bold,
+                          size: 24,
+                          color: TAdminColors.error,
+                        );
+                      },
+                    )
+                        : Icon(
+                      Iconsax.gallery_bold,
+                      size: 24,
+                      color: TAdminColors.getOnSurfaceVariantColor(darkMode),
+                    ),
                   ),
                 ),
               ),

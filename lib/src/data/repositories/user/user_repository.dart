@@ -123,7 +123,7 @@ class UserRepository extends GetxController {
   /// Function to save user data to Firestore with profile as contained object
   Future<void> saveUserRecord(UserModel user) async {
     try {
-      await _usersCollection.doc(user.userId).set(user.toJson());
+      await _usersCollection.doc(user.userId).set(user.toJson(), SetOptions(merge: true));
     } on FirebaseException catch (e) {
       throw TFirebaseException(e.code).message;
     } on FormatException catch (_) {
@@ -616,6 +616,7 @@ class UserRepository extends GetxController {
     } on PlatformException catch (e) {
       throw TPlatformException(e.code).message;
     } catch (e) {
+      print("Error: $e");
       throw TTexts.commonErrorMessage;
     }
   }

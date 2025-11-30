@@ -24,6 +24,7 @@ function convertDateToUTC8(dateString: string): number {
 // 格式化日期函数
 function formatDate(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString("en-US", {
+    timeZone: "Asia/Kuala_Lumpur",
     year: "numeric",
     month: "long",
     day: "numeric"
@@ -32,6 +33,7 @@ function formatDate(timestamp: number): string {
 
 function formatDateTime(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString("en-US", {
+    timeZone: "Asia/Kuala_Lumpur",
     year: "numeric",
     month: "long",
     day: "numeric",
@@ -532,7 +534,7 @@ async function handleSubscriptionCancelled(subscription: any) {
 
           if (planData) {
             const endDateTime = subscriptionData.endDateTime || Date.now();
-            const remainingDays = Math.max(0, Math.ceil((endDateTime - Date.now()) / (24 * 60 * 60 * 1000)));
+            const remainingDays = Math.max(0, Math.floor((endDateTime - Date.now()) / (24 * 60 * 60 * 1000)));
 
             const cancelledEmail = generateSubscriptionCancelledEmail(
               userData.username || "User",

@@ -6,6 +6,7 @@ import '../../../../../utils/constants/sizes.dart';
 import '../../../../../utils/constants/text_strings.dart';
 import '../../../../../utils/validators/user_profile_validator.dart';
 import '../../../controllers/login_controller.dart';
+import '../../forget_password/forget_password_mail/forget_password.dart';
 import '../../forget_password/forget_password_options/forget_password_bottom_sheet.dart';
 import '../../signup/signup_screen.dart';
 
@@ -96,7 +97,8 @@ class _LoginFormState extends State<TLoginForm> {
               alignment: Alignment.centerRight,
               child: TextButton(
                 onPressed: () {
-                  ForgetPasswordScreen.buildShowModalBottomSheet(context);
+                  // ForgetPasswordScreen.buildShowModalBottomSheet(context);
+                  Get.to(() => ForgetPasswordMailScreen());
                 },
                 child: Text('${TTexts.forgetPassword}?'),
               ),

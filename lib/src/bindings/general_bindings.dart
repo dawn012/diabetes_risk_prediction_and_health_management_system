@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 
 import '../features/personalization/controllers/user_controller.dart';
+import '../services/tutorial_flow_manager.dart';
 import '../services/deep_link_service.dart';
 import '../services/diabetes_hive_storage_manager.dart';
 import '../services/diabetes_prediction_service.dart';
@@ -18,5 +19,6 @@ class GeneralBindings extends Bindings {
     Get.put(DiabetesHiveStorageManager());
     Get.put(MealHiveStorageManager());
     Get.put(DiabetesPredictionService());
+    Get.put(TutorialFlowManager());
   }
 }

@@ -20,14 +20,17 @@ class AddReminderForm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.put(AddReminderController());
+    final controller = Get.find<AddReminderController>();
     final darkMode = THelperFunctions.isDarkMode(context);
 
     // Initialize with existing reminder data if editing
-    if (isEditing && reminderToEdit != null) {
-      controller.initializeForEditing(reminderToEdit!);
-    } else {
-      controller.clearForm();
+    if (!controller.isInitialized.value) {
+      if (isEditing && reminderToEdit != null) {
+        controller.initializeForEditing(reminderToEdit!);
+      } else {
+        controller.clearForm();
+      }
+      controller.isInitialized.value = true;
     }
 
     return Container(
@@ -40,7 +43,7 @@ class AddReminderForm extends StatelessWidget {
           left: 16,
           right: 16,
           top: 16,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+          bottom: 20,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

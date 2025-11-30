@@ -20,9 +20,9 @@ export { DateUtils } from "./utils/date_utils";
 
 // 健康数据触发器
 export {
-  onHealthLogCreated,
-  onHealthLogUpdated,
-  onHealthLogDeleted,
+  onHealthLogAchievementCreated,
+  onHealthLogAchievementUpdated,
+  onHealthLogAchievementDeleted,
 } from "./triggers/health_data_triggers";
 
 // 社区数据触发器

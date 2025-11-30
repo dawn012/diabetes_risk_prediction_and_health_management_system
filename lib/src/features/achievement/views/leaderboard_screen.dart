@@ -4,6 +4,7 @@ import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:icons_plus/icons_plus.dart';
 
 import '../../../common/loaders/circular_loader.dart';
+import '../../../common/widgets/appbar/appbar.dart';
 import '../../../common/widgets/tab_selector/custom_tab_selector.dart';
 import '../../../utils/constants/colors.dart';
 import '../../../utils/constants/enums.dart';
@@ -24,13 +25,9 @@ class LeaderboardScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: isDark ? TColors.darkBackground : Colors.grey[50],
-      appBar: AppBar(
+      appBar: TAppBar(
         backgroundColor: TColors.primary,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios, color: Colors.white),
-          onPressed: () => Get.back(),
-        ),
+        showBackArrow: true,
         title: Text(
           'Leaderboard',
           style: TextStyle(
@@ -39,7 +36,7 @@ class LeaderboardScreen extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
-        centerTitle: true,
+        iconTheme: IconThemeData(color: TColors.white),
         actions: [
           IconButton(
             icon: Icon(Iconsax.award_bold, color: Colors.white),
@@ -47,18 +44,6 @@ class LeaderboardScreen extends StatelessWidget {
             tooltip: 'Reward Rules',
           ),
         ],
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                TColors.primary,
-                TColors.primary.withOpacity(0.8),
-              ],
-            ),
-          ),
-        ),
       ),
       body: Column(
         children: [

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:icons_plus/icons_plus.dart';
+import '../../../../common/loaders/loaders.dart';
 import '../../../../common/widgets/dialogs/common_confirmation_dialog.dart';
+import '../../../../common/widgets/dialogs/image_preview_dialog.dart';
 import '../../../../common/widgets/dialogs/set_password_email_dialog.dart';
 import '../../../../common/widgets/pagination/pagination_widget.dart';
 import '../../../../common/widgets/table/reusable_data_table.dart';
@@ -145,21 +147,41 @@ class ManagerManagementScreen extends StatelessWidget {
         minWidth: 60,
         flex: 1,
         sortable: false,
-        builder: (manager) => CircleAvatar(
-          radius: 20,
-          backgroundImage: manager.profileImg.isNotEmpty
-              ? NetworkImage(manager.profileImg)
-              : null,
-          backgroundColor: manager.profileImg.isEmpty
-              ? TAdminColors.getRoleColor(manager.userType).withOpacity(0.2)
-              : null,
-          child: manager.profileImg.isEmpty
-              ? Icon(
-            Iconsax.user_bold,
-            size: 16,
-            color: TAdminColors.getRoleColor(manager.userType),
-          )
-              : null,
+        builder: (manager) => GestureDetector(
+          onTap: () {
+            if (manager.profileImg.isNotEmpty) {
+              // 使用网络图片预览
+              ImagePreviewDialog.showNetworkImage(
+                context: Get.context!,
+                imageUrl: manager.profileImg,
+                title: '${manager.username}\'s Avatar',
+                maxWidth: 400,
+                maxHeight: 400,
+              );
+            } else {
+              // 显示默认头像的提示
+              TLoaders.modernSnackBar(
+                title: 'No Profile Image',
+                message: '${manager.username} doesn\'t have a profile image',
+              );
+            }
+          },
+          child: CircleAvatar(
+            radius: 20,
+            backgroundImage: manager.profileImg.isNotEmpty
+                ? NetworkImage(manager.profileImg)
+                : null,
+            backgroundColor: manager.profileImg.isEmpty
+                ? TAdminColors.getRoleColor(manager.userType).withOpacity(0.2)
+                : null,
+            child: manager.profileImg.isEmpty
+                ? Icon(
+              Iconsax.user_bold,
+              size: 16,
+              color: TAdminColors.getRoleColor(manager.userType),
+            )
+                : null,
+          ),
         ),
       ),
       DataTableColumn<AdminModel>(

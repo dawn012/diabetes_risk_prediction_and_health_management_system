@@ -8,6 +8,7 @@ import '../../../data/repositories/authentication/authentication_repository.dart
 import '../../../data/repositories/user/user_repository.dart';
 import '../../../utils/constants/firebase_field_names.dart';
 import '../../../utils/constants/text_strings.dart';
+import '../../personalization/controllers/user_controller.dart';
 
 class AdminLoginController extends GetxController {
   static AdminLoginController get instance => Get.find();
@@ -22,6 +23,7 @@ class AdminLoginController extends GetxController {
 
   final _userRepository = UserRepository.instance;
   final _authRepository = AuthenticationRepository.instance;
+  final _userController = UserController.instance;
 
   // Toggle password visibility
   void togglePasswordVisibility() {
@@ -131,6 +133,8 @@ class AdminLoginController extends GetxController {
         print('Warning: Failed to update isVerify in Firestore: $e');
         // 不阻止登录，只记录警告
       }
+
+      await _userController.fetchUserRecord();
 
       // Check email verification
       // if (!userCredential.user!.emailVerified) {

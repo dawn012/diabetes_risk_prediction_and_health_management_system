@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:icons_plus/icons_plus.dart';
 
 import '../../../../common/loaders/circular_loader.dart';
+import '../../../../common/widgets/appbar/appbar.dart';
 import '../../../../common/widgets/search_bar/search_bar_widget.dart';
 import '../../../../utils/constants/colors.dart';
 import '../../../../utils/constants/sizes.dart';
@@ -22,18 +23,11 @@ class MyPostsScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: darkMode ? TColors.dark : TColors.light,
-      appBar: AppBar(
-        elevation: 0,
+      appBar: TAppBar(
         backgroundColor: darkMode ? TColors.darkContainer : TColors.white,
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back,
-            color: darkMode ? TColors.white : TColors.black,
-          ),
-          onPressed: () => Get.back(),
-        ),
+        showBackArrow: true,
         title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text(
               'My Posts',
@@ -58,7 +52,7 @@ class MyPostsScreen extends StatelessWidget {
             icon: Stack(
               children: [
                 Icon(
-                  Iconsax.filter_bold,
+                  Icons.filter_list,
                   color: darkMode ? TColors.white : TColors.black,
                 ),
                 Obx(() {

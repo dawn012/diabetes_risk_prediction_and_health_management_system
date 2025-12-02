@@ -37,13 +37,123 @@ function getRewardPoints(rank: number): number {
   return 0;
 }
 
+export const saveLeaderboardMonthlySnapshot = onSchedule(
+  {
+    schedule: "0 0 1 * *",
+    timeZone: "Asia/Kuala_Lumpur",
+  },
+  async () => {
+    try {
+      functions.logger.log("🚀 Starting monthly leaderboard snapshot...");
+
+      const now = new Date();
+      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const year = lastMonth.getFullYear();
+      const month = lastMonth.getMonth() + 1;
+
+      // 1. 取前 100，按你 Dart 的规则，生成快照（这段你已经写好了）
+      const querySnapshot = await db
+        .collection("users")
+        .where("accountAvailable", "==", true)
+        .where("totalScore", ">", 0)
+        .orderBy("totalScore", "desc")
+        .orderBy("lastScoreUpdateTime", "asc")
+        .orderBy("username", "asc")
+        .limit(100)
+        .get();
+
+      if (querySnapshot.empty) {
+        functions.logger.log("No users found for leaderboard snapshot");
+      } else {
+        const users: any[] = querySnapshot.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            userId: doc.id,
+            username: data.username ?? "",
+            totalScore: data.totalScore ?? 0,
+            lastScoreUpdateTime: data.lastScoreUpdateTime ?? 0,
+            profileImg: data.profileImg ?? "",
+          };
+        });
+
+        let currentRank = 1;
+        let lastScore: number | null = null;
+        let lastUpdateTime: number | null = null;
+
+        for (let i = 0; i < users.length; i++) {
+          const user = users[i];
+          const score = user.totalScore as number;
+          const updateTime = user.lastScoreUpdateTime as number;
+
+          if (
+            lastScore !== null &&
+            lastUpdateTime !== null &&
+            score === lastScore &&
+            updateTime === lastUpdateTime
+          ) {
+            user.rank = currentRank;
+          } else {
+            currentRank = i + 1;
+            user.rank = currentRank;
+          }
+
+          lastScore = score;
+          lastUpdateTime = updateTime;
+        }
+
+        const snapshotBatch = db.batch();
+        for (const user of users) {
+          const docRef = db.collection("leaderboard").doc();
+          snapshotBatch.set(docRef, {
+            userId: user.userId,
+            username: user.username,
+            score: user.totalScore,
+            rank: user.rank,
+            year: year,
+            month: month,
+            profileImg: user.profileImg,
+            lastScoreUpdateTime: user.lastScoreUpdateTime,
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        }
+        await snapshotBatch.commit();
+        functions.logger.log(`Leaderboard snapshot saved for ${year}-${month}!`);
+      }
+
+      // 2. 清零所有用户的 totalScore（新月份从 0 开始）
+      functions.logger.log("🧹 Resetting all users' totalScore for new month...");
+
+      const usersRef = db.collection("users");
+      const usersSnapshot = await usersRef.get();
+
+      if (usersSnapshot.empty) {
+        functions.logger.log("No users found to reset scores");
+      } else {
+        const resetBatch = db.batch();
+        usersSnapshot.docs.forEach((doc) => {
+          resetBatch.update(doc.ref, {
+            totalScore: 0,
+            lastScoreUpdateTime: 0, // 跟你现在 int 毫秒类型对齐；如果要用 null，可以改成 null
+          });
+        });
+
+        await resetBatch.commit();
+        functions.logger.log(`✅ Reset totalScore for ${usersSnapshot.size} users`);
+      }
+    } catch (error) {
+      functions.logger.error("❌ Error in monthly snapshot & reset:", error);
+      throw error;
+    }
+  }
+);
+
 /**
- * 每月1号凌晨3点分配排行榜奖励
+ * 每月1号凌晨12:10点分配排行榜奖励
  * 在保存月度快照之后执行
  */
 export const distributeLeaderboardRewards = onSchedule(
   {
-    schedule: "0 3 1 * *", // 每月1号 3:00 AM
+    schedule: "10 0 1 * *", // 每月1号 12:10 AM
     timeZone: "Asia/Kuala_Lumpur",
   },
   async () => {
@@ -157,11 +267,11 @@ export const getLeaderboardRewardRules = functions.https.onCall(async () => {
 
 
 /**
- * 每月 1 号凌晨 2 点重置所有 periodic 成就并记录历史
+ * 每月 1 号凌晨 12 点重置所有 periodic 成就并记录历史
  */
 export const monthlyAchievementReset = onSchedule(
   {
-    schedule: "0 2 1 * *", // 每月 1 号 2:00 AM
+    schedule: "0 0 1 * *", // 每月 1 号 00:00 AM
     timeZone: "Asia/Kuala_Lumpur",
   },
   async () => {
@@ -294,7 +404,7 @@ async function recordAllUsersAchievementHistory(): Promise<void> {
 }
 
 /**
- * 🆕 重置社区相关的周期性成就（只删除 periodic 类型）
+ * 重置社区相关的周期性成就（只删除 periodic 类型）
  */
 async function resetPeriodicCommunityAchievements(
   userId: string
@@ -431,12 +541,12 @@ export const hourlySyncCheck = onSchedule(
 );
 
 /**
- * 每天凌晨 1 点更新所有用户的非社区类永久成就
+ * 每5分钟更新所有用户的非社区类永久成就
  * （社区类永久成就已通过增量更新实时处理）
  */
 export const dailyPermanentAchievementUpdate = onSchedule(
   {
-    schedule: "0 1 * * *", // 每天 1:00 AM
+    schedule: "every 5 minutes",
     timeZone: "Asia/Kuala_Lumpur",
   },
   async () => {
@@ -481,6 +591,101 @@ export const dailyPermanentAchievementUpdate = onSchedule(
         "❌ Error in daily permanent achievement update:",
         error
       );
+    }
+  }
+);
+
+export const manualCloseLastMonthAndReset = functions.https.onRequest(
+  async (req, res) => {
+    try {
+      const year = 2025;
+      const month = 11;
+
+      // 1. 跟 saveLeaderboardMonthlySnapshot 一样，先存快照（year=2024, month=11）
+      const querySnapshot = await db
+        .collection("users")
+        .where("accountAvailable", "==", true)
+        .where("totalScore", ">", 0)
+        .orderBy("totalScore", "desc")
+        .orderBy("lastScoreUpdateTime", "asc")
+        .orderBy("username", "asc")
+        .limit(100)
+        .get();
+
+      if (!querySnapshot.empty) {
+        const users: any[] = querySnapshot.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            userId: doc.id,
+            username: data.username ?? "",
+            totalScore: data.totalScore ?? 0,
+            lastScoreUpdateTime: data.lastScoreUpdateTime ?? 0,
+            profileImg: data.profileImg ?? "",
+          };
+        });
+
+        let currentRank = 1;
+        let lastScore: number | null = null;
+        let lastUpdateTime: number | null = null;
+
+        for (let i = 0; i < users.length; i++) {
+          const user = users[i];
+          const score = user.totalScore as number;
+          const updateTime = user.lastScoreUpdateTime as number;
+
+          if (
+            lastScore !== null &&
+            lastUpdateTime !== null &&
+            score === lastScore &&
+            updateTime === lastUpdateTime
+          ) {
+            user.rank = currentRank;
+          } else {
+            currentRank = i + 1;
+            user.rank = currentRank;
+          }
+
+          lastScore = score;
+          lastUpdateTime = updateTime;
+        }
+
+        const snapshotBatch = db.batch();
+        for (const user of users) {
+          const docRef = db.collection("leaderboard").doc();
+          snapshotBatch.set(docRef, {
+            userId: user.userId,
+            username: user.username,
+            score: user.totalScore,
+            rank: user.rank,
+            year: year,
+            month: month, // 手动当成 11 月
+            profileImg: user.profileImg,
+            lastScoreUpdateTime: user.lastScoreUpdateTime,
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        }
+        await snapshotBatch.commit();
+      }
+
+      // 2. 清零所有用户的 totalScore + lastScoreUpdateTime
+      const usersRef = db.collection("users");
+      const usersSnapshot = await usersRef.get();
+
+      if (!usersSnapshot.empty) {
+        const resetBatch = db.batch();
+        usersSnapshot.docs.forEach((doc) => {
+          resetBatch.update(doc.ref, {
+            totalScore: 0,
+            lastScoreUpdateTime: 0,
+          });
+        });
+        await resetBatch.commit();
+      }
+
+      res.send("Manual close for 2024-11 done, scores reset");
+    } catch (e) {
+      console.error(e);
+      res.status(500).send("Error");
     }
   }
 );

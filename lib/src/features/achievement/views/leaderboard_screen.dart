@@ -293,6 +293,7 @@ class LeaderboardScreen extends StatelessWidget {
           SizedBox(height: 40),
         AvatarWithFrame(
           profileImageUrl: data.user.profileImg,
+          frameIconUrl: data.user.currentAvatarFrameIconUrl,
           avatarSize: position == 1 ? 70 : 50,
           frameSize: position == 1 ? 85 : 65,
         ),
@@ -405,6 +406,7 @@ class LeaderboardScreen extends StatelessWidget {
           SizedBox(width: 4),
           AvatarWithFrame(
             profileImageUrl: data.user.profileImg,
+            frameIconUrl: data.user.currentAvatarFrameIconUrl,
             avatarSize: 36,
             frameSize: 44,
           ),
@@ -507,6 +509,7 @@ class LeaderboardScreen extends StatelessWidget {
           SizedBox(width: 12),
           AvatarWithFrame(
             profileImageUrl: data.user.profileImg,
+            frameIconUrl: data.user.currentAvatarFrameIconUrl,
             avatarSize: 48,
             frameSize: 58,
           ),

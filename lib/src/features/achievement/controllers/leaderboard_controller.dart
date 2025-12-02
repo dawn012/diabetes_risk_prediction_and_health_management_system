@@ -6,6 +6,8 @@ import '../../../common/loaders/loaders.dart';
 import '../../../data/repositories/achievement/leaderboard_repository.dart';
 import '../../../data/repositories/user/user_repository.dart';
 import '../../../utils/constants/enums.dart';
+import '../../personalization/controllers/avatar_frame_controller.dart';
+import '../../personalization/controllers/user_controller.dart';
 import '../models/leaderboard_model.dart';
 
 class LeaderboardController extends GetxController {
@@ -14,6 +16,9 @@ class LeaderboardController extends GetxController {
   // Repositories
   final _leaderboardRepo = Get.put(LeaderboardRepository());
   final _userRepo = UserRepository.instance;
+
+  final _userController = UserController.instance;
+  final _avatarFrameController = AvatarFrameController.instance;
 
   // PageController for swipe gesture
   late final PageController pageController = PageController(initialPage: selectedTab.value);
@@ -108,6 +113,17 @@ class LeaderboardController extends GetxController {
 
   void updateScrollPosition(double position) {
     _checkCurrentUserVisibility();
+  }
+
+  String? _resolveUserFrameIconUrl(String userId) {
+    final userModel = _userController.userCache[userId];
+    if (userModel == null) return null;
+
+    final frameId = userModel.currentAvatarFrame;
+    if (frameId == null) return null;
+
+    final frame = _avatarFrameController.getUserFrameById(userId, frameId);
+    return frame?.reward.icon;
   }
 
   void _checkCurrentUserVisibility() {
@@ -240,6 +256,16 @@ class LeaderboardController extends GetxController {
         }
       }
 
+      final userIds = leaderboardRawData
+          .map((e) => e['userId'] as String)
+          .toSet()
+          .toList();
+
+      await Future.wait([
+        ...userIds.map((id) => _userController.fetchUserRecordById(id)),
+        ...userIds.map((id) => _avatarFrameController.fetchUserAvatarFramesFor(id)),
+      ]);
+
       // Convert to LeaderboardModel
       final data = <LeaderboardModel>[];
 
@@ -266,12 +292,16 @@ class LeaderboardController extends GetxController {
           }
         }
 
+        // 计算这个用户当前 frame 的 iconUrl
+        final frameIconUrl = _resolveUserFrameIconUrl(userId);
+
         data.add(LeaderboardModel(
           user: LeaderboardUserModel(
             userId: userId,
             userName: userData['username'] as String,
             totalScore: userData['totalScore'] as int,
             profileImg: userData['profileImg'] as String? ?? '',
+            currentAvatarFrameIconUrl: frameIconUrl,   // 新增
           ),
           currentRank: currentRank,
           previousRank: previousRank,
@@ -357,12 +387,15 @@ class LeaderboardController extends GetxController {
           rankChange = RankChange.new_entry;
         }
 
+        final frameIconUrl = _resolveUserFrameIconUrl(userId);
+
         return LeaderboardModel(
           user: LeaderboardUserModel(
             userId: userId,
             userName: userDoc.username,
             totalScore: userDoc.totalScore,
             profileImg: userDoc.profileImg,
+            currentAvatarFrameIconUrl: frameIconUrl,
           ),
           currentRank: userRank,
           previousRank: lastMonthRank,

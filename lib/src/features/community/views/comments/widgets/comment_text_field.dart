@@ -6,6 +6,7 @@ import '../../../../../utils/constants/colors.dart';
 import '../../../../../utils/constants/sizes.dart';
 import '../../../../../utils/constants/text_strings.dart';
 import '../../../../../utils/helpers/helper_functions.dart';
+import '../../../../personalization/controllers/avatar_frame_controller.dart';
 import '../../../../personalization/controllers/user_controller.dart';
 import '../../../../personalization/views/widgets/avatar_with_frame.dart';
 import '../../../controllers/comment_controller.dart';
@@ -22,6 +23,7 @@ class CommentTextField extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = CommentController.instance;
     final userController = UserController.instance;
+    final frameController = AvatarFrameController.instance;
     final isDark = THelperFunctions.isDarkMode(context);
     final maxLength = parentCommentId != null ? maxReplyLength : maxCommentLength;
 
@@ -53,6 +55,8 @@ class CommentTextField extends StatelessWidget {
           final remaining = maxLength - currentLength;
           final isNearLimit = remaining <= 50;
           final isOverLimit = remaining < 0;
+          final currentFrame = frameController.getCurrentFrame();
+          final frameIconUrl = currentFrame?.reward.icon;
 
           return Column(
             mainAxisSize: MainAxisSize.min,
@@ -82,6 +86,7 @@ class CommentTextField extends StatelessWidget {
                 children: [
                   AvatarWithFrame(
                     profileImageUrl: user.profileImg,
+                    frameIconUrl: frameIconUrl,
                     avatarSize: 28,
                     frameSize: 36,
                   ),

@@ -15,12 +15,16 @@ import 'src/utils/constants/colors.dart';
 import 'src/utils/helpers/helper_functions.dart';
 
 class NavigationMenu extends StatelessWidget {
-  const NavigationMenu({super.key});
+  final int initialIndex;
+  const NavigationMenu({super.key, this.initialIndex = 0});
 
   @override
   Widget build(BuildContext context) {
     final controller = Get.put(NavigationController());
     final darkMode = THelperFunctions.isDarkMode(context);
+
+    // 这里初始化 selectedIndex
+    controller.selectedIndex.value = initialIndex;
 
     return Scaffold(
       floatingActionButton: FloatingActionButton(

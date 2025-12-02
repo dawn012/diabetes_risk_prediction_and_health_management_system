@@ -142,30 +142,28 @@ class MealRepository extends GetxController {
     try {
       if (userId == null) throw 'User not authenticated';
 
-      final batch = _db.batch();
-
-      // Save meal plan document
       final planRef = _getMealPlansCollection().doc(mealPlan.mealPlanId);
-      batch.set(planRef, mealPlan.toJson());
 
-      // Save scheduled meals as subcollection
-      for (final meal in mealPlan.scheduledMeals) {
-        final mealRef = _getMealPlanMealsCollection(mealPlan.mealPlanId)
-            .doc(meal.mealPlanMealId);
-        batch.set(mealRef, meal.toJson());
-      }
+      // 1. 用 mealPlan.toJson() 生成 plan 的基础字段
+      final planData = mealPlan.toJson();
 
-      await batch.commit();
+      // 2. 手动把 scheduledMeals 转成数组，里面只放 id 等轻量字段
+      planData[FirebaseFieldNames.scheduledMeals] =
+          mealPlan.scheduledMeals.map((m) {
+            return {
+              FirebaseFieldNames.mealPlanMealId: m.mealPlanMealId,
+              FirebaseFieldNames.mealId: m.meal.mealId,           // 从对象里拿 id
+              FirebaseFieldNames.scheduledDate:
+              m.scheduledDate.millisecondsSinceEpoch,
+              FirebaseFieldNames.mealTimeSlot: m.mealTimeSlot.value,
+              FirebaseFieldNames.status: m.status.value,
+            };
+          }).toList();
+
+      await planRef.set(planData);
       print('✅ Meal plan saved to Firestore');
 
-      // Clear temporary plan from Hive after successful save
       await clearTempMealPlan();
-    } on FirebaseException catch (e) {
-      throw TFirebaseException(e.code).message;
-    } on FormatException catch (_) {
-      throw const TFormatException();
-    } on PlatformException catch (e) {
-      throw TPlatformException(e.code).message;
     } catch (e) {
       throw 'Error saving meal plan: ${e.toString()}';
     }
@@ -275,23 +273,63 @@ class MealRepository extends GetxController {
     try {
       if (!doc.exists) return null;
 
-      final mealPlan = MealPlanModel.fromSnapshot(doc);
+      final data = doc.data();
+      if (data == null) return null;
 
-      // Fetch scheduled meals from subcollection
-      final mealsSnapshot = await _getMealPlanMealsCollection(mealPlan.mealPlanId).get();
+      // 1. 先构建不带 meals 的 plan
+      var mealPlan = MealPlanModel.fromSnapshot(doc);
 
-      List<MealPlanMealModel> scheduledMeals = [];
-      for (var mealDoc in mealsSnapshot.docs) {
-        final mealPlanMeal = MealPlanMealModel.fromSnapshot(mealDoc);
+      // 2. 从文档里取出 scheduledMeals 数组
+      final rawMeals =
+          (data[FirebaseFieldNames.scheduledMeals] as List<dynamic>?) ?? [];
 
-        // Fetch actual meal data
-        final mealData = await getMealById(mealPlanMeal.meal.mealId);
-        if (mealData != null) {
-          scheduledMeals.add(mealPlanMeal.copyWith(meal: mealData));
+      final List<MealPlanMealModel> scheduledMeals = [];
+
+      for (final raw in rawMeals) {
+        final m = raw as Map<String, dynamic>;
+
+        final String mealPlanMealId =
+            m[FirebaseFieldNames.mealPlanMealId] as String? ?? '';
+        final String mealId =
+            m[FirebaseFieldNames.mealId] as String? ?? '';
+
+        final int scheduledMs =
+            m[FirebaseFieldNames.scheduledDate] as int? ??
+                DateTime.now().millisecondsSinceEpoch;
+        final scheduledDate =
+        DateTime.fromMillisecondsSinceEpoch(scheduledMs);
+
+        final mealTimeSlotStr =
+            m[FirebaseFieldNames.mealTimeSlot] as String? ?? 'breakfast';
+        final statusStr =
+            m[FirebaseFieldNames.status] as String? ?? 'pending';
+
+        // 2.1 用 mealId 去 meals collection 拿 MealModel
+        MealModel? mealData;
+        if (mealId.isNotEmpty) {
+          try {
+            mealData = await getMealById(mealId);
+          } catch (e) {
+            print('⚠️ Error fetching meal $mealId: $e');
+          }
         }
+
+        // 2.2 构造你的 MealPlanMealModel（仍然用面向对象的 meal 字段）
+        scheduledMeals.add(
+          MealPlanMealModel(
+            mealPlanMealId: mealPlanMealId,
+            meal: mealData ?? MealModel.empty(),
+            scheduledDate: scheduledDate,
+            mealTimeSlot: MealTimeSlot.fromString(mealTimeSlotStr),
+            status: MealConsumptionStatus.fromString(statusStr),
+          ),
+        );
       }
 
-      return mealPlan.copyWith(scheduledMeals: scheduledMeals);
+      // 3. 把构建好的 meals 塞回 plan
+      mealPlan = mealPlan.copyWith(scheduledMeals: scheduledMeals);
+
+      return mealPlan;
     } catch (e) {
       print('Error building meal plan from doc: $e');
       return null;
@@ -307,13 +345,27 @@ class MealRepository extends GetxController {
     try {
       if (userId == null) throw 'User not authenticated';
 
-      await _getMealPlanMealsCollection(mealPlanId)
-          .doc(mealPlanMealId)
-          .update({
-        FirebaseFieldNames.status: status.value,
+      final planRef = _getMealPlansCollection().doc(mealPlanId);
+      final doc = await planRef.get();
+      if (!doc.exists) throw 'Meal plan not found';
+
+      final data = doc.data()!;
+      final rawMeals =
+          (data[FirebaseFieldNames.scheduledMeals] as List<dynamic>?) ?? [];
+
+      // 更新数组中对应那一项的 status
+      final updatedMeals = rawMeals.map((raw) {
+        final m = Map<String, dynamic>.from(raw as Map);
+        if (m[FirebaseFieldNames.mealPlanMealId] == mealPlanMealId) {
+          m[FirebaseFieldNames.status] = status.value;
+        }
+        return m;
+      }).toList();
+
+      await planRef.update({
+        FirebaseFieldNames.scheduledMeals: updatedMeals,
       });
 
-      // Recalculate and update adherence
       await _updateMealPlanAdherence(mealPlanId);
 
       print('✅ Meal consumption status updated');
@@ -331,16 +383,25 @@ class MealRepository extends GetxController {
   /// Calculate and update meal plan adherence
   Future<void> _updateMealPlanAdherence(String mealPlanId) async {
     try {
-      final mealsSnapshot = await _getMealPlanMealsCollection(mealPlanId).get();
+      final planRef = _getMealPlansCollection().doc(mealPlanId);
+      final doc = await planRef.get();
+      if (!doc.exists) return;
 
-      int totalMeals = mealsSnapshot.docs.length;
-      int consumedMeals = mealsSnapshot.docs
-          .where((doc) => doc.data()[FirebaseFieldNames.status] == MealConsumptionStatus.consumed.value)
-          .length;
+      final data = doc.data()!;
+      final rawMeals =
+          (data[FirebaseFieldNames.scheduledMeals] as List<dynamic>?) ?? [];
 
-      int adherence = totalMeals > 0 ? ((consumedMeals / totalMeals) * 100).round() : 0;
+      final totalMeals = rawMeals.length;
+      final consumedMeals = rawMeals.where((raw) {
+        final m = raw as Map<String, dynamic>;
+        return m[FirebaseFieldNames.status] ==
+            MealConsumptionStatus.consumed.value;
+      }).length;
 
-      await _getMealPlansCollection().doc(mealPlanId).update({
+      final adherence =
+      totalMeals > 0 ? ((consumedMeals / totalMeals) * 100).round() : 0;
+
+      await planRef.update({
         FirebaseFieldNames.adherence: adherence,
       });
 

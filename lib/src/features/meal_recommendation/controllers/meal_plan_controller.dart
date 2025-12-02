@@ -319,18 +319,64 @@ class MealPlanController extends GetxController {
   bool canConsumeMeal(MealPlanMealModel meal) {
     final now = DateTime.now();
 
-    // Check if meal is for today
     final isToday = meal.scheduledDate.year == now.year &&
         meal.scheduledDate.month == now.month &&
         meal.scheduledDate.day == now.day;
-
     if (!isToday) return false;
 
-    // Check if already consumed or skipped
     if (meal.status != MealConsumptionStatus.pending) return false;
 
-    // Check if within time window
-    return MealTimeConstants.canConsumeMeal(meal.mealTimeSlot, now);
+    // 这里严一点：只有在窗口内才算“可操作”
+    return MealTimeConstants.isWithinMealWindow(meal.mealTimeSlot, now);
+  }
+
+  MealPlanMealModel? getNextUpcomingMeal() {
+    final plan = activeMealPlan.value;
+    if (plan == null) return null;
+
+    final now = DateTime.now();
+
+    // 1. 只保留 pending 且窗口还没结束的餐
+    final upcoming = plan.scheduledMeals.where((meal) {
+      if (meal.status != MealConsumptionStatus.pending) return false;
+
+      // 计算这顿饭的结束时间（含日期）
+      final endHour = MealTimeConstants.mealEndTimes[meal.mealTimeSlot]!;
+      final mealEndDateTime = DateTime(
+        meal.scheduledDate.year,
+        meal.scheduledDate.month,
+        meal.scheduledDate.day,
+        endHour,
+      );
+
+      // 结束时间要在当前时间之后，才算“未来的餐”
+      return mealEndDateTime.isAfter(now);
+    }).toList();
+
+    if (upcoming.isEmpty) return null;
+
+    // 2. 按“实际开始时间”排序（日期 + startHour）
+    upcoming.sort((a, b) {
+      final aStartHour = MealTimeConstants.mealStartTimes[a.mealTimeSlot]!;
+      final bStartHour = MealTimeConstants.mealStartTimes[b.mealTimeSlot]!;
+
+      final aStart = DateTime(
+        a.scheduledDate.year,
+        a.scheduledDate.month,
+        a.scheduledDate.day,
+        aStartHour,
+      );
+      final bStart = DateTime(
+        b.scheduledDate.year,
+        b.scheduledDate.month,
+        b.scheduledDate.day,
+        bStartHour,
+      );
+
+      return aStart.compareTo(bStart);
+    });
+
+    return upcoming.first;
   }
 
   /// Check if meal is current (should be highlighted)
@@ -350,18 +396,40 @@ class MealPlanController extends GetxController {
 
   /// Get time remaining until meal window closes
   String getTimeRemaining(MealPlanMealModel meal) {
-    final duration = MealTimeConstants.getTimeUntilWindowCloses(
+    final now = DateTime.now();
+
+    // 先算距离开始时间
+    final untilStart = MealTimeConstants.getTimeUntilWindowOpens(
       meal.mealTimeSlot,
-      DateTime.now(),
+      now,
+      mealDate: meal.scheduledDate,
     );
 
-    if (duration.inHours > 0) {
-      return '${duration.inHours}h ${duration.inMinutes % 60}m remaining';
-    } else if (duration.inMinutes > 0) {
-      return '${duration.inMinutes}m remaining';
-    } else {
-      return 'Window closed';
+    if (untilStart > Duration.zero) {
+      // 还没开始：显示 upcoming time
+      if (untilStart.inHours > 0) {
+        return 'Starts in ${untilStart.inHours}h ${untilStart.inMinutes % 60}m';
+      } else {
+        return 'Starts in ${untilStart.inMinutes}m';
+      }
     }
+
+    // 已经开始：再算距离结束时间
+    final untilEnd = MealTimeConstants.getTimeUntilWindowCloses(
+      meal.mealTimeSlot,
+      now,
+      mealDate: meal.scheduledDate, // 记得给它也加 mealDate 参数
+    );
+
+    if (untilEnd > Duration.zero) {
+      if (untilEnd.inHours > 0) {
+        return '${untilEnd.inHours}h ${untilEnd.inMinutes % 60}m remaining';
+      } else {
+        return '${untilEnd.inMinutes}m remaining';
+      }
+    }
+
+    return 'Window closed';
   }
 
   /// Get meal status color
@@ -416,15 +484,12 @@ class MealPlanController extends GetxController {
   List<MealPlanMealModel> getMealsForDate(DateTime date) {
     if (activeMealPlan.value == null) return [];
 
+    // 只按日期筛选，保留 scheduledMeals 里的原始顺序
     return activeMealPlan.value!.scheduledMeals.where((meal) {
       return meal.scheduledDate.year == date.year &&
           meal.scheduledDate.month == date.month &&
           meal.scheduledDate.day == date.day;
-    }).toList()
-      ..sort((a, b) =>
-          MealTimeConstants.mealStartTimes[a.mealTimeSlot]!.compareTo(
-            MealTimeConstants.mealStartTimes[b.mealTimeSlot]!,
-          ));
+    }).toList();
   }
 
   /// Get unique dates in meal plan (for weekly plans)

@@ -242,6 +242,9 @@ class LoginController extends GetxController {
       final user = userCredentials?.user;
       final email = user?.email;
 
+      print("User: $user");
+      print("Email: $email");
+
       if (user == null || email == null) {
         TFullScreenLoader.stopLoading();
         TLoaders.errorSnackBar(

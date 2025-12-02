@@ -48,8 +48,11 @@ class UserController extends GetxController {
       final user = await userRepository.fetchUserDetails();
       this.user(user);
 
-      // 同步加载头像框信息
-      await _loadAvatarFrameData();
+      userCache[user.userId] = user;
+
+      //  确保当前用户的头像框列表已经加载
+      final avatarFrameController = AvatarFrameController.instance;
+      await avatarFrameController.fetchUserAvatarFrames();
     } catch (e) {
       user(UserModel.empty());
     } finally {
@@ -57,26 +60,26 @@ class UserController extends GetxController {
     }
   }
 
-  /// 加载头像框数据
-  Future<void> _loadAvatarFrameData() async {
-    try {
-      isAvatarFrameLoading.value = true;
-
-      // 确保 AvatarFrameController 已初始化
-      if (!Get.isRegistered<AvatarFrameController>()) {
-        Get.put(AvatarFrameController());
-      }
-
-      final avatarFrameController = Get.find<AvatarFrameController>();
-      await avatarFrameController.fetchUserAvatarFrames();
-
-    } catch (e) {
-      print('Avatar frame controller not ready: $e');
-      // 可以选择静默失败，因为头像框不是核心功能
-    } finally {
-      isAvatarFrameLoading.value = false;
-    }
-  }
+  // /// 加载头像框数据
+  // Future<void> _loadAvatarFrameData() async {
+  //   try {
+  //     isAvatarFrameLoading.value = true;
+  //
+  //     // 确保 AvatarFrameController 已初始化
+  //     if (!Get.isRegistered<AvatarFrameController>()) {
+  //       Get.put(AvatarFrameController());
+  //     }
+  //
+  //     final avatarFrameController = Get.find<AvatarFrameController>();
+  //     await avatarFrameController.fetchUserAvatarFrames();
+  //
+  //   } catch (e) {
+  //     print('Avatar frame controller not ready: $e');
+  //     // 可以选择静默失败，因为头像框不是核心功能
+  //   } finally {
+  //     isAvatarFrameLoading.value = false;
+  //   }
+  // }
 
   /// Fetch user record by id
   Future<UserModel> fetchUserRecordById(String userId) async {

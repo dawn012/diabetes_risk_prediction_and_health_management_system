@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
+import '../../../../common/widgets/appbar/appbar.dart';
 import '../../../../utils/constants/colors.dart';
 import '../../../../utils/constants/sizes.dart';
 import '../../../../utils/helpers/helper_functions.dart';
@@ -22,16 +23,14 @@ class SetGoalsScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: darkMode ? TColors.dark : TColors.light,
-      appBar: AppBar(
+      appBar: TAppBar(
         backgroundColor: TColors.primary,
         title: const Text(
           'Set Goals',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Get.back(),
-        ),
+        showBackArrow: true,
+        iconTheme: IconThemeData(color: TColors.white),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(TSizes.defaultSpace),

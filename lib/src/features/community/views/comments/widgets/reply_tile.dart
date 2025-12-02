@@ -8,6 +8,7 @@ import '../../../../../utils/constants/sizes.dart';
 import '../../../../../utils/extensions/date_time_extension.dart';
 import '../../../../../utils/helpers/helper_functions.dart';
 import '../../../../authentication/models/user_model.dart';
+import '../../../../personalization/controllers/avatar_frame_controller.dart';
 import '../../../../personalization/controllers/user_controller.dart';
 import '../../../../personalization/views/widgets/avatar_with_frame.dart';
 import '../../../controllers/comment_controller.dart';
@@ -68,7 +69,27 @@ class ReplyTile extends StatelessWidget {
   Widget _buildReplyContent(BuildContext context, UserModel user, bool isDark) {
     final controller = CommentController.instance;
     final userController = UserController.instance;
+    final frameController = AvatarFrameController.instance;
     final isLiked = reply.likes.contains(userController.user.value.userId);
+
+    // 1. 取这个 user 的当前 frameId
+    final frameId = user.currentAvatarFrame;
+    String? frameIconUrl;
+
+    if (frameId != null) {
+      // 2. 先从多用户缓存里找这个作者的 frame
+      final frame = frameController.getUserFrameById(user.userId, frameId);
+      if (frame != null) {
+        frameIconUrl = frame.reward.icon;
+      } else {
+        // 3. 如果是当前登录用户，兜底用 getCurrentFrame()
+        final currentUserId = userController.user.value.userId;
+        if (user.userId == currentUserId) {
+          final currentFrame = frameController.getCurrentFrame();
+          frameIconUrl = currentFrame?.reward.icon;
+        }
+      }
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -78,6 +99,7 @@ class ReplyTile extends StatelessWidget {
           children: [
             AvatarWithFrame(
               profileImageUrl: user.profileImg,
+              frameIconUrl: frameIconUrl,
               avatarSize: 24,
               frameSize: 32,
             ),
@@ -90,7 +112,7 @@ class ReplyTile extends StatelessWidget {
                     children: [
                       Text(
                         user.username.isNotEmpty ? user.username : "Anonymous",
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: isDark ? TColors.white : TColors.textPrimary,
                           fontWeight: FontWeight.w600,
                         ),
@@ -107,7 +129,7 @@ class ReplyTile extends StatelessWidget {
                         reply.wasEdited
                             ? '${reply.updatedAt.fromNow()} (edited)'
                             : reply.createdAt.fromNow(),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: isDark ? TColors.darkGrey : TColors.textSecondary,
                         ),
                       ),

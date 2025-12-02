@@ -6,6 +6,17 @@ import '../../../features/subscription/models/payment_transaction_model.dart';
 import '../../../utils/constants/enums.dart';
 import '../../../utils/constants/firebase_collection_names.dart';
 
+/// Paginated transaction response model
+class PaginatedTransactionsResponse {
+  final List<PaymentTransactionModel> transactions;
+  final int totalCount;
+
+  PaginatedTransactionsResponse({
+    required this.transactions,
+    required this.totalCount,
+  });
+}
+
 class PaymentRepository extends GetxController {
   static PaymentRepository get instance => Get.find();
 
@@ -26,6 +37,124 @@ class PaymentRepository extends GetxController {
     _paymentsCollection = _db.collection(FirebaseCollectionNames.payments);
     _subscriptionsCollection = _db.collection(FirebaseCollectionNames.userSubscriptions);
     _plansCollection = _db.collection(FirebaseCollectionNames.subscriptionPlans);
+  }
+
+  /// Fetch paginated transactions with filters
+  Future<PaginatedTransactionsResponse> fetchPaginatedTransactions({
+    required int page,
+    required int itemsPerPage,
+    PaymentStatus? status,
+    DateTime? startDate,
+    DateTime? endDate,
+    String? searchQuery,
+  }) async {
+    try {
+      print('Fetching transactions - Page: $page, Items: $itemsPerPage');
+
+      // Build base query
+      Query query = _paymentsCollection;
+
+      // Apply date range filter if provided
+      if (startDate != null && endDate != null) {
+        final startMillis = startDate.millisecondsSinceEpoch;
+        final endMillis = endDate.millisecondsSinceEpoch;
+
+        query = query
+            .where('transactionDateTime', isGreaterThanOrEqualTo: startMillis)
+            .where('transactionDateTime', isLessThanOrEqualTo: endMillis);
+      }
+
+      // Apply status filter if provided
+      if (status != null) {
+        query = query.where('status', isEqualTo: status.value);
+      }
+
+      // Order by transaction date (descending - newest first)
+      query = query.orderBy('transactionDateTime', descending: true);
+
+      // Get total count first
+      final countSnapshot = await query.get();
+      int totalCount = countSnapshot.docs.length;
+
+      // Apply search filter if provided (client-side)
+      List<DocumentSnapshot> allDocs = countSnapshot.docs;
+
+      if (searchQuery != null && searchQuery.isNotEmpty) {
+        final lowerQuery = searchQuery.toLowerCase();
+        allDocs = allDocs.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final transactionId = (data['transactionId'] ?? '').toString().toLowerCase();
+          final amount = (data['amount'] ?? 0).toString();
+          final method = (data['paymentMethod'] ?? '').toString().toLowerCase();
+          final statusValue = (data['status'] ?? '').toString().toLowerCase();
+
+          return transactionId.contains(lowerQuery) ||
+              amount.contains(lowerQuery) ||
+              method.contains(lowerQuery) ||
+              statusValue.contains(lowerQuery);
+        }).toList();
+
+        totalCount = allDocs.length;
+      }
+
+      // Apply pagination
+      final startIndex = (page - 1) * itemsPerPage;
+      final endIndex = (startIndex + itemsPerPage).clamp(0, allDocs.length);
+
+      final paginatedDocs = allDocs.sublist(
+        startIndex.clamp(0, allDocs.length),
+        endIndex,
+      );
+
+      // Convert to models
+      final transactions = paginatedDocs
+          .map((doc) => PaymentTransactionModel.fromSnapshot(
+          doc as DocumentSnapshot<Map<String, dynamic>>))
+          .toList();
+
+      print('Fetched ${transactions.length} transactions out of $totalCount total');
+
+      return PaginatedTransactionsResponse(
+        transactions: transactions,
+        totalCount: totalCount,
+      );
+    } catch (e) {
+      print('Error fetching paginated transactions: $e');
+      return PaginatedTransactionsResponse(
+        transactions: [],
+        totalCount: 0,
+      );
+    }
+  }
+
+  /// Get transaction count by filters
+  Future<int> getTransactionCount({
+    PaymentStatus? status,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    try {
+      Query query = _paymentsCollection;
+
+      if (startDate != null && endDate != null) {
+        final startMillis = startDate.millisecondsSinceEpoch;
+        final endMillis = endDate.millisecondsSinceEpoch;
+
+        query = query
+            .where('transactionDateTime', isGreaterThanOrEqualTo: startMillis)
+            .where('transactionDateTime', isLessThanOrEqualTo: endMillis);
+      }
+
+      if (status != null) {
+        query = query.where('status', isEqualTo: status.value);
+      }
+
+      final snapshot = await query.get();
+      return snapshot.docs.length;
+    } catch (e) {
+      print('Error getting transaction count: $e');
+      return 0;
+    }
   }
 
   /// Create a new payment transaction with subscription ID

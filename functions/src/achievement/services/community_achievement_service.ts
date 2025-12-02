@@ -609,6 +609,7 @@ export class CommunityAchievementService {
           .doc(userId)
           .update({
             totalScore: admin.firestore.FieldValue.increment(pointsDiff),
+            lastScoreUpdateTime: Date.now(),
           });
 
         functions.logger.log(
@@ -619,44 +620,54 @@ export class CommunityAchievementService {
       }
 
       // 记录成就历史（如果是周期性成就且达到新等级）
-      //       if (
-      //         achievementType === "periodic" &&
-      //         newLevel !== "none" &&
-      //         newLevel !== existingLevel
-      //       ) {
-      //         await this.recordAchievementHistory(
-      //           userId,
-      //           achievementId,
-      //           newLevel as "bronze" | "silver" | "gold"
-      //         );
-      //       }
+      if (
+        achievementType === "periodic" &&
+        newLevel !== "none" &&
+        newLevel !== existingLevel
+      ) {
+        // 排除那4个按月结算的健康类型，只给“其他 periodic（比如社区）”写即时记录 (增量的)
+        const monthlyHealthTypes = [
+          "bloodGlucose",
+          "bloodPressure",
+          "bodyWeight",
+          "physicalActivity",
+        ];
+
+        if (!monthlyHealthTypes.includes(achievement.dataType)) {
+          await this.recordAchievementHistory(
+            userId,
+            achievementId,
+            newLevel as "bronze" | "silver" | "gold"
+          );
+        }
+      }
     }
   }
 
   /**
    * 记录成就历史
    */
-//   private static async recordAchievementHistory(
-//     userId: string,
-//     achievementId: string,
-//     level: "bronze" | "silver" | "gold"
-//   ): Promise<void> {
-//     try {
-//       const historyRef = db.collection("achievementHistory").doc();
-//
-//       await historyRef.set({
-//         historyId: historyRef.id,
-//         userId,
-//         achievementId,
-//         level,
-//         achievedAt: Date.now(),
-//       });
-//
-//       functions.logger.log(
-//         `📝 Recorded achievement history: ${userId} - ${achievementId} - ${level}`
-//       );
-//     } catch (error) {
-//       functions.logger.error("❌ Error recording achievement history:", error);
-//     }
-//   }
+  private static async recordAchievementHistory(
+    userId: string,
+    achievementId: string,
+    level: "bronze" | "silver" | "gold"
+  ): Promise<void> {
+    try {
+      const historyRef = db.collection("achievementHistory").doc();
+
+      await historyRef.set({
+        historyId: historyRef.id,
+        userId,
+        achievementId,
+        level,
+        achievedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      functions.logger.log(
+        `Recorded achievement history: ${userId} - ${achievementId} - ${level}`
+      );
+    } catch (error) {
+      functions.logger.error("❌ Error recording achievement history:", error);
+    }
+  }
 }

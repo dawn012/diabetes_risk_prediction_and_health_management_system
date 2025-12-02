@@ -534,16 +534,16 @@ class CommunityManagementController extends GetxController {
           valueB = b.likes.length;
           break;
         case 5:
-          valueA = a.createdAt;
-          valueB = b.createdAt;
+          valueA = a.updatedAt;
+          valueB = b.updatedAt;
           break;
         case 6:
           valueA = a.pendingReportCount;
           valueB = b.pendingReportCount;
           break;
         default:
-          valueA = a.postId;
-          valueB = b.postId;
+          valueA = a.updatedAt;
+          valueB = b.updatedAt;
       }
 
       int comparison = 0;

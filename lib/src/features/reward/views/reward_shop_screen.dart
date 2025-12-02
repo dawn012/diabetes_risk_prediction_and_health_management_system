@@ -284,7 +284,7 @@ class RewardShopScreen extends StatelessWidget {
                             Text(
                               reward.title,
                               style: TextStyle(
-                                fontSize: 14,
+                                fontSize: 13.5,
                                 fontWeight: FontWeight.w600,
                                 color: isDark ? Colors.white : TColors.black,
                               ),

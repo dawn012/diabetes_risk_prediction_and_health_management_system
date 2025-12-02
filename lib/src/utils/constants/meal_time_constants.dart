@@ -82,12 +82,16 @@ class MealTimeConstants {
   }
 
   /// Get time remaining until meal window closes
-  static Duration getTimeUntilWindowCloses(MealTimeSlot slot, DateTime currentTime) {
+  static Duration getTimeUntilWindowCloses(
+      MealTimeSlot slot,
+      DateTime currentTime, {
+        required DateTime mealDate,
+      }) {
     final endHour = mealEndTimes[slot]!;
     final windowClose = DateTime(
-      currentTime.year,
-      currentTime.month,
-      currentTime.day,
+      mealDate.year,
+      mealDate.month,
+      mealDate.day,
       endHour,
     );
 
@@ -115,6 +119,26 @@ class MealTimeConstants {
   static MealTimeSlot? getNextMealSlot(DateTime currentTime) {
     final remaining = getRemainingMealSlots(currentTime);
     return remaining.isNotEmpty ? remaining.first : null;
+  }
+
+  /// 距离这顿饭开始还有多久（如果已经开始则返回 Duration.zero）
+  static Duration getTimeUntilWindowOpens(
+      MealTimeSlot slot,
+      DateTime currentTime, {
+        required DateTime mealDate,
+      }) {
+    final startHour = mealStartTimes[slot]!;
+    final startDateTime = DateTime(
+      mealDate.year,
+      mealDate.month,
+      mealDate.day,
+      startHour,
+    );
+
+    if (currentTime.isBefore(startDateTime)) {
+      return startDateTime.difference(currentTime);
+    }
+    return Duration.zero;
   }
 
   /// Format time window display (e.g., "7:00 AM - 11:00 AM")

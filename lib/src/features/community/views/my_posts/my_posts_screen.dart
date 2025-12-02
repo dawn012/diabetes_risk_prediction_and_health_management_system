@@ -194,22 +194,22 @@ class MyPostsScreen extends StatelessWidget {
       ),
 
       // Floating Action Button
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Get.to(() => const CreatePostScreen()),
-        backgroundColor: TColors.primary,
-        icon: const Icon(
-          Icons.add,
-          color: Colors.white,
-        ),
-        label: const Text(
-          'Create Post',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        elevation: 4,
-      ),
+      // floatingActionButton: FloatingActionButton.extended(
+      //   onPressed: () => Get.to(() => const CreatePostScreen()),
+      //   backgroundColor: TColors.primary,
+      //   icon: const Icon(
+      //     Icons.add,
+      //     color: Colors.white,
+      //   ),
+      //   label: const Text(
+      //     'Create Post',
+      //     style: TextStyle(
+      //       color: Colors.white,
+      //       fontWeight: FontWeight.w600,
+      //     ),
+      //   ),
+      //   elevation: 4,
+      // ),
     );
   }
 

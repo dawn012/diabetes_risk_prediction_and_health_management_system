@@ -36,6 +36,7 @@ class ReusableDataTable<T> extends StatelessWidget {
   final int sortColumnIndex;
   final bool sortAscending;
   final Function(int, bool)? onSort;
+  final bool showCheckboxColumn;
 
   const ReusableDataTable({
     super.key,
@@ -49,6 +50,7 @@ class ReusableDataTable<T> extends StatelessWidget {
     this.sortColumnIndex = 0,
     this.sortAscending = true,
     this.onSort,
+    this.showCheckboxColumn = true, // 默认显示勾选列
   });
 
   @override
@@ -107,7 +109,7 @@ class ReusableDataTable<T> extends StatelessWidget {
       child: Row(
         children: [
           // Select all checkbox
-          if (onSelectAll != null)
+          if (showCheckboxColumn && onSelectAll != null)
             SizedBox(
               width: 60,
               child: Material(
@@ -269,8 +271,8 @@ class ReusableDataTable<T> extends StatelessWidget {
           ),
           child: Row(
             children: [
-              // Selection checkbox (保持不变)
-              if (onItemSelect != null)
+              // Selection checkbox
+              if (showCheckboxColumn && onItemSelect != null)
                 SizedBox(
                   width: 60,
                   child: Material(

@@ -11,6 +11,7 @@ import '../../../../../utils/constants/enums.dart';
 import '../../../../../utils/constants/image_strings.dart';
 import '../../../../../utils/constants/sizes.dart';
 import '../../../../../utils/helpers/image_helper.dart';
+import '../../../controllers/avatar_frame_controller.dart';
 import '../../../controllers/update_profile_controller.dart';
 import '../../../controllers/user_controller.dart';
 import '../../widgets/avatar_with_frame.dart';
@@ -23,6 +24,10 @@ class ProfileImageSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final userController = UserController.instance;
     final updateController = UpdateProfileController.instance;
+    final frameController = AvatarFrameController.instance;
+
+    final currentFrame = frameController.getCurrentFrame();
+    final frameIconUrl = currentFrame?.reward.icon;
 
     return SizedBox(
       width: double.infinity,
@@ -61,6 +66,7 @@ class ProfileImageSection extends StatelessWidget {
                     )
                         : AvatarWithFrame(
                       profileImageUrl: currentImageUrl,
+                      frameIconUrl: frameIconUrl,
                       avatarSize: 100,  // 头像大小
                       frameSize: 120,   // 头像框大小
                     ),

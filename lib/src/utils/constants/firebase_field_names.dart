@@ -50,6 +50,7 @@ class FirebaseFieldNames {
   static const String mealPlanId = 'mealPlanId';
   static const String planType = 'planType';
   static const String adherence = 'adherence';
+  static const String scheduledMeals = 'scheduledMeals';
 
   ///-- Meal Plan Meal
   static const String mealPlanMealId = 'mealPlanMealId';

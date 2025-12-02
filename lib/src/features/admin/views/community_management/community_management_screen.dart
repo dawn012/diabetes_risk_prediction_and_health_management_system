@@ -348,7 +348,7 @@ class CommunityManagementScreen extends StatelessWidget {
       DataTableColumn<PostModel>(
         label: 'Likes',
         field: 'likes',
-        minWidth: 70,
+        minWidth: 60,
         flex: 2,
         sortable: true,
         builder: (post) => Row(
@@ -400,7 +400,7 @@ class CommunityManagementScreen extends StatelessWidget {
       DataTableColumn<PostModel>(
         label: 'Reports',
         field: 'pendingReportCount',
-        minWidth: 100,
+        minWidth: 110,
         flex: 2,
         sortable: true,
         builder: (post) => _buildReportsIndicator(post, controller, darkMode),

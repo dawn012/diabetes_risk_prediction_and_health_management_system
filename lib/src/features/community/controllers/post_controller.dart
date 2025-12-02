@@ -8,10 +8,14 @@ import '../../../common/loaders/loaders.dart';
 import '../../../data/repositories/community/post_repository.dart';
 import '../../../utils/constants/text_strings.dart';
 import '../../../utils/helpers/network_manager.dart';
+import '../../personalization/controllers/avatar_frame_controller.dart';
+import '../../personalization/controllers/user_controller.dart';
 import '../models/post_model.dart';
 
 class PostController extends GetxController {
   static PostController get instance => Get.find();
+  final _userController = UserController.instance;
+  final _frameController = AvatarFrameController.instance;
 
   final postRepo = Get.put(PostRepository());
   final scrollController = ScrollController();
@@ -28,7 +32,7 @@ class PostController extends GetxController {
   // Stream subscription for real-time updates
   StreamSubscription<List<PostModel>>? _postsSubscription;
 
-  // 🆕 用于跟踪哪些帖子是在当前会话中加载的（用于实时更新时保留disabled状态）
+  // 用于跟踪哪些帖子是在当前会话中加载的（用于实时更新时保留disabled状态）
   final Set<String> _sessionPostIds = {};
 
   // New posts banner
@@ -92,6 +96,17 @@ class PostController extends GetxController {
     }
   }
 
+  Future<void> _preloadAuthorsForPosts(List<PostModel> list) async {
+    final authorIds = list.map((p) => p.posterId).toSet().toList();
+
+    await Future.wait([
+      // 用户资料（含 currentAvatarFrame）
+      ...authorIds.map((id) => _userController.fetchUserRecordById(id)),
+      // 头像框列表
+      ...authorIds.map((id) => _frameController.fetchUserAvatarFramesFor(id)),
+    ]);
+  }
+
   Future<void> loadNewPosts() async {
     hasNewPosts.value = false;
     newPostsCount.value = 0;
@@ -129,7 +144,7 @@ class PostController extends GetxController {
 
   Future<void> fetchPosts({bool refresh = false}) async {
     if (refresh) {
-      // 🆕 刷新时清除会话ID缓存
+      // 刷新时清除会话ID缓存
       _sessionPostIds.clear();
       _postsSubscription?.cancel();
       posts.clear();
@@ -158,7 +173,7 @@ class PostController extends GetxController {
       );
 
       _postsSubscription = stream.listen(
-            (newPosts) {
+            (newPosts) async {
           if (refresh || posts.isEmpty) {
             // 首次加载或刷新时，直接替换
             posts.assignAll(newPosts);
@@ -171,6 +186,8 @@ class PostController extends GetxController {
 
           hasMorePosts.value = newPosts.length >= 10;
           isLoadingPosts.value = false;
+
+          await _preloadAuthorsForPosts(newPosts);
         },
         onError: (error) {
           print('❌ Error in posts stream: $error');
@@ -259,6 +276,8 @@ class PostController extends GetxController {
 
         // 检查是否还有更多
         hasMorePosts.value = result.length >= 10;
+
+        await _preloadAuthorsForPosts(result);
       }
     } catch (e) {
       print('❌ Error loading more posts: $e');

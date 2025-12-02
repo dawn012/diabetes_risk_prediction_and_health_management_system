@@ -14,6 +14,7 @@ class AvatarFrameController extends GetxController {
   // 不再需要 UserRepository，直接使用 UserController
   final isLoading = false.obs;
   final userAvatarFrames = <UserRewardModel>[].obs;
+  final userFramesMap = <String, List<UserRewardModel>>{}.obs;
 
   @override
   void onInit() {
@@ -49,20 +50,32 @@ class AvatarFrameController extends GetxController {
   Future<void> fetchUserAvatarFrames() async {
     try {
       isLoading.value = true;
-
       final frames = await _rewardRepo.fetchUserAvatarFrames(_currentUserId);
-
-      // 使用赋值方式确保 Obx 能检测到变化
       userAvatarFrames.assignAll(frames);
-
+      userFramesMap[_currentUserId] = frames; // 顺便放进 map
     } catch (e) {
       TLoaders.errorSnackBar(
         title: 'Error',
         message: 'Failed to load avatar frames: ${e.toString()}',
       );
       userAvatarFrames.clear();
+      userFramesMap[_currentUserId] = [];
     } finally {
       isLoading.value = false;
+    }
+  }
+
+  /// 为指定 userId 加载头像框
+  Future<void> fetchUserAvatarFramesFor(String userId) async {
+    try {
+      final frames = await _rewardRepo.fetchUserAvatarFrames(userId);
+      userFramesMap[userId] = frames;
+    } catch (e) {
+      TLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to load avatar frames for user: ${e.toString()}',
+      );
+      userFramesMap[userId] = [];
     }
   }
 
@@ -140,6 +153,17 @@ class AvatarFrameController extends GetxController {
             (frame) => frame.reward.rewardId == frameId,
       );
     } catch (e) {
+      return null;
+    }
+  }
+
+  UserRewardModel? getUserFrameById(String userId, String frameId) {
+    final frames = userFramesMap[userId];
+    if (frames == null || frames.isEmpty) return null;
+
+    try {
+      return frames.firstWhere((f) => f.reward.rewardId == frameId);
+    } catch (_) {
       return null;
     }
   }

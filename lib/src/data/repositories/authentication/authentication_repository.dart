@@ -21,6 +21,8 @@ import '../../../features/authentication/views/login/login_screen.dart';
 import '../../../features/authentication/views/onboarding/onboarding.dart';
 import '../../../features/authentication/views/signup/verify_email.dart';
 import '../../../features/personalization/views/profile/complete_profile_screen.dart';
+import '../../../services/step_tracking_service.dart';
+import '../../../services/tutorial_flow_manager.dart';
 import '../../../utils/constants/text_strings.dart';
 import '../../../utils/exceptions/firebase_auth_exceptions.dart';
 import '../../../utils/exceptions/firebase_exceptions.dart';
@@ -121,6 +123,20 @@ class AuthenticationRepository extends GetxController {
     );
   }
 
+  bool _isUserVerified(User user) {
+    // 如果有 Facebook provider，就视为已验证
+    final hasFacebookProvider = user.providerData.any(
+          (info) => info.providerId == 'facebook.com',
+    );
+
+    if (hasFacebookProvider) {
+      return true;
+    }
+
+    // 其他情况（email/password, Google 等）用 Firebase 自带的 emailVerified
+    return user.emailVerified;
+  }
+
   Future<void> screenRedirect() async {
     final user = _auth.currentUser;
     if (user != null) {
@@ -140,14 +156,18 @@ class AuthenticationRepository extends GetxController {
       }
 
       final role = await getUserRole();
+      final bool isVerified = _isUserVerified(user);
 
       print("Is verified: ${user.emailVerified}");
       print("Role: $role");
 
       // If the user is logged in
-      if (user.emailVerified) {
+      if (isVerified) {
         // 只有普通用户需要检查健康档案
         if (role == 'user') {
+          TutorialFlowManager.instance.reloadForCurrentUser();
+          StepTrackingService.instance.onInit();
+
           // Check if user has completed basic profile information
           final hasCompletedProfile = await checkProfileCompletion();
 
@@ -390,6 +410,8 @@ class AuthenticationRepository extends GetxController {
         permissions: ['email', 'public_profile'],
       );
 
+      print("Login Result: ${loginResult.message}");
+
       if (loginResult.status == LoginStatus.success) {
         final OAuthCredential facebookAuthCredential =
         FacebookAuthProvider.credential(loginResult.accessToken!.tokenString);
@@ -398,6 +420,7 @@ class AuthenticationRepository extends GetxController {
         print('User cancelled the login process');
         return null;
       } else {
+        print("Login Result Error: ${loginResult.message}");
         throw Exception('Facebook login failed: ${loginResult.message}');
       }
     } on FirebaseAuthException catch (e) {

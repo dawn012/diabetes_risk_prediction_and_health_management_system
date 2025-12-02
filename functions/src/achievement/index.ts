@@ -34,8 +34,10 @@ export {
 
 // 定时任务
 export {
+  saveLeaderboardMonthlySnapshot,
   distributeLeaderboardRewards,
   monthlyAchievementReset,
   hourlySyncCheck,
   dailyPermanentAchievementUpdate,
+  manualCloseLastMonthAndReset,
 } from "./triggers/scheduled_tasks";

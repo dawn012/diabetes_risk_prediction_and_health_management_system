@@ -110,8 +110,8 @@ class LeaderboardRewardsInfoScreen extends StatelessWidget {
 
             _buildInfoCard(
               icon: Iconsax.calendar_bold,
-              title: 'Monthly Competition',
-              description: 'Rankings are based on your total score accumulated during the month.',
+              title: 'Monthly Reset',
+              description: 'Leaderboard scores are reset at 12:00 AM on the 1st of every month.',
               color: TColors.info,
               isDark: isDark,
             ),
@@ -121,7 +121,7 @@ class LeaderboardRewardsInfoScreen extends StatelessWidget {
             _buildInfoCard(
               icon: Iconsax.clock_bold,
               title: 'Distribution Time',
-              description: 'Rewards are automatically distributed on the 1st of each month at 3:00 AM.',
+              description: 'Rewards are automatically distributed on the 1st of each month at 12:10 AM.',
               color: TColors.success,
               isDark: isDark,
             ),

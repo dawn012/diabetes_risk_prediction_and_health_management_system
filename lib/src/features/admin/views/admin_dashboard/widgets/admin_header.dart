@@ -174,16 +174,16 @@ class AdminHeader extends StatelessWidget {
                       ],
                     ),
                   ),
-                  PopupMenuItem(
-                    value: 'settings',
-                    child: Row(
-                      children: [
-                        Icon(Iconsax.setting_bold, size: 16),
-                        SizedBox(width: 12),
-                        Text('Settings'),
-                      ],
-                    ),
-                  ),
+                  // PopupMenuItem(
+                  //   value: 'settings',
+                  //   child: Row(
+                  //     children: [
+                  //       Icon(Iconsax.setting_bold, size: 16),
+                  //       SizedBox(width: 12),
+                  //       Text('Settings'),
+                  //     ],
+                  //   ),
+                  // ),
                   PopupMenuDivider(),
                   PopupMenuItem(
                     value: 'logout',

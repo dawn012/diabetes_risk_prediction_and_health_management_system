@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:icons_plus/icons_plus.dart';
 
+import '../../../features/personalization/controllers/avatar_frame_controller.dart';
 import '../../../features/personalization/controllers/user_controller.dart';
 import '../../../features/personalization/views/widgets/avatar_with_frame.dart';
 import '../../../utils/constants/colors.dart';
@@ -30,11 +31,14 @@ class TUserProfileTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = UserController.instance;
+    final frameController = AvatarFrameController.instance;
 
     return Obx(() {
       final user = controller.user.value;
       final imageUrl = user.profileImg;
       final isUserLoading = controller.profileLoading.value || isLoading;
+      final currentFrame = frameController.getCurrentFrame();
+      final frameIconUrl = currentFrame?.reward.icon;
 
       if (isUserLoading) {
         return _buildShimmerProfileTile();
@@ -47,6 +51,7 @@ class TUserProfileTile extends StatelessWidget {
             // Avatar
             AvatarWithFrame(
               profileImageUrl: imageUrl,
+              frameIconUrl: frameIconUrl,
               avatarSize: avatarSize,
               frameSize: frameSize,
             ),

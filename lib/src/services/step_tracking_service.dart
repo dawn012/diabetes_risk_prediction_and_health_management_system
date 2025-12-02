@@ -10,6 +10,7 @@ import '../common/loaders/loaders.dart';
 import '../data/repositories/authentication/authentication_repository.dart';
 import '../data/repositories/health_log/health_log_repository.dart';
 import '../features/health_data_entry/models/health_data_model.dart';
+import '../features/personalization/controllers/user_controller.dart';
 
 class StepTrackingService extends GetxController {
   static StepTrackingService get instance => Get.find();
@@ -18,7 +19,7 @@ class StepTrackingService extends GetxController {
   final _healthLogRepo = Get.put(HealthLogRepository());
   final _storage = GetStorage();
 
-  // Storage keys
+  // Storage base keys
   static const String _isConnectedKey = 'step_tracking_connected';
   static const String _lastSavedStepsKey = 'last_saved_steps';
   static const String _lastSaveDateKey = 'last_save_date';
@@ -40,6 +41,14 @@ class StepTrackingService extends GetxController {
   DateTime? _lastSaveTime;
   final int _saveThreshold = 100;
 
+  String? get _currentUserId => UserController.instance.user.value.userId;
+
+  String _userKey(String baseKey) {
+    final uid = _currentUserId;
+    if (uid == null || uid.isEmpty) return baseKey;
+    return '${uid}_$baseKey';
+  }
+
   @override
   void onInit() {
     super.onInit();
@@ -56,7 +65,6 @@ class StepTrackingService extends GetxController {
     super.onClose();
   }
 
-  /// 🔥 获取标准化的日期（当天中午12点，用于统一存储）
   DateTime _getNormalizedDate(DateTime date) {
     return DateTime(date.year, date.month, date.day, 12, 0, 0);
   }
@@ -70,10 +78,8 @@ class StepTrackingService extends GetxController {
     try {
       print('🔄 Initializing step tracking...');
 
-      // 1. 先从 Firestore 加载今天的步数
       await _loadTodaySteps();
 
-      // 2. 如果已连接，开始追踪
       if (isConnected.value) {
         await _checkAndStartTracking();
       }
@@ -87,10 +93,10 @@ class StepTrackingService extends GetxController {
   }
 
   void _loadSavedState() {
-    _lastSavedSteps = _storage.read(_lastSavedStepsKey) ?? 0;
-    _systemStepOffset = _storage.read(_systemOffsetKey) ?? 0;
+    _lastSavedSteps = _storage.read(_userKey(_lastSavedStepsKey)) ?? 0;
+    _systemStepOffset = _storage.read(_userKey(_systemOffsetKey)) ?? 0;
 
-    final lastSaveMillis = _storage.read(_lastSaveDateKey);
+    final lastSaveMillis = _storage.read(_userKey(_lastSaveDateKey));
     if (lastSaveMillis != null) {
       _lastSaveTime = DateTime.fromMillisecondsSinceEpoch(lastSaveMillis);
     }
@@ -99,9 +105,9 @@ class StepTrackingService extends GetxController {
   }
 
   void _saveState() {
-    _storage.write(_lastSavedStepsKey, _lastSavedSteps);
-    _storage.write(_lastSaveDateKey, DateTime.now().millisecondsSinceEpoch);
-    _storage.write(_systemOffsetKey, _systemStepOffset);
+    _storage.write(_userKey(_lastSavedStepsKey), _lastSavedSteps);
+    _storage.write(_userKey(_lastSaveDateKey), DateTime.now().millisecondsSinceEpoch);
+    _storage.write(_userKey(_systemOffsetKey), _systemStepOffset);
     print('💾 State saved: lastSaved=$_lastSavedSteps, offset=$_systemStepOffset');
   }
 
@@ -136,18 +142,15 @@ class StepTrackingService extends GetxController {
   }
 
   Future<void> _resetForNewDay() async {
-    // 1. 保存昨天的数据
     if (todaySteps.value > 0) {
       await _saveStepsToFirebase(todaySteps.value, forceSave: true);
     }
 
-    // 2. 重置今日步数
     todaySteps.value = 0;
     currentSteps.value = 0;
     _lastSavedSteps = 0;
     _lastResetDate = DateTime.now();
 
-    // 3. 重新设置系统偏移量
     if (isTracking.value) {
       try {
         final currentSystemSteps = await Pedometer.stepCountStream.first;
@@ -166,7 +169,7 @@ class StepTrackingService extends GetxController {
   }
 
   void _loadConnectionStatus() {
-    isConnected.value = _storage.read(_isConnectedKey) ?? false;
+    isConnected.value = _storage.read(_userKey(_isConnectedKey)) ?? false;
 
     if (isConnected.value) {
       _checkAndStartTracking();
@@ -174,7 +177,7 @@ class StepTrackingService extends GetxController {
   }
 
   void _saveConnectionStatus(bool connected) {
-    _storage.write(_isConnectedKey, connected);
+    _storage.write(_userKey(_isConnectedKey), connected);
     isConnected.value = connected;
     update();
     print('Step tracking connection status saved: $connected');
@@ -191,7 +194,6 @@ class StepTrackingService extends GetxController {
     }
   }
 
-  /// 从 Firebase 加载今天的步数
   Future<void> _loadTodaySteps() async {
     try {
       final userId = _authRepo.authUser?.uid;
@@ -316,17 +318,14 @@ class StepTrackingService extends GetxController {
     final today = DateTime(now.year, now.month, now.day);
     final lastReset = DateTime(_lastResetDate.year, _lastResetDate.month, _lastResetDate.day);
 
-    // 检查是否跨天
     if (!today.isAtSameMomentAs(lastReset)) {
       print('🔄 New day detected in step count, resetting...');
       _resetForNewDay();
       return;
     }
 
-    // 核心逻辑：实际步数 = 系统步数 - 偏移量
     final actualSteps = event.steps - _systemStepOffset;
 
-    // 防止负数
     if (actualSteps < 0) {
       print('⚠️ Negative steps detected, resetting offset');
       _systemStepOffset = event.steps - todaySteps.value;
@@ -375,7 +374,6 @@ class StepTrackingService extends GetxController {
     print('Pedestrian Status Error: $error');
   }
 
-  /// 🔥 修复：保存步数到 Firebase（使用标准化日期）
   Future<void> _saveStepsToFirebase(int steps, {bool forceSave = false}) async {
     if (!forceSave && steps == _lastSavedSteps) {
       print('⏭️ Skipping save - steps unchanged: $steps');
@@ -390,8 +388,9 @@ class StepTrackingService extends GetxController {
       }
 
       final now = DateTime.now();
-      final logDate = _getNormalizedDate(now);  // 🔥 统一使用中午12点
-      final logId = 'steps_${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
+      final logDate = _getNormalizedDate(now);
+      final logId =
+          'steps_${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
 
       print('💾 Saving steps: $steps for date: ${logDate.toString()}');
 
@@ -435,10 +434,10 @@ class StepTrackingService extends GetxController {
   Future<void> clearAllLocalData() async {
     print('🧹 Clearing all local step data...');
 
-    await _storage.remove(_isConnectedKey);
-    await _storage.remove(_lastSavedStepsKey);
-    await _storage.remove(_lastSaveDateKey);
-    await _storage.remove(_systemOffsetKey);
+    await _storage.remove(_userKey(_isConnectedKey));
+    await _storage.remove(_userKey(_lastSavedStepsKey));
+    await _storage.remove(_userKey(_lastSaveDateKey));
+    await _storage.remove(_userKey(_systemOffsetKey));
 
     _systemStepOffset = 0;
     _lastSavedSteps = 0;

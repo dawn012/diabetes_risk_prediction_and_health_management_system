@@ -9,7 +9,7 @@ class UserSubscriptionModel {
   final String subscriptionId;
   final String userId;
   final SubscriptionPlanModel subscriptionPlan;
-  final List<PaymentTransactionModel> paymentTransactions; // Changed to List
+  final List<PaymentTransactionModel> paymentTransactions;
   final DateTime startDateTime;
   final DateTime endDateTime;
   final bool autoRenew;

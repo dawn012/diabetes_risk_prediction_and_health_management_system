@@ -5,12 +5,14 @@ class LeaderboardUserModel {
   final String userName;
   final int totalScore;
   final String profileImg;
+  final String? currentAvatarFrameIconUrl;
 
   LeaderboardUserModel({
     required this.userId,
     required this.userName,
     required this.totalScore,
     this.profileImg = '',
+    this.currentAvatarFrameIconUrl,
   });
 }
 

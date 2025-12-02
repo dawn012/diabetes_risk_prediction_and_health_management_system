@@ -497,7 +497,7 @@ enum CookingMethod {
   @HiveField(3)
   instantPot('instant-pot', 'Instant Pot'),
   @HiveField(4)
-  mealPrep('meal-prep', 'Meal Prep'),
+  mealPrep('meal-prep-recipes', 'Meal Prep'),
   @HiveField(5)
   noBake('no-bake', 'No-Bake'),
   @HiveField(6)

@@ -8,6 +8,7 @@ import '../../../../../utils/constants/sizes.dart';
 import '../../../../../utils/extensions/date_time_extension.dart';
 import '../../../../../utils/helpers/helper_functions.dart';
 import '../../../../authentication/models/user_model.dart';
+import '../../../../personalization/controllers/avatar_frame_controller.dart';
 import '../../../../personalization/controllers/user_controller.dart';
 import '../../../../personalization/views/widgets/avatar_with_frame.dart';
 import '../../../controllers/post_controller.dart';
@@ -25,6 +26,7 @@ class PostHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final userController = UserController.instance;
     final postController = PostController.instance;
+    final frameController = AvatarFrameController.instance;
     final isDark = THelperFunctions.isDarkMode(context);
 
     return Padding(
@@ -32,7 +34,7 @@ class PostHeader extends StatelessWidget {
       child: Obx(() {
         if (userController.userCache.containsKey(post.posterId)) {
           final user = userController.userCache[post.posterId]!;
-          return _buildHeader(context, user, postController, isDark);
+          return _buildHeader(context, user, postController, frameController, isDark);
         }
 
         return FutureBuilder<UserModel>(
@@ -46,22 +48,39 @@ class PostHeader extends StatelessWidget {
               return _buildErrorHeader(context, postController, isDark);
             }
 
-            return _buildHeader(context, snapshot.data!, postController, isDark);
+            return _buildHeader(context, snapshot.data!, postController, frameController, isDark);
           },
         );
       }),
     );
   }
 
-  Widget _buildHeader(BuildContext context, UserModel user, PostController postController, bool isDark) {
+  Widget _buildHeader(BuildContext context, UserModel user, PostController postController, AvatarFrameController frameController, bool isDark) {
     final currentUserId = UserController.instance.user.value.userId;
     final isOwnPost = currentUserId == post.posterId;
     final isEdited = post.updatedAt.isAfter(post.createdAt);
+
+    // 1. 取发帖人的当前 frameId
+    final frameId = user.currentAvatarFrame;
+    String? frameIconUrl;
+
+    if (frameId != null) {
+      // 2. 优先用多用户缓存
+      final frame = frameController.getUserFrameById(user.userId, frameId);
+      if (frame != null) {
+        frameIconUrl = frame.reward.icon;
+      } else if (user.userId == currentUserId) {
+        // 3. fallback: 自己的帖子，用 getCurrentFrame()
+        final currentFrame = frameController.getCurrentFrame();
+        frameIconUrl = currentFrame?.reward.icon;
+      }
+    }
 
     return Row(
       children: [
         AvatarWithFrame(
           profileImageUrl: user.profileImg,
+          frameIconUrl: frameIconUrl,
           avatarSize: 40,  // 头像大小
           frameSize: 50,   // 头像框大小
         ),

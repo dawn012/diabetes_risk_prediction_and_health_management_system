@@ -484,6 +484,11 @@ class TutorialFlowManager extends GetxController {
     });
   }
 
+  void reloadForCurrentUser() {
+    hideOverlay();
+    _loadTutorialState();
+  }
+
   @override
   void onClose() {
     hideOverlay();

@@ -8,6 +8,7 @@ import '../../../../utils/constants/colors.dart';
 import '../../../../utils/constants/sizes.dart';
 import '../../../../utils/helpers/helper_functions.dart';
 import '../../../../utils/helpers/media_helper.dart';
+import '../../../personalization/controllers/avatar_frame_controller.dart';
 import '../../../personalization/controllers/user_controller.dart';
 import '../../../personalization/views/widgets/avatar_with_frame.dart';
 import '../../controllers/post_create_controller.dart';
@@ -359,12 +360,18 @@ class CreatePostScreen extends StatelessWidget {
   }
 
   Widget _buildProfileSection(UserController userController, bool darkMode) {
+    final frameController = AvatarFrameController.instance;
+
     return Obx(() {
       final user = userController.user.value;
+      final currentFrame = frameController.getCurrentFrame();
+      final frameIconUrl = currentFrame?.reward.icon;
+
       return Row(
         children: [
           AvatarWithFrame(
             profileImageUrl: user.profileImg,
+            frameIconUrl: frameIconUrl,
             avatarSize: 48,  // 头像大小
             frameSize: 58,   // 头像框大小
           ),

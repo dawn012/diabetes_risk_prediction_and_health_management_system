@@ -337,7 +337,7 @@ class SettingsScreen extends StatelessWidget {
                       color: Colors.transparent,
                       child: InkWell(
                         onTap: () {
-                          AuthenticationRepository.instance.logout();
+                          TDialog.confirmDialog(title: 'Confirm Logout', message: 'Are you sure you want to log out from your account?', confirmButtonColor: TColors.error, confirmText: 'Logout', onConfirm: () => AuthenticationRepository.instance.logout());
                         },
                         borderRadius: BorderRadius.circular(TSizes.cardRadiusLg),
                         child: Padding(

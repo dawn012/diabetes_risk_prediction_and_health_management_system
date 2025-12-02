@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../../common/loaders/loaders.dart';
+import '../../../../common/widgets/appbar/appbar.dart';
 import '../../../../common/widgets/dialogs/dialog.dart';
 import '../../../../services/step_tracking_service.dart';
 import '../../../../utils/constants/colors.dart';
@@ -18,16 +19,14 @@ class ConnectExerciseAppsScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: darkMode ? TColors.dark : TColors.light,
-      appBar: AppBar(
+      appBar: TAppBar(
         backgroundColor: TColors.primary,
         title: const Text(
           'Connect to Exercise Apps',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Get.back(),
-        ),
+        iconTheme: IconThemeData(color: TColors.white),
+        showBackArrow: true,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(TSizes.defaultSpace),
@@ -47,13 +46,13 @@ class ConnectExerciseAppsScreen extends StatelessWidget {
             const SizedBox(height: TSizes.spaceBtwItems),
 
             // Google Fit
-            _buildAppCard(
-              darkMode: darkMode,
-              iconPath: 'assets/icons/google_fit.png',
-              appName: 'Google Fit',
-              isConnected: false,
-              onTap: () => _connectApp('Google Fit'),
-            ),
+            // _buildAppCard(
+            //   darkMode: darkMode,
+            //   iconPath: 'assets/icons/google_fit.png',
+            //   appName: 'Google Fit',
+            //   isConnected: false,
+            //   onTap: () => _connectApp('Google Fit'),
+            // ),
 
             const SizedBox(height: TSizes.md),
 
@@ -169,16 +168,14 @@ class ThisPhoneScreen extends StatelessWidget {
 
     return Scaffold(
         backgroundColor: darkMode ? TColors.dark : TColors.light,
-        appBar: AppBar(
+        appBar: TAppBar(
           backgroundColor: TColors.primary,
           title: const Text(
             'This Phone',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => Get.back(),
-          ),
+          showBackArrow: true,
+          iconTheme: IconThemeData(color: TColors.white),
         ),
       body: Padding(
         padding: const EdgeInsets.all(TSizes.defaultSpace),

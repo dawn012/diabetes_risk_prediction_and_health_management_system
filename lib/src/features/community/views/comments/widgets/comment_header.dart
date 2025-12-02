@@ -8,6 +8,7 @@ import '../../../../../utils/constants/sizes.dart';
 import '../../../../../utils/extensions/date_time_extension.dart';
 import '../../../../../utils/helpers/helper_functions.dart';
 import '../../../../authentication/models/user_model.dart';
+import '../../../../personalization/controllers/avatar_frame_controller.dart';
 import '../../../../personalization/controllers/user_controller.dart';
 import '../../../../personalization/views/widgets/avatar_with_frame.dart';
 import '../../../controllers/comment_controller.dart';
@@ -21,12 +22,13 @@ class CommentHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final userController = UserController.instance;
+    final frameController = AvatarFrameController.instance;
     final isDark = THelperFunctions.isDarkMode(context);
 
     return Obx(() {
       if (userController.userCache.containsKey(comment.authorId)) {
         final user = userController.userCache[comment.authorId]!;
-        return _buildHeader(context, user, isDark);
+        return _buildHeader(context, user, isDark, frameController);
       }
 
       return FutureBuilder<UserModel>(
@@ -40,18 +42,40 @@ class CommentHeader extends StatelessWidget {
             return _buildErrorHeader(context, isDark);
           }
 
-          return _buildHeader(context, snapshot.data!, isDark);
+          return _buildHeader(context, snapshot.data!, isDark, frameController);
         },
       );
     });
   }
 
-  Widget _buildHeader(BuildContext context, UserModel user, bool isDark) {
+  Widget _buildHeader(BuildContext context, UserModel user, bool isDark, AvatarFrameController frameController) {
+    // 1. 从 UserModel 上拿当前使用的 frameId
+    final frameId = user.currentAvatarFrame;
+
+    // 2. 默认没有头像框
+    String? frameIconUrl;
+
+    if (frameId != null) {
+      // 3. 尝试从 AvatarFrameController 的缓存中找这个用户的 frame
+      final frame = frameController.getUserFrameById(user.userId, frameId);
+      if (frame != null) {
+        frameIconUrl = frame.reward.icon;
+      } else {
+        // 如果 user == 当前登录用户，还可以退一步用 getCurrentFrame()
+        final currentUserId = UserController.instance.user.value.userId;
+        if (user.userId == currentUserId) {
+          final currentFrame = frameController.getCurrentFrame();
+          frameIconUrl = currentFrame?.reward.icon;
+        }
+      }
+    }
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         AvatarWithFrame(
           profileImageUrl: user.profileImg,
+          frameIconUrl: frameIconUrl,
           avatarSize: 32,
           frameSize: 40,
         ),
@@ -64,7 +88,7 @@ class CommentHeader extends StatelessWidget {
                 children: [
                   Text(
                     user.username.isNotEmpty ? user.username : "Anonymous",
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: isDark ? TColors.white : TColors.textPrimary,
                       fontWeight: FontWeight.w600,
                     ),

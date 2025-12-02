@@ -17,6 +17,7 @@ import '../controllers/meal_plan_controller.dart';
 import '../models/meal_plan_meal_model.dart';
 import '../models/meal_plan_model.dart';
 import 'meal_details_screen.dart';
+import 'meal_plan_detail_screen.dart';
 import 'meal_plan_preview_screen.dart';
 import 'meal_recommendation_form.dart';
 import 'meal_recommendation_info_screen.dart';
@@ -311,7 +312,7 @@ class MealHomeScreen extends StatelessWidget {
             children: [
               Icon(
                 plan.planType == MealPlanType.daily
-                    ? Iconsax.sun_1_bold
+                    ? Icons.sunny
                     : Iconsax.calendar_1_bold,
                 color: TColors.white,
                 size: 32,
@@ -421,23 +422,19 @@ class MealHomeScreen extends StatelessWidget {
       MealPlanModel plan,
       bool isDark,
       ) {
-    // Sort meals by time slot
-    final sortedMeals = List<MealPlanMealModel>.from(plan.scheduledMeals)
-      ..sort((a, b) {
-        final aTime = MealTimeConstants.mealStartTimes[a.mealTimeSlot]!;
-        final bTime = MealTimeConstants.mealStartTimes[b.mealTimeSlot]!;
-        return aTime.compareTo(bTime);
-      });
+    // 不再 filter 今天，也不再 sort，完全跟 scheduledMeals 数组顺序
+    final mealsInOrder = plan.scheduledMeals;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
-        children: sortedMeals.map((meal) {
-          return _buildMealCard(controller, plan, meal, isDark);
-        }).toList(),
+        children: mealsInOrder
+            .map((meal) => _buildMealCard(controller, plan, meal, isDark))
+            .toList(),
       ),
     );
   }
+
 
   Widget _buildWeeklyMealsList(
       MealPlanController controller,
@@ -520,6 +517,9 @@ class MealHomeScreen extends StatelessWidget {
       MealPlanMealModel meal,
       bool isDark,
       ) {
+    final nextMeal = controller.getNextUpcomingMeal();
+    final isNextMeal = nextMeal != null &&
+        nextMeal.mealPlanMealId == meal.mealPlanMealId;
     final isCurrent = controller.isCurrentMeal(meal);
     final canConsume = controller.canConsumeMeal(meal);
 
@@ -583,7 +583,7 @@ class MealHomeScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (canConsume)
+                if (isNextMeal)
                   Container(
                     padding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -620,11 +620,13 @@ class MealHomeScreen extends StatelessWidget {
                   );
                 },
                 onSkip: () {
-                  Get.back();
-                  controller.markMealAsSkipped(
-                    plan.mealPlanId,
-                    meal.mealPlanMealId,
-                  );
+                  TDialog.confirmDialog(title: 'Skip this meal?', message: 'Are you sure you want to mark this meal as skipped?', confirmText: 'Skip', confirmButtonColor: TColors.error, onConfirm: () {
+                    Get.back();
+                    controller.markMealAsSkipped(
+                      plan.mealPlanId,
+                      meal.mealPlanMealId,
+                    );
+                  });
                 },
               ));
             },
@@ -889,7 +891,8 @@ class MealHomeScreen extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(TSizes.cardRadiusLg),
           onTap: () {
-            // TODO: Navigate to plan detail
+            print("Plan: ${plan.status}");
+            Get.to(() => MealPlanDetailScreen(mealPlan: plan,));
           },
           child: Padding(
             padding: const EdgeInsets.all(TSizes.md),
@@ -907,7 +910,7 @@ class MealHomeScreen extends StatelessWidget {
                       ),
                       child: Icon(
                         plan.planType == MealPlanType.daily
-                            ? Iconsax.sun_1_bold
+                            ? Icons.sunny
                             : Iconsax.calendar_1_bold,
                         color: _getStatusColor(plan.status),
                         size: 24,

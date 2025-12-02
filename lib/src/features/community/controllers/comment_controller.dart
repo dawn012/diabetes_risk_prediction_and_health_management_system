@@ -11,6 +11,7 @@ import '../../../data/repositories/community/reply_repository.dart';
 import '../../../utils/constants/text_strings.dart';
 import '../../../utils/helpers/network_manager.dart';
 import '../../../utils/validators/community_validator.dart';
+import '../../personalization/controllers/avatar_frame_controller.dart';
 import '../../personalization/controllers/user_controller.dart';
 import '../models/comment_model.dart';
 import '../models/reply_model.dart';
@@ -68,6 +69,19 @@ class CommentController extends GetxController {
     super.onClose();
   }
 
+  Future<void> _preloadAuthorsForComments(List<CommentModel> list) async {
+    final frameController = AvatarFrameController.instance;
+    final authorIds = list.map((c) => c.authorId).toSet().toList();
+
+    await Future.wait([
+      // 预加载用户资料（如果你也想保证名字/头像是最新的）
+      ...authorIds.map((id) => userController.fetchUserRecordById(id)),
+      // 预加载头像框
+      ...authorIds.map((id) => frameController.fetchUserAvatarFramesFor(id)),
+    ]);
+  }
+
+
   /// =================== COMMENTS SECTION =================== ///
 
   /// Fetch comments based on current sort mode
@@ -115,9 +129,11 @@ class CommentController extends GetxController {
       startAfter: null,
     );
 
-    _commentsStreamSubscription = stream.listen((newComments) {
+    _commentsStreamSubscription = stream.listen((newComments) async {
       comments.value = newComments;
       isLoadingComments.value = false;
+
+      await _preloadAuthorsForComments(newComments);
     }, onError: (error) {
       commentsError.value = 'Failed to load comments';
       isLoadingComments.value = false;
@@ -147,6 +163,8 @@ class CommentController extends GetxController {
       return bTime.compareTo(aTime);
     });
 
+    await _preloadAuthorsForComments(newComments);
+
     comments.addAll(newComments);
     lastCommentDoc = snapshot.docs.last;
     hasMoreComments.value = snapshot.docs.length == 20;
@@ -171,6 +189,8 @@ class CommentController extends GetxController {
 
     // Sort by score = likes * 3 + replies * 1.5 - hours_since_posted * 0.1
     newComments.sort((a, b) => b.popularityScore.compareTo(a.popularityScore));
+
+    await _preloadAuthorsForComments(newComments);
 
     if (lastCommentDoc == null) {
       comments.value = newComments;
@@ -204,6 +224,8 @@ class CommentController extends GetxController {
       final bTime = b.updatedAt.isAfter(b.createdAt) ? b.updatedAt : b.createdAt;
       return aTime.compareTo(bTime); // ascending: older first
     });
+
+    await _preloadAuthorsForComments(newComments);
 
     if (lastCommentDoc == null) {
       comments.value = newComments;

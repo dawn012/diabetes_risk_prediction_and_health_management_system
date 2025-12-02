@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../../navigation_menu.dart';
 import '../../../common/loaders/loaders.dart';
 import '../../../data/repositories/authentication/authentication_repository.dart';
 import '../../../data/repositories/diabetes_prediction/diabetes_prediction_repository.dart';
@@ -21,6 +22,7 @@ import '../models/meal_model.dart';
 import '../models/meal_plan_meal_model.dart';
 import '../models/meal_plan_model.dart';
 import '../models/meal_preference_model.dart';
+import '../views/meal_home_screen.dart';
 import '../views/meal_plan_preview_screen.dart';
 
 class MealRecommendationController extends GetxController {
@@ -264,7 +266,8 @@ class MealRecommendationController extends GetxController {
   }
 
   /// 获取过去计划的食谱ID（用于避免重复）
-  /// 只获取最近30天内的计划，且最多返回40%的食谱ID
+  /// - 当前 plan：保留 40%，排除 60%
+  /// - 过去30天历史：保留 60%，排除 40%
   Future<List<String>> _getPastRecipeIds() async {
     try {
       final cutoffDate = DateTime.now().subtract(const Duration(days: 30));
@@ -277,48 +280,72 @@ class MealRecommendationController extends GetxController {
           .where((plan) => plan.endDateTime.isAfter(cutoffDate))
           .toList();
 
-      // 获取所有食谱ID
-      final Set<String> allRecipeIds = {};
+      // 当前 plan 的 ids
+      final Set<String> currentPlanIds = {};
 
-      // 2. 添加已保存计划的食谱ID
-      for (var plan in recentPlans) {
-        for (var meal in plan.scheduledMeals) {
-          allRecipeIds.add(meal.meal.mealId);
-        }
-      }
-
-      // 3. 添加当前临时计划的食谱ID（如果存在）
       if (generatedMealPlan.value != null) {
         for (var meal in generatedMealPlan.value!.scheduledMeals) {
-          allRecipeIds.add(meal.meal.mealId);
+          currentPlanIds.add(meal.meal.mealId);
         }
-        print(
-            '✅ Added ${generatedMealPlan.value!.scheduledMeals.length} recipes from current temp plan');
+        print('✅ Added ${currentPlanIds.length} recipes from current temp plan');
       }
 
-      // 4. 添加 Hive 中存储的临时计划的食谱ID
       final hiveTempPlan = mealHiveStorage.getTempMealPlan();
       if (hiveTempPlan != null && hiveTempPlan.scheduledMeals.isNotEmpty) {
         for (var meal in hiveTempPlan.scheduledMeals) {
-          allRecipeIds.add(meal.meal.mealId);
+          currentPlanIds.add(meal.meal.mealId);
         }
-        print(
-            '✅ Added ${hiveTempPlan.scheduledMeals.length} recipes from Hive temp plan');
+        print('✅ Added ${hiveTempPlan.scheduledMeals.length} recipes from Hive temp plan');
       }
 
-      // 5. 添加被替换的食谱ID（从 Hive 获取）
+      // 2. 历史30天 ids（不含 currentPlanIds）
+      final Set<String> historyIds = {};
+      for (var plan in recentPlans) {
+        for (var meal in plan.scheduledMeals) {
+          final id = meal.meal.mealId;
+          if (!currentPlanIds.contains(id)) {
+            historyIds.add(id);
+          }
+        }
+      }
+
+      // 3. 被替换的 ids 也视为历史的一部分
       final replacedRecipes = mealHiveStorage.getReplacedRecipes();
-      allRecipeIds.addAll(replacedRecipes);
+      for (final id in replacedRecipes) {
+        if (!currentPlanIds.contains(id)) {
+          historyIds.add(id);
+        }
+      }
 
-      if (allRecipeIds.isEmpty) return [];
+      if (currentPlanIds.isEmpty && historyIds.isEmpty) return [];
 
-      print('📊 Total unique recipes in history: ${allRecipeIds.length}');
+      print('📊 Current plan ids: ${currentPlanIds.length}');
+      print('📊 History ids (30d, excl current): ${historyIds.length}');
 
-      // 计算要避免重复的数量 (60%，因为我们允许40%重复)
-      final avoidCount = (allRecipeIds.length * 0.6).round();
-      final result = allRecipeIds.take(avoidCount).toList();
+      // 4. 采样：当前保留40%，历史保留60%
 
-      return result;
+      final currentList = currentPlanIds.toList()..shuffle();
+      final historyList = historyIds.toList()..shuffle();
+
+      // 当前计划：保留40%，排除60% → 我们要“排除的那60%”
+      final keepCurrentCount = (currentList.length * 0.4).round();
+      final excludedCurrent =
+      currentList.skip(keepCurrentCount).toSet(); // 要排除的当前plan ids
+
+      // 历史：保留60%，排除40% → “排除的那40%”
+      final keepHistoryCount = (historyList.length * 0.6).round();
+      final excludedHistory =
+      historyList.skip(keepHistoryCount).toSet(); // 要排除的历史ids
+
+      final totalExcluded = <String>{}
+        ..addAll(excludedCurrent)
+        ..addAll(excludedHistory);
+
+      print('📊 Excluded from current plan: ${excludedCurrent.length}');
+      print('📊 Excluded from history: ${excludedHistory.length}');
+      print('📊 Total excluded ids: ${totalExcluded.length}');
+
+      return totalExcluded.toList();
     } catch (e) {
       print('Error getting past recipe IDs: $e');
       return [];
@@ -474,167 +501,370 @@ class MealRecommendationController extends GetxController {
 
   /// 解析每日计划
   Future<void> _parseDailyPlan(
-    Map<String, dynamic> planData,
-    List<MealPlanMealModel> scheduledMeals,
-    DateTime startDate,
-  ) async {
-    // 获取用户的糖尿病风险等级
+      Map<String, dynamic> planData,
+      List<MealPlanMealModel> scheduledMeals,
+      DateTime startDate,
+      ) async {
     final userPreferences = await _buildUserPreferencesForApi();
     final diabetesRisk = userPreferences['diabetes_risk'] ?? 'medium';
 
-    // 获取剩余的 meal slots
+    // 今天还剩哪些 slot（按业务规则排好顺序）
     final remainingSlots = MealTimeConstants.getRemainingMealSlots(
-        DateTime.now(),
-        diabetesRisk: diabetesRisk);
+      DateTime.now(),
+      diabetesRisk: diabetesRisk,
+    );
 
-    // 如果今天没有剩余 slots，从明天开始
+    // 如果今天没有剩余 slot，就从明天开始
     final actualStartDate = remainingSlots.isEmpty
         ? startDate.add(const Duration(days: 1))
         : startDate;
 
-    int dayOffset = 0;
-    int slotIndex = 0;
+    // 1. 把 mealType 排成符合你期望的顺序：
+    //    先按今天剩余的 slot 顺序，然后是剩下的 mealType
+    final allMealTypes = ['breakfast', 'lunch', 'snack', 'dinner'];
 
-    // 定义完整的 meal slots 顺序
-    final allSlots = [
-      MealTimeSlot.breakfast,
-      MealTimeSlot.lunch,
-      MealTimeSlot.snack,
-      MealTimeSlot.dinner,
-    ];
-
-    for (var mealType in ['breakfast', 'lunch', 'snack', 'dinner']) {
-      if (planData.containsKey(mealType) && planData[mealType] != null) {
-        final mealData = planData[mealType] as Map<String, dynamic>;
-        final meal = await _fetchMealFromApi(mealData);
-
-        if (meal != null) {
-          // 确定这个 meal 的日期和 time slot
-          DateTime mealDate;
-          MealTimeSlot timeSlot;
-
-          if (remainingSlots.isEmpty) {
-            final targetSlotIndex =
-                allSlots.indexOf(_mealTypeToTimeSlot(mealType));
-            dayOffset = targetSlotIndex ~/ allSlots.length;
-            slotIndex = targetSlotIndex % allSlots.length;
-
-            mealDate = actualStartDate.add(Duration(days: dayOffset));
-            timeSlot = allSlots[slotIndex];
-          } else {
-            if (slotIndex < remainingSlots.length) {
-              mealDate = actualStartDate;
-              timeSlot = remainingSlots[slotIndex];
-            } else {
-              final nextDayIndex = slotIndex - remainingSlots.length;
-              dayOffset = 1 + (nextDayIndex ~/ allSlots.length);
-              final nextSlotIndex = nextDayIndex % allSlots.length;
-
-              mealDate = actualStartDate.add(Duration(days: dayOffset));
-              timeSlot = allSlots[nextSlotIndex];
-            }
-          }
-
-          scheduledMeals.add(MealPlanMealModel(
-            mealPlanMealId: const Uuid().v4(),
-            meal: meal,
-            scheduledDate: mealDate,
-            mealTimeSlot: timeSlot,
-            status: MealConsumptionStatus.pending,
-          ));
-
-          slotIndex++;
-        } else {
-          print('❌ Failed to fetch meal for $mealType');
-        }
-      } else {
-        print('❌ $mealType not found in plan data or is null');
+    // 用 slot -> mealType 的映射
+    String _slotToMealType(MealTimeSlot slot) {
+      switch (slot) {
+        case MealTimeSlot.breakfast:
+          return 'breakfast';
+        case MealTimeSlot.lunch:
+          return 'lunch';
+        case MealTimeSlot.snack:
+          return 'snack';
+        case MealTimeSlot.dinner:
+          return 'dinner';
       }
+    }
+
+    final orderedMealTypes = <String>[];
+
+    // 先按今天剩余 slots 的顺序推入对应的 mealType
+    for (final slot in remainingSlots) {
+      final type = _slotToMealType(slot);
+      if (planData.containsKey(type) &&
+          planData[type] != null &&
+          !orderedMealTypes.contains(type)) {
+        orderedMealTypes.add(type);
+      }
+    }
+
+    // 再把其余有数据但还没加过的 mealType 接在后面
+    for (final type in allMealTypes) {
+      if (planData.containsKey(type) &&
+          planData[type] != null &&
+          !orderedMealTypes.contains(type)) {
+        orderedMealTypes.add(type);
+      }
+    }
+
+    // 2. 按 orderedMealTypes 的顺序生成 scheduledMeals
+    int index = 0;
+    for (final mealType in orderedMealTypes) {
+      final mealData = planData[mealType] as Map<String, dynamic>;
+      final meal = await _fetchMealFromApi(mealData);
+      if (meal == null) continue;
+
+      final timeSlot = _mealTypeToTimeSlot(mealType);
+
+      DateTime mealDate;
+      if (remainingSlots.isEmpty) {
+        // 当天没剩 slot，新的一天，所有安排都用 actualStartDate
+        mealDate = actualStartDate;
+      } else if (index < remainingSlots.length) {
+        mealDate = actualStartDate;
+      } else {
+        mealDate = actualStartDate.add(const Duration(days: 1));
+      }
+
+      scheduledMeals.add(
+        MealPlanMealModel(
+          mealPlanMealId: const Uuid().v4(),
+          meal: meal,
+          scheduledDate: mealDate,
+          mealTimeSlot: timeSlot,
+          status: MealConsumptionStatus.pending,
+        ),
+      );
+
+      index++;
     }
 
     print('\n📊 Final scheduled meals count: ${scheduledMeals.length}');
   }
 
+  // Future<void> _parseDailyPlan(
+  //   Map<String, dynamic> planData,
+  //   List<MealPlanMealModel> scheduledMeals,
+  //   DateTime startDate,
+  // ) async {
+  //   // 获取用户的糖尿病风险等级
+  //   final userPreferences = await _buildUserPreferencesForApi();
+  //   final diabetesRisk = userPreferences['diabetes_risk'] ?? 'medium';
+  //
+  //   // 获取剩余的 meal slots
+  //   final remainingSlots = MealTimeConstants.getRemainingMealSlots(
+  //       DateTime.now(),
+  //       diabetesRisk: diabetesRisk);
+  //
+  //   // 如果今天没有剩余 slots，从明天开始
+  //   final actualStartDate = remainingSlots.isEmpty
+  //       ? startDate.add(const Duration(days: 1))
+  //       : startDate;
+  //
+  //   int dayOffset = 0;
+  //   int slotIndex = 0;
+  //
+  //   // 定义完整的 meal slots 顺序
+  //   final allSlots = [
+  //     MealTimeSlot.breakfast,
+  //     MealTimeSlot.lunch,
+  //     MealTimeSlot.snack,
+  //     MealTimeSlot.dinner,
+  //   ];
+  //
+  //   for (var mealType in ['breakfast', 'lunch', 'snack', 'dinner']) {
+  //     if (planData.containsKey(mealType) && planData[mealType] != null) {
+  //       final mealData = planData[mealType] as Map<String, dynamic>;
+  //       final meal = await _fetchMealFromApi(mealData);
+  //
+  //       if (meal != null) {
+  //         // 确定这个 meal 的日期和 time slot
+  //         DateTime mealDate;
+  //         MealTimeSlot timeSlot;
+  //
+  //         if (remainingSlots.isEmpty) {
+  //           final targetSlotIndex =
+  //               allSlots.indexOf(_mealTypeToTimeSlot(mealType));
+  //           dayOffset = targetSlotIndex ~/ allSlots.length;
+  //           slotIndex = targetSlotIndex % allSlots.length;
+  //
+  //           mealDate = actualStartDate.add(Duration(days: dayOffset));
+  //           timeSlot = allSlots[slotIndex];
+  //         } else {
+  //           if (slotIndex < remainingSlots.length) {
+  //             mealDate = actualStartDate;
+  //             timeSlot = remainingSlots[slotIndex];
+  //           } else {
+  //             final nextDayIndex = slotIndex - remainingSlots.length;
+  //             dayOffset = 1 + (nextDayIndex ~/ allSlots.length);
+  //             final nextSlotIndex = nextDayIndex % allSlots.length;
+  //
+  //             mealDate = actualStartDate.add(Duration(days: dayOffset));
+  //             timeSlot = allSlots[nextSlotIndex];
+  //           }
+  //         }
+  //
+  //         scheduledMeals.add(MealPlanMealModel(
+  //           mealPlanMealId: const Uuid().v4(),
+  //           meal: meal,
+  //           scheduledDate: mealDate,
+  //           mealTimeSlot: timeSlot,
+  //           status: MealConsumptionStatus.pending,
+  //         ));
+  //
+  //         slotIndex++;
+  //       } else {
+  //         print('❌ Failed to fetch meal for $mealType');
+  //       }
+  //     } else {
+  //       print('❌ $mealType not found in plan data or is null');
+  //     }
+  //   }
+  //
+  //   print('\n📊 Final scheduled meals count: ${scheduledMeals.length}');
+  // }
+
   /// 解析每周计划
   Future<void> _parseWeeklyPlan(
-    Map<String, dynamic> planData,
-    List<MealPlanMealModel> scheduledMeals,
-    DateTime startDate,
-  ) async {
-    // 获取用户的糖尿病风险等级
+      Map<String, dynamic> planData,
+      List<MealPlanMealModel> scheduledMeals,
+      DateTime startDate,
+      ) async {
+    // 1. 风险等级 & 今天剩余 slots（只用于 day_1）
     final userPreferences = await _buildUserPreferencesForApi();
     final diabetesRisk = userPreferences['diabetes_risk'] ?? 'medium';
 
-    // 获取今天剩余的 meal slots
     final remainingSlots = MealTimeConstants.getRemainingMealSlots(
-        DateTime.now(),
-        diabetesRisk: diabetesRisk);
+      DateTime.now(),
+      diabetesRisk: diabetesRisk,
+    );
 
-    // 如果今天没有剩余 slots，从明天开始
     final actualStartDate = remainingSlots.isEmpty
         ? startDate.add(const Duration(days: 1))
         : startDate;
 
+    // slot ⇔ mealType 映射
+    String _slotToMealType(MealTimeSlot slot) {
+      switch (slot) {
+        case MealTimeSlot.breakfast:
+          return 'breakfast';
+        case MealTimeSlot.lunch:
+          return 'lunch';
+        case MealTimeSlot.snack:
+          return 'snack';
+        case MealTimeSlot.dinner:
+          return 'dinner';
+      }
+    }
+
+    final allMealTypes = ['breakfast', 'lunch', 'snack', 'dinner'];
+
     int totalMealsAdded = 0;
-    int currentDayOffset = 0;
 
-    // 定义完整的 meal slots 顺序
-    final allSlots = [
-      MealTimeSlot.breakfast,
-      MealTimeSlot.lunch,
-      MealTimeSlot.snack,
-      MealTimeSlot.dinner,
-    ];
-
-    // 遍历每一天
     for (int day = 1; day <= 7; day++) {
       final dayKey = 'day_$day';
+      if (!planData.containsKey(dayKey)) continue;
 
-      if (planData.containsKey(dayKey)) {
-        final dayData = planData[dayKey] as Map<String, dynamic>;
+      final dayData = planData[dayKey] as Map<String, dynamic>;
 
-        for (var mealType in ['breakfast', 'lunch', 'snack', 'dinner']) {
-          if (dayData.containsKey(mealType) && dayData[mealType] != null) {
-            final mealData = dayData[mealType] as Map<String, dynamic>;
-            final meal = await _fetchMealFromApi(mealData);
+      // 2. 为 day_1 构造「按今天剩余 slots 排序」的 mealType 顺序；
+      //    其它天保持默认顺序。
+      final orderedMealTypes = <String>[];
 
-            if (meal != null) {
-              DateTime mealDate;
-              MealTimeSlot timeSlot = _mealTypeToTimeSlot(mealType);
-
-              // 第一天特殊处理
-              if (day == 1 && remainingSlots.isNotEmpty) {
-                // 使用剩余的 slots
-                if (totalMealsAdded < remainingSlots.length) {
-                  mealDate = actualStartDate;
-                  timeSlot = remainingSlots[totalMealsAdded];
-                } else {
-                  // 超出今天的 slots，计算下一天
-                  final excessMeals = totalMealsAdded - remainingSlots.length;
-                  currentDayOffset = 1 + (excessMeals ~/ allSlots.length);
-                  mealDate =
-                      actualStartDate.add(Duration(days: currentDayOffset));
-                }
-              } else {
-                // 其他天正常处理
-                mealDate = actualStartDate.add(Duration(days: day - 1));
-              }
-
-              scheduledMeals.add(MealPlanMealModel(
-                mealPlanMealId: const Uuid().v4(),
-                meal: meal,
-                scheduledDate: mealDate,
-                mealTimeSlot: timeSlot,
-                status: MealConsumptionStatus.pending,
-              ));
-
-              totalMealsAdded++;
-            }
+      if (day == 1 && remainingSlots.isNotEmpty) {
+        // 先按剩余 slots 的顺序推入对应 mealType
+        for (final slot in remainingSlots) {
+          final type = _slotToMealType(slot);
+          if (dayData.containsKey(type) &&
+              dayData[type] != null &&
+              !orderedMealTypes.contains(type)) {
+            orderedMealTypes.add(type);
+          }
+        }
+        // 再补上这一天里其它有数据但还没加过的 mealType
+        for (final type in allMealTypes) {
+          if (dayData.containsKey(type) &&
+              dayData[type] != null &&
+              !orderedMealTypes.contains(type)) {
+            orderedMealTypes.add(type);
+          }
+        }
+      } else {
+        // day_2~day_7：保持 breakfast → lunch → snack → dinner
+        for (final type in allMealTypes) {
+          if (dayData.containsKey(type) && dayData[type] != null) {
+            orderedMealTypes.add(type);
           }
         }
       }
+
+      // 3. 生成当前 day 的 scheduledMeals
+      for (final mealType in orderedMealTypes) {
+        final mealData = dayData[mealType] as Map<String, dynamic>;
+        final meal = await _fetchMealFromApi(mealData);
+        if (meal == null) continue;
+
+        final timeSlot = _mealTypeToTimeSlot(mealType);
+
+        DateTime mealDate;
+        if (day == 1 && remainingSlots.isNotEmpty) {
+          // day_1：先把剩余 slots 塞到今天，超出的放明天
+          if (totalMealsAdded < remainingSlots.length) {
+            mealDate = actualStartDate; // 今天
+          } else {
+            mealDate = actualStartDate.add(const Duration(days: 1)); // 明天
+          }
+        } else {
+          // day_2~day_7：正常按天偏移
+          final dayOffset = day - 1;
+          mealDate = actualStartDate.add(Duration(days: dayOffset));
+        }
+
+        scheduledMeals.add(
+          MealPlanMealModel(
+            mealPlanMealId: const Uuid().v4(),
+            meal: meal,
+            scheduledDate: mealDate,
+            mealTimeSlot: timeSlot,
+            status: MealConsumptionStatus.pending,
+          ),
+        );
+
+        totalMealsAdded++;
+      }
     }
   }
+
+  // Future<void> _parseWeeklyPlan(
+  //   Map<String, dynamic> planData,
+  //   List<MealPlanMealModel> scheduledMeals,
+  //   DateTime startDate,
+  // ) async {
+  //   // 获取用户的糖尿病风险等级
+  //   final userPreferences = await _buildUserPreferencesForApi();
+  //   final diabetesRisk = userPreferences['diabetes_risk'] ?? 'medium';
+  //
+  //   // 获取今天剩余的 meal slots
+  //   final remainingSlots = MealTimeConstants.getRemainingMealSlots(
+  //       DateTime.now(),
+  //       diabetesRisk: diabetesRisk);
+  //
+  //   // 如果今天没有剩余 slots，从明天开始
+  //   final actualStartDate = remainingSlots.isEmpty
+  //       ? startDate.add(const Duration(days: 1))
+  //       : startDate;
+  //
+  //   int totalMealsAdded = 0;
+  //   int currentDayOffset = 0;
+  //
+  //   // 定义完整的 meal slots 顺序
+  //   final allSlots = [
+  //     MealTimeSlot.breakfast,
+  //     MealTimeSlot.lunch,
+  //     MealTimeSlot.snack,
+  //     MealTimeSlot.dinner,
+  //   ];
+  //
+  //   // 遍历每一天
+  //   for (int day = 1; day <= 7; day++) {
+  //     final dayKey = 'day_$day';
+  //
+  //     if (planData.containsKey(dayKey)) {
+  //       final dayData = planData[dayKey] as Map<String, dynamic>;
+  //
+  //       for (var mealType in ['breakfast', 'lunch', 'snack', 'dinner']) {
+  //         if (dayData.containsKey(mealType) && dayData[mealType] != null) {
+  //           final mealData = dayData[mealType] as Map<String, dynamic>;
+  //           final meal = await _fetchMealFromApi(mealData);
+  //
+  //           if (meal != null) {
+  //             DateTime mealDate;
+  //             MealTimeSlot timeSlot = _mealTypeToTimeSlot(mealType);
+  //
+  //             // 第一天特殊处理
+  //             if (day == 1 && remainingSlots.isNotEmpty) {
+  //               // 使用剩余的 slots
+  //               if (totalMealsAdded < remainingSlots.length) {
+  //                 mealDate = actualStartDate;
+  //                 timeSlot = remainingSlots[totalMealsAdded];
+  //               } else {
+  //                 // 超出今天的 slots，计算下一天
+  //                 final excessMeals = totalMealsAdded - remainingSlots.length;
+  //                 currentDayOffset = 1 + (excessMeals ~/ allSlots.length);
+  //                 mealDate =
+  //                     actualStartDate.add(Duration(days: currentDayOffset));
+  //               }
+  //             } else {
+  //               // 其他天正常处理
+  //               mealDate = actualStartDate.add(Duration(days: day - 1));
+  //             }
+  //
+  //             scheduledMeals.add(MealPlanMealModel(
+  //               mealPlanMealId: const Uuid().v4(),
+  //               meal: meal,
+  //               scheduledDate: mealDate,
+  //               mealTimeSlot: timeSlot,
+  //               status: MealConsumptionStatus.pending,
+  //             ));
+  //
+  //             totalMealsAdded++;
+  //           }
+  //         }
+  //       }
+  //     }
+  //   }
+  // }
 
   /// 将 meal type 转换为 MealTimeSlot
   MealTimeSlot _mealTypeToTimeSlot(String mealType) {
@@ -802,7 +1032,17 @@ class MealRecommendationController extends GetxController {
       // 清空被替换的食谱记录
       await mealHiveStorage.clearReplacedRecipes();
 
-      Get.back();
+      final navController = Get.find<NavigationController>();
+      navController.selectedIndex.value = 1;
+
+      // 连续 pop 两次：关掉 Preview 和 Form
+      if (Get.context != null) {
+        Navigator.of(Get.context!, rootNavigator: true).pop(true);
+      } // pop MealPlanPreviewScreen
+
+      if (Get.context != null) {
+        Navigator.of(Get.context!, rootNavigator: true).pop(true);
+      } // pop Recommendation Form，回到 NavigationMenu(MealHomeScreen tab)
     } catch (e) {
       TLoaders.errorSnackBar(
         title: 'Error',

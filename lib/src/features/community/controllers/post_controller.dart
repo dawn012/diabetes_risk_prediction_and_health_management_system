@@ -30,10 +30,11 @@ class PostController extends GetxController {
   DocumentSnapshot? lastPostDoc;
 
   // Stream subscription for real-time updates
-  StreamSubscription<List<PostModel>>? _postsSubscription;
+  // StreamSubscription<List<PostModel>>? _postsSubscription;
 
   // 用于跟踪哪些帖子是在当前会话中加载的（用于实时更新时保留disabled状态）
-  final Set<String> _sessionPostIds = {};
+  // final Set<String> _sessionPostIds = {};
+  Timer? _disableCheckTimer;
 
   // New posts banner
   final hasNewPosts = false.obs;
@@ -58,6 +59,7 @@ class PostController extends GetxController {
     fetchPosts();
     _loadPostCounts();
     _startAutoRefresh();
+    _startDisablePolling();
   }
 
   void _startAutoRefresh() {
@@ -107,6 +109,39 @@ class PostController extends GetxController {
     ]);
   }
 
+  void _startDisablePolling() {
+    _disableCheckTimer?.cancel();
+    _disableCheckTimer = Timer.periodic(
+      const Duration(seconds: 10),
+          (_) => _checkDisabledPostsForLoaded(),
+    );
+    _checkDisabledPostsForLoaded(); // 启动时先跑一次
+  }
+
+  Future<void> _checkDisabledPostsForLoaded() async {
+    if (posts.isEmpty) return;
+
+    try {
+      // 只对当前已加载的 post 检查
+      final ids = posts.map((p) => p.postId).toList();
+
+      final statusMap = await postRepo.getPostsDisableStatus(ids);
+
+      for (var i = 0; i < posts.length; i++) {
+        final post = posts[i];
+        final isDisable = statusMap[post.postId];
+
+        if (isDisable == true && post.isDisable == false) {
+          // 更新为禁用版 PostModel（保持其他字段不变）
+          posts[i] = post.copyWith(isDisable: true);
+        }
+      }
+    } catch (e) {
+      print('Error polling disabled posts: $e');
+      // 静默失败即可，不打断用户
+    }
+  }
+
   Future<void> loadNewPosts() async {
     hasNewPosts.value = false;
     newPostsCount.value = 0;
@@ -120,9 +155,10 @@ class PostController extends GetxController {
 
   @override
   void onClose() {
-    print('🛑 Stopping auto refresh timer');
+    print('Stopping auto refresh timer');
     _refreshTimer?.cancel();
-    _postsSubscription?.cancel();
+    _disableCheckTimer?.cancel();
+    // _postsSubscription?.cancel();
     scrollController.dispose();
     postContent.dispose();
     searchController.dispose();
@@ -134,7 +170,7 @@ class PostController extends GetxController {
   void _setupScrollListener() {
     scrollController.addListener(() {
       if (scrollController.position.pixels >=
-          scrollController.position.maxScrollExtent * 0.8) {
+          scrollController.position.maxScrollExtent) {
         if (!isLoadingMore.value && hasMorePosts.value) {
           loadMorePosts();
         }
@@ -144,9 +180,6 @@ class PostController extends GetxController {
 
   Future<void> fetchPosts({bool refresh = false}) async {
     if (refresh) {
-      // 刷新时清除会话ID缓存
-      _sessionPostIds.clear();
-      _postsSubscription?.cancel();
       posts.clear();
       lastPostDoc = null;
       hasMorePosts.value = true;
@@ -160,90 +193,88 @@ class PostController extends GetxController {
       final isConnected = await NetworkManager.instance.isConnected();
       if (!isConnected) {
         postsError.value = TTexts.networkErrorMessage;
-        isLoadingPosts.value = false;
         return;
       }
 
-      final stream = postRepo.fetchPosts(
-        postType: selectedPostType.value == 'all' ? null : selectedPostType.value,
+      // 这里用你的 PostRepository.fetchPaginatedPosts
+      final response = await postRepo.fetchPaginatedPosts(
+        page: 1,
+        itemsPerPage: 10,
+        postType: selectedPostType.value == 'all'
+            ? null
+            : selectedPostType.value,
         searchQuery: searchQuery.value.isEmpty ? null : searchQuery.value,
         isDisable: false,
-        limit: 10,
-        startAfter: null,
       );
 
-      _postsSubscription = stream.listen(
-            (newPosts) async {
-          if (refresh || posts.isEmpty) {
-            // 首次加载或刷新时，直接替换
-            posts.assignAll(newPosts);
-            // 🆕 记录所有初始加载的帖子ID
-            _sessionPostIds.addAll(newPosts.map((p) => p.postId));
-          } else {
-            // 实时更新：合并新数据
-            _mergePostsRealtime(newPosts);
-          }
+      posts.assignAll(response.posts);
+      hasMorePosts.value = response.hasMore;
+      lastPostDoc = response.lastDocument;
 
-          hasMorePosts.value = newPosts.length >= 10;
-          isLoadingPosts.value = false;
-
-          await _preloadAuthorsForPosts(newPosts);
-        },
-        onError: (error) {
-          print('❌ Error in posts stream: $error');
-          postsError.value = 'Failed to load posts. Please try again.';
-          isLoadingPosts.value = false;
-        },
-      );
+      await _preloadAuthorsForPosts(response.posts);
     } catch (e) {
       print('❌ Error fetching posts: $e');
       postsError.value = 'Failed to load posts. Please try again.';
+    } finally {
       isLoadingPosts.value = false;
     }
   }
 
-  /// 🆕 实时合并帖子数据 - 处理禁用状态
-  void _mergePostsRealtime(List<PostModel> newPosts) {
-    for (var newPost in newPosts) {
-      final index = posts.indexWhere((p) => p.postId == newPost.postId);
-      if (index != -1) {
-        // 更新现有帖子（保持位置不变）
-        posts[index] = newPost;
-      } else {
-        // 这是真正的新帖子，但不要自动添加
-        print('📨 Detected truly new post: ${newPost.postId}');
-      }
-    }
+  /// 实时合并帖子数据 - 处理禁用状态
+  // void _mergePostsRealtime(List<PostModel> newPosts) {
+  //   for (var newPost in newPosts) {
+  //     final index = posts.indexWhere((p) => p.postId == newPost.postId);
+  //     if (index != -1) {
+  //       // 更新现有帖子（保持位置不变）
+  //       posts[index] = newPost;
+  //     } else {
+  //       // 流里出现的新帖子，不自动插入列表，只用 new posts banner 处理
+  //       print('📨 Detected truly new post in stream: ${newPost.postId}');
+  //     }
+  //   }
+  // }
 
-    // 🆕 检查是否有帖子被禁用了（存在于会话中但不在新数据中）
-    final newPostIds = newPosts.map((p) => p.postId).toSet();
+  // void _mergePostsRealtime(List<PostModel> newPosts) {
+  //   for (var newPost in newPosts) {
+  //     final index = posts.indexWhere((p) => p.postId == newPost.postId);
+  //     if (index != -1) {
+  //       // 更新现有帖子（保持位置不变）
+  //       posts[index] = newPost;
+  //     } else {
+  //       // 这是真正的新帖子，但不要自动添加
+  //       print('📨 Detected truly new post: ${newPost.postId}');
+  //     }
+  //   }
+  //
+  //   // 🆕 检查是否有帖子被禁用了（存在于会话中但不在新数据中）
+  //   final newPostIds = newPosts.map((p) => p.postId).toSet();
+  //
+  //   for (var i = 0; i < posts.length; i++) {
+  //     final post = posts[i];
+  //
+  //     // 如果这个帖子是在当前会话中加载的，但现在查询结果中没有了
+  //     // 说明它可能被禁用了
+  //     if (_sessionPostIds.contains(post.postId) && !newPostIds.contains(post.postId)) {
+  //       // 🆕 检查这个帖子是否真的被禁用了
+  //       _checkAndUpdateDisabledPost(post.postId, i);
+  //     }
+  //   }
+  // }
 
-    for (var i = 0; i < posts.length; i++) {
-      final post = posts[i];
-
-      // 如果这个帖子是在当前会话中加载的，但现在查询结果中没有了
-      // 说明它可能被禁用了
-      if (_sessionPostIds.contains(post.postId) && !newPostIds.contains(post.postId)) {
-        // 🆕 检查这个帖子是否真的被禁用了
-        _checkAndUpdateDisabledPost(post.postId, i);
-      }
-    }
-  }
-
-  /// 🆕 检查并更新被禁用的帖子（通过 Repository）
-  Future<void> _checkAndUpdateDisabledPost(String postId, int index) async {
-    try {
-      // 🔄 使用 Repository 获取帖子状态
-      final updatedPost = await postRepo.getPost(postId);
-
-      if (updatedPost != null && updatedPost.isDisable) {
-        print('⚠️ Post $postId is now disabled, updating in place');
-        posts[index] = updatedPost;
-      }
-    } catch (e) {
-      print('❌ Error checking disabled post: $e');
-    }
-  }
+  /// 检查并更新被禁用的帖子（通过 Repository）
+  // Future<void> _checkAndUpdateDisabledPost(String postId, int index) async {
+  //   try {
+  //     // 🔄 使用 Repository 获取帖子状态
+  //     final updatedPost = await postRepo.getPost(postId);
+  //
+  //     if (updatedPost != null && updatedPost.isDisable) {
+  //       print('⚠️ Post $postId is now disabled, updating in place');
+  //       posts[index] = updatedPost;
+  //     }
+  //   } catch (e) {
+  //     print('❌ Error checking disabled post: $e');
+  //   }
+  // }
 
   Future<void> loadMorePosts() async {
     if (isLoadingMore.value || !hasMorePosts.value || posts.isEmpty) return;
@@ -256,7 +287,7 @@ class PostController extends GetxController {
         return;
       }
 
-      // 🔄 使用 Repository 进行分页加载
+      // 使用 Repository 进行分页加载
       final lastPost = posts.last;
       final result = await postRepo.fetchMorePosts(
         lastPostId: lastPost.postId,
@@ -268,8 +299,8 @@ class PostController extends GetxController {
       if (result == null || result.isEmpty) {
         hasMorePosts.value = false;
       } else {
-        // 🆕 记录新加载的帖子ID
-        _sessionPostIds.addAll(result.map((p) => p.postId));
+        // 记录新加载的帖子ID
+        // _sessionPostIds.addAll(result.map((p) => p.postId));
 
         // 添加到现有列表
         posts.addAll(result);
@@ -343,12 +374,30 @@ class PostController extends GetxController {
   /// =================== POST INTERACTIONS =================== ///
 
   Future<void> togglePostLike(String postId, List<String> currentLikes) async {
+    final userId = _userController.user.value.userId;
+    final index = posts.indexWhere((p) => p.postId == postId);
+    if (index == -1) return;
+
+    final oldPost = posts[index];
+    final newLikes = List<String>.from(oldPost.likes);
+
+    // 本地乐观更新
+    if (newLikes.contains(userId)) {
+      newLikes.remove(userId);
+    } else {
+      newLikes.add(userId);
+    }
+
+    posts[index] = oldPost.copyWith(likes: newLikes);
+
     try {
       await postRepo.togglePostLike(
         postId: postId,
-        currentLikes: currentLikes,
+        currentLikes: oldPost.likes, // 传旧的 likes 给 repo
       );
     } catch (e) {
+      // 失败回滚
+      posts[index] = oldPost;
       TLoaders.errorSnackBar(
         title: TTexts.error,
         message: 'Failed to update like',
@@ -360,7 +409,7 @@ class PostController extends GetxController {
     try {
       await postRepo.deletePost(postId);
       posts.removeWhere((post) => post.postId == postId);
-      _sessionPostIds.remove(postId); // 🆕 从会话缓存中移除
+      // _sessionPostIds.remove(postId); // 从会话缓存中移除
       _loadPostCounts();
       TLoaders.successSnackBar(
         title: 'Post Deleted',
@@ -380,6 +429,23 @@ class PostController extends GetxController {
     } catch (e) {
       return null;
     }
+  }
+
+  void incrementCommentCount(String postId) {
+    final index = posts.indexWhere((p) => p.postId == postId);
+    if (index == -1) return;
+
+    final post = posts[index];
+    posts[index] = post.copyWith(commentCount: post.commentCount + 1);
+  }
+
+  void decrementCommentCount(String postId) {
+    final index = posts.indexWhere((p) => p.postId == postId);
+    if (index == -1) return;
+
+    final post = posts[index];
+    final newCount = post.commentCount > 0 ? post.commentCount - 1 : 0;
+    posts[index] = post.copyWith(commentCount: newCount);
   }
 
   /// =================== VIDEO SPECIFIC =================== ///

@@ -35,7 +35,7 @@ class ReplyRepository extends GetxController {
         content: content,
         likes: const [],
         createdAt: now,
-        updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
+        updatedAt: now,
         mentions: mentions,
       );
 

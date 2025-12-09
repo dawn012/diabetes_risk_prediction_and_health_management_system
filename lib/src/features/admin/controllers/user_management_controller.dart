@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../data/repositories/subscription/subscription_repository.dart';
 import '../../../data/repositories/user/user_repository.dart';
 import '../../../common/loaders/loaders.dart';
 import '../../../utils/constants/text_strings.dart';
@@ -21,6 +22,7 @@ class UserManagementController extends GetxController {
   final userRepository = UserRepository.instance;
   final authRepository = AuthenticationRepository.instance;
   final userController = UserController.instance;
+  final SubscriptionRepository _subscriptionRepository = Get.put(SubscriptionRepository());
   final notificationRepository = NotificationRepository.instance;
 
   // Controllers
@@ -37,6 +39,7 @@ class UserManagementController extends GetxController {
   final selectedUsers = <UserModel>[].obs;
   final selectedTabIndex = 0.obs; // 0: Active, 1: Banned, 2: Inactive
   final currentUserRole = ''.obs;
+  final RxMap<String, bool> activeSubscriptions = <String, bool>{}.obs;
 
   // Sorting
   final sortColumnIndex = 0.obs;
@@ -89,8 +92,12 @@ class UserManagementController extends GetxController {
 
   void _subscribeToUsers() {
     _usersStreamSubscription = userRepository.streamAllUsers().listen(
-          (users) {
+          (users) async {
         allUsers.assignAll(users);
+
+        // 先预取这些用户的订阅状态
+        await _preloadSubscriptionsForUsers();
+
         filterUsers();
       },
       onError: (error) {
@@ -101,6 +108,27 @@ class UserManagementController extends GetxController {
       },
     );
   }
+
+  Future<void> _preloadSubscriptionsForUsers() async {
+    activeSubscriptions.clear();
+
+    final futures = <Future<void>>[];
+
+    for (final user in allUsers) {
+      futures.add(
+        _subscriptionRepository
+            .hasActiveSubscription(user.userId)
+            .then((isActive) {
+          activeSubscriptions[user.userId] = isActive;
+        }),
+      );
+    }
+
+    await Future.wait(futures);
+  }
+
+  bool isActiveSync(String userId) =>
+      activeSubscriptions[userId] ?? false;
 
   void _onSearchChanged() {
     if (_searchTimer?.isActive ?? false) _searchTimer!.cancel();

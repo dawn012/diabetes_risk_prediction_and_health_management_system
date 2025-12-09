@@ -46,14 +46,18 @@ class CommentsList extends StatelessWidget {
                 Text(
                   "No comments yet",
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: isDark ? TColors.lightGrey : TColors.textSecondary,
+                    color: isDark
+                        ? TColors.lightGrey
+                        : TColors.textSecondary,
                   ),
                 ),
                 const SizedBox(height: TSizes.xs),
                 Text(
                   "Be the first to comment!",
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: isDark ? TColors.darkGrey : TColors.textSecondary,
+                    color: isDark
+                        ? TColors.darkGrey
+                        : TColors.textSecondary,
                   ),
                 ),
               ],
@@ -62,17 +66,44 @@ class CommentsList extends StatelessWidget {
         );
       }
 
+      final comments = controller.comments;
+
       return RefreshIndicator(
         onRefresh: () => controller.fetchComments(refresh: true),
         color: TColors.primary,
         child: ListView.separated(
+          controller: controller.scrollController, // 用 controller 的
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(context).viewInsets.bottom + 100,
           ),
-          itemCount: controller.comments.length,
-          separatorBuilder: (context, index) => const SizedBox.shrink(), // 完全移除分隔
+          itemCount:
+          comments.length + (controller.hasMoreComments.value ? 1 : 0),
+          separatorBuilder: (context, index) => const SizedBox.shrink(),
           itemBuilder: (context, index) {
-            final comment = controller.comments[index];
+            // 尾部 loading item
+            if (index >= comments.length) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                    ),
+                    child: const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        valueColor: AlwaysStoppedAnimation(TColors.primary),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            final comment = comments[index];
             return CommentTile(comment: comment);
           },
         ),

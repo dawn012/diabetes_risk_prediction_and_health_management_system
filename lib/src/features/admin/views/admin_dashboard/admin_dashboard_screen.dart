@@ -17,6 +17,7 @@ import '../user_management/user_management_screen.dart';
 import 'widgets/admin_header.dart';
 import 'widgets/admin_sidebar.dart';
 import 'widgets/dashboard_stats_cards.dart';
+import 'widgets/recent_users_widget.dart';
 
 class AdminDashboardScreen extends StatelessWidget {
   const AdminDashboardScreen({super.key});
@@ -25,21 +26,21 @@ class AdminDashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = Get.put(AdminDashboardController());
     final darkMode = THelperFunctions.isDarkMode(context);
-    
+
     return Scaffold(
       backgroundColor: TAdminColors.getBackgroundColor(darkMode),
       body: Row(
         children: [
           // Sidebar
           AdminSidebar(),
-          
+
           // Main Content
           Expanded(
             child: Column(
               children: [
                 // Header
                 AdminHeader(),
-                
+
                 // Content Area
                 Expanded(
                   child: Obx(() => _buildContent(controller.selectedIndex.value, darkMode)),
@@ -58,22 +59,21 @@ class AdminDashboardScreen extends StatelessWidget {
         return _buildDashboardContent(darkMode);
       case 1: // User Management
         return UserManagementScreen();
-      case 2: // User Management
+      case 2: // Manager Management
         return ManagerManagementScreen();
       case 3: // Community Management
         return CommunityManagementScreen();
       case 4: // Achievement Management
         return AchievementManagementScreen();
-      case 5: // Achievement Management
+      case 5: // Reward Management
         return RewardManagementScreen();
-      case 6: // Achievement Management
+      case 6: // Transaction Management
         return TransactionManagementScreen();
       case 7: // Analytics
         return _buildPlaceholder('Analytics', darkMode);
       case 71: return TransactionReportScreen();
       case 72: return UserAnalyticsScreen();
-      // case 73: return _buildPlaceholder('Performance Reports', darkMode);
-      case 8: // Settings
+      case 8: // Profile
         return AdminProfileScreen();
       default:
         return _buildDashboardContent(darkMode);
@@ -101,114 +101,8 @@ class AdminDashboardScreen extends StatelessWidget {
 
           SizedBox(height: 32),
 
-          // Recent Activities
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: TAdminColors.getSurfaceColor(darkMode),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: darkMode ? Colors.black26 : Colors.grey.withOpacity(0.1),
-                  blurRadius: 10,
-                  offset: Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Recent Activities',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                    color: TAdminColors.getOnSurfaceColor(darkMode),
-                  ),
-                ),
-                SizedBox(height: 16),
-                _buildActivityItem(
-                  icon: Iconsax.user_add_bold,
-                  title: 'New user registered',
-                  subtitle: 'john.doe@email.com',
-                  time: '2 minutes ago',
-                  darkMode: darkMode,
-                ),
-                _buildActivityItem(
-                  icon: Iconsax.user_remove_bold,
-                  title: 'User account banned',
-                  subtitle: 'spam.user@email.com',
-                  time: '15 minutes ago',
-                  darkMode: darkMode,
-                ),
-                _buildActivityItem(
-                  icon: Iconsax.shield_tick_bold,
-                  title: 'User verified',
-                  subtitle: 'jane.smith@email.com',
-                  time: '1 hour ago',
-                  darkMode: darkMode,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActivityItem({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required String time,
-    required bool darkMode,
-  }) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Container(
-            padding: EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: TAdminColors.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              icon,
-              color: TAdminColors.primary,
-              size: 20,
-            ),
-          ),
-          SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w500,
-                    color: TAdminColors.getOnSurfaceColor(darkMode),
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    color: TAdminColors.getOnSurfaceVariantColor(darkMode),
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            time,
-            style: TextStyle(
-              color: TAdminColors.getOnSurfaceVariantColor(darkMode),
-              fontSize: 12,
-            ),
-          ),
+          // Recent Users
+          RecentUsersWidget(),
         ],
       ),
     );

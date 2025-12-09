@@ -35,7 +35,7 @@ class CommentRepository extends GetxController {
         likes: const [],
         replyCount: 0,
         createdAt: now,
-        updatedAt: DateTime.fromMillisecondsSinceEpoch(0)
+        updatedAt: now,
       );
 
       // Store in comments collection with postId
@@ -77,7 +77,7 @@ class CommentRepository extends GetxController {
     Query<Map<String, dynamic>> query = _db
         .collection(FirebaseCollectionNames.comments)
         .where(FirebaseFieldNames.postId, isEqualTo: postId)
-        // .orderBy(FirebaseFieldNames.createdAt, descending: true)
+        .orderBy(FirebaseFieldNames.updatedAt, descending: true)
         .limit(limit);
 
     if (startAfter != null) {
@@ -110,7 +110,7 @@ class CommentRepository extends GetxController {
       Query<Map<String, dynamic>> query = _db
           .collection(FirebaseCollectionNames.comments)
           .where(FirebaseFieldNames.postId, isEqualTo: postId)
-          // .orderBy(FirebaseFieldNames.createdAt, descending: true)
+          .orderBy(FirebaseFieldNames.updatedAt, descending: true)
           .limit(limit);
 
       if (startAfter != null) {
@@ -137,7 +137,8 @@ class CommentRepository extends GetxController {
       Query<Map<String, dynamic>> query = _db
           .collection(FirebaseCollectionNames.comments)
           .where(FirebaseFieldNames.postId, isEqualTo: postId)
-          .limit(limit * 3); // Fetch more to allow proper sorting
+          .orderBy(FirebaseFieldNames.updatedAt, descending: true)
+          .limit(limit);
 
       if (startAfter != null) {
         query = query.startAfterDocument(startAfter);

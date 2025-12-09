@@ -81,11 +81,14 @@ class PostTile extends StatelessWidget {
               ),
             ),
 
-          // Post Media (dimmed if disabled)
+          // Post Media (dimmed & non-interactive if disabled)
           if (post.mediaUrls.isNotEmpty)
-            Opacity(
-              opacity: isDisabled ? 0.5 : 1.0,
-              child: PostMediaView(mediaUrls: post.mediaUrls),
+            IgnorePointer(
+              ignoring: isDisabled,        // 禁用时不响应点击，包括播放按钮
+              child: Opacity(
+                opacity: isDisabled ? 0.5 : 1.0,
+                child: PostMediaView(mediaUrls: post.mediaUrls),
+              ),
             ),
 
           // Post Stats and Buttons

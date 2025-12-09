@@ -279,10 +279,14 @@ class DiabetesBloodGlucoseController extends GetxController {
   /// Handle close button
   Future<void> handleClose(BuildContext context) async {
     if (navigationMode.value == NavigationMode.flow) {
-      // Save to cache before closing
+      // 统一转成 mmol/L 再存
+      final glucoseInMmolL = measurementType.value == 'mg/dL'
+          ? mgdlToMmol(currentValue.value)
+          : currentValue.value;
+
       await _storageManager.updateStepData(2, {
-        'glucose': currentValue.value,
-        'unit': measurementType.value,
+        'glucose': glucoseInMmolL,
+        'unit': 'mmol/L', // 内部一律标记 mmol/L
       });
     }
 

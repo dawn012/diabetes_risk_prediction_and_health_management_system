@@ -120,10 +120,9 @@ class DiabetesPredictionOverviewController extends GetxController {
       }
 
       // Step 2: Blood Glucose
-      if (cache.isStepCompleted(2)) {
-        if (cache.bloodGlucose != null) {
-          stepValues[2] = '${cache.bloodGlucose!.toInt()} ${cache.glucoseUnit}';
-        }
+      if (cache.isStepCompleted(2) && cache.bloodGlucose != null) {
+        final valueMmol = cache.bloodGlucose!;
+        stepValues[2] = '${valueMmol.toStringAsFixed(1)} mmol/L';
       }
 
       // Step 3: Physical Activity
@@ -240,12 +239,12 @@ class DiabetesPredictionOverviewController extends GetxController {
 
       if (glucoseLogs.isNotEmpty) {
         final latestGlucose = glucoseLogs.first.bloodGlucose.glucoseLevel;
-        final glucoseMgDl = latestGlucose * 18;
+        // final glucoseMgDl = latestGlucose * 18;
         final cachedGlucose = cache?.bloodGlucose;
 
         if (cachedGlucose != null) {
-          syncAvailable[2] = glucoseMgDl != cachedGlucose && glucoseMgDl > 0;
-        } else if (glucoseMgDl > 0) {
+          syncAvailable[2] = latestGlucose != cachedGlucose && latestGlucose > 0;
+        } else if (latestGlucose > 0) {
           syncAvailable[2] = true;
         }
       }
@@ -360,11 +359,11 @@ class DiabetesPredictionOverviewController extends GetxController {
 
     if (glucoseLogs.isNotEmpty) {
       final latestGlucose = glucoseLogs.first.bloodGlucose.glucoseLevel;
-      final glucoseMgDl = latestGlucose * 18;
+      // final glucoseMgDl = latestGlucose * 18;
 
-      if (glucoseMgDl > 0) {
+      if (latestGlucose > 0) {
         await _storageManager.updateStepData(2, {
-          'glucose': glucoseMgDl,
+          'glucose': latestGlucose,
           'unit': 'mg/dL',
         });
       }

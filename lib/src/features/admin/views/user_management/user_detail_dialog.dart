@@ -9,10 +9,12 @@ import '../../../authentication/models/user_model.dart';
 
 class UserDetailDialog extends StatelessWidget {
   final UserModel user;
+  final bool isPremium;
 
   const UserDetailDialog({
     super.key,
     required this.user,
+    this.isPremium = false,
   });
 
   @override
@@ -147,6 +149,40 @@ class UserDetailDialog extends StatelessWidget {
                   ),
                   SizedBox(width: 12),
                   _buildStatusBadge(darkMode),
+
+                  // Premium Chip
+                  if (isPremium) ...[
+                    SizedBox(width: 8),
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: TAdminColors.warning.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: TAdminColors.warning.withOpacity(0.4),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Iconsax.crown_bold,
+                            size: 14,
+                            color: TAdminColors.warning,
+                          ),
+                          SizedBox(width: 6),
+                          Text(
+                            'Premium',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: TAdminColors.warning,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ),
               SizedBox(height: 4),

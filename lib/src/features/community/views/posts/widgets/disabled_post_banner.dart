@@ -124,21 +124,21 @@ class DisabledPostBanner extends StatelessWidget {
               height: 1.4,
             ),
           ),
-          if (onContactAdmin != null) ...[
-            SizedBox(height: TSizes.sm),
-            TextButton.icon(
-              onPressed: onContactAdmin,
-              icon: Icon(Icons.support_agent, size: 16),
-              label: Text('Contact Support'),
-              style: TextButton.styleFrom(
-                foregroundColor: TColors.error,
-                padding: EdgeInsets.symmetric(
-                  horizontal: TSizes.sm,
-                  vertical: TSizes.xs,
-                ),
-              ),
-            ),
-          ],
+          // if (onContactAdmin != null) ...[
+          //   SizedBox(height: TSizes.sm),
+          //   TextButton.icon(
+          //     onPressed: onContactAdmin,
+          //     icon: Icon(Icons.support_agent, size: 16),
+          //     label: Text('Contact Support'),
+          //     style: TextButton.styleFrom(
+          //       foregroundColor: TColors.error,
+          //       padding: EdgeInsets.symmetric(
+          //         horizontal: TSizes.sm,
+          //         vertical: TSizes.xs,
+          //       ),
+          //     ),
+          //   ),
+          // ],
         ],
       ),
     );

@@ -15,6 +15,7 @@ import '../../personalization/controllers/avatar_frame_controller.dart';
 import '../../personalization/controllers/user_controller.dart';
 import '../models/comment_model.dart';
 import '../models/reply_model.dart';
+import 'post_controller.dart';
 
 class CommentController extends GetxController {
   final String postId;
@@ -32,6 +33,8 @@ class CommentController extends GetxController {
   final hasMoreComments = true.obs;
   final commentsError = ''.obs;
   DocumentSnapshot? lastCommentDoc;
+  // Scroll controller for pagination
+  final ScrollController scrollController = ScrollController();
 
   // Stream subscription for real-time updates (only for newest sort)
   StreamSubscription? _commentsStreamSubscription;
@@ -59,6 +62,7 @@ class CommentController extends GetxController {
     super.onInit();
     fetchComments();
     commentText.addListener(_updateButtonState);
+    scrollController.addListener(_onScroll);
   }
 
   @override
@@ -66,6 +70,9 @@ class CommentController extends GetxController {
     _commentsStreamSubscription?.cancel();
     commentText.dispose();
     commentFocusNode.dispose();
+    scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
     super.onClose();
   }
 
@@ -134,6 +141,23 @@ class CommentController extends GetxController {
       isLoadingComments.value = false;
 
       await _preloadAuthorsForComments(newComments);
+
+      // 初始化分页游标和 hasMoreComments
+      if (newComments.isNotEmpty) {
+        final snapshot = await commentRepo.fetchCommentsPaginated(
+          postId: postId,
+          limit: 20,
+          startAfter: null,
+        );
+        if (snapshot.docs.isNotEmpty) {
+          lastCommentDoc = snapshot.docs.last;
+          hasMoreComments.value = snapshot.docs.length == 20;
+        } else {
+          hasMoreComments.value = false;
+        }
+      } else {
+        hasMoreComments.value = false;
+      }
     }, onError: (error) {
       commentsError.value = 'Failed to load comments';
       isLoadingComments.value = false;
@@ -237,6 +261,28 @@ class CommentController extends GetxController {
     hasMoreComments.value = snapshot.docs.length == 20;
   }
 
+  void _onScroll() {
+    if (!scrollController.hasClients) return;
+    final maxScroll = scrollController.position.maxScrollExtent;
+    final current = scrollController.position.pixels;
+
+    if (current >= maxScroll - 200) {
+      loadMoreComments();
+    }
+  }
+
+  Future<void> loadMoreComments() async {
+    if (!hasMoreComments.value || isLoadingComments.value) return;
+
+    if (currentSort.value == 'newest') {
+      await _fetchPaginatedComments();
+    } else if (currentSort.value == 'top') {
+      await _fetchTopComments();
+    } else if (currentSort.value == 'oldest') {
+      await _fetchOldestComments();
+    }
+  }
+
   /// Create new comment with optimistic update
   Future<void> createComment() async {
     final contentError = CommunityValidator.validateCommentContent(commentText.text);
@@ -280,6 +326,9 @@ class CommentController extends GetxController {
         }
       }
       // If using stream, it will auto-update
+
+      // 本地同步帖子上的 commentCount（乐观 + 与仓库里的 FieldValue.increment 对齐）
+      PostController.instance.incrementCommentCount(postId);
 
       TLoaders.successSnackBar(title: 'Success', message: 'Comment posted');
     } catch (e) {
@@ -356,6 +405,10 @@ class CommentController extends GetxController {
 
     try {
       await commentRepo.deleteComment(comment.commentId);
+
+      // 本地同步帖子上的 commentCount
+      PostController.instance.decrementCommentCount(postId);
+
       TLoaders.successSnackBar(title: 'Success', message: 'Comment deleted');
     } catch (e) {
       // Rollback on error

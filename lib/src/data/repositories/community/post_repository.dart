@@ -369,6 +369,32 @@ class PostRepository extends GetxController {
     }
   }
 
+  Future<Map<String, bool>> getPostsDisableStatus(List<String> postIds) async {
+    final Map<String, bool> result = {};
+
+    // Firestore whereIn 一次最多 10 个 id，分批处理
+    const int batchSize = 10;
+    for (var i = 0; i < postIds.length; i += batchSize) {
+      final batchIds = postIds.sublist(
+        i,
+        i + batchSize > postIds.length ? postIds.length : i + batchSize,
+      );
+
+      final snapshot = await _db
+          .collection(FirebaseCollectionNames.posts)
+          .where(FieldPath.documentId, whereIn: batchIds)
+          .get();
+
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final isDisable = (data[FirebaseFieldNames.isDisable] as bool?) ?? false;
+        result[doc.id] = isDisable;
+      }
+    }
+
+    return result;
+  }
+
   /// Toggle like on a post
   Future<String?> togglePostLike({
     required String postId,
@@ -775,7 +801,7 @@ class PostRepository extends GetxController {
     Query<Map<String, dynamic>> query = _db
         .collection(FirebaseCollectionNames.posts)
         .where(FirebaseFieldNames.isDisable, isEqualTo: isDisable)
-        .orderBy(FirebaseFieldNames.createdAt, descending: true);
+        .orderBy(FirebaseFieldNames.updatedAt, descending: true);
 
     // Filter by post type
     if (postType != null && postType != 'all') {
@@ -856,21 +882,6 @@ class PostRepository extends GetxController {
     } catch (e) {
       return 0;
     }
-  }
-
-  /// Fetch posts by type (for video tab)
-  Stream<List<PostModel>> fetchPostsByType(String postType, {int limit = 10}) {
-    return _db
-        .collection(FirebaseCollectionNames.posts)
-        .where(FirebaseFieldNames.postType, isEqualTo: postType)
-        .orderBy(FirebaseFieldNames.createdAt, descending: true)
-        .limit(limit)
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs
-          .map((doc) => PostModel.fromSnapshot(doc))
-          .toList();
-    });
   }
 
   // /// Toggle like on a post
@@ -1081,7 +1092,7 @@ class PostRepository extends GetxController {
       Query<Map<String, dynamic>> query = _db
           .collection(FirebaseCollectionNames.posts)
           .where(FirebaseFieldNames.isDisable, isEqualTo: false)
-          .orderBy(FirebaseFieldNames.createdAt, descending: true);
+          .orderBy(FirebaseFieldNames.updatedAt, descending: true);
 
       // Filter by post type
       if (postType != null && postType != 'all') {

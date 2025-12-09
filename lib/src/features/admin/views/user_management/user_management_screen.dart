@@ -370,7 +370,7 @@ class UserManagementScreen extends StatelessWidget {
         children: [
           // Detail Button
           IconButton(
-            onPressed: () => _showUserDetailDialog(user, isDark),
+            onPressed: () => _showUserDetailDialog(user, controller, isDark),
             icon: const Icon(Iconsax.eye_bold, size: 16),
             tooltip: 'View Details',
             style: IconButton.styleFrom(
@@ -413,7 +413,7 @@ class UserManagementScreen extends StatelessWidget {
         children: [
           // Detail Button
           IconButton(
-            onPressed: () => _showUserDetailDialog(user, isDark),
+            onPressed: () => _showUserDetailDialog(user, controller, isDark),
             icon: const Icon(Iconsax.eye_bold, size: 16),
             tooltip: 'View Details',
             style: IconButton.styleFrom(
@@ -461,7 +461,7 @@ class UserManagementScreen extends StatelessWidget {
       children: [
         // Detail Button
         IconButton(
-          onPressed: () => _showUserDetailDialog(user, isDark),
+          onPressed: () => _showUserDetailDialog(user, controller, isDark),
           icon: const Icon(Iconsax.eye_bold, size: 16),
           tooltip: 'View Details',
           style: IconButton.styleFrom(
@@ -491,7 +491,9 @@ class UserManagementScreen extends StatelessWidget {
     );
   }
 
-  void _showUserDetailDialog(UserModel user, bool isDark) {
-    Get.dialog(UserDetailDialog(user: user));
+  void _showUserDetailDialog(UserModel user, UserManagementController controller, bool isDark) {
+    final isPremium = controller.isActiveSync(user.userId);
+
+    Get.dialog(UserDetailDialog(user: user, isPremium: isPremium,));
   }
 }

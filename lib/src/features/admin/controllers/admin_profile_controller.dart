@@ -888,9 +888,617 @@ class AdminProfileController extends GetxController {
     );
   }
 
-  /// Build change password dialog - Implementation remains the same as your original
+  /// Build change password dialog
   Widget _buildChangePasswordDialog() {
-    // Keep your existing implementation
-    return Container(); // Placeholder - use your existing code
+    final darkMode = THelperFunctions.isDarkMode(Get.context!);
+    final isWeb = THelperFunctions.screenWidth() > 600;
+
+    return Dialog(
+      backgroundColor: TAdminColors.getSurfaceColor(darkMode),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Container(
+        constraints: BoxConstraints(
+          maxWidth: isWeb ? 500 : 400,
+        ),
+        padding: EdgeInsets.all(isWeb ? 32 : 24),
+        child: Obx(
+              () => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: TAdminColors.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Iconsax.key_bold,
+                      color: TAdminColors.primary,
+                      size: 24,
+                    ),
+                  ),
+                  SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Change Password',
+                          style: TextStyle(
+                            fontSize: isWeb ? 24 : 20,
+                            fontWeight: FontWeight.bold,
+                            color: TAdminColors.getOnSurfaceColor(darkMode),
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          isCurrentPasswordVerified.value
+                              ? 'Enter your new password'
+                              : 'Verify your current password',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color:
+                            TAdminColors.getOnSurfaceVariantColor(darkMode),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              SizedBox(height: 32),
+
+              // Content
+              SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ====== 阶段 1：验证当前密码 ======
+                    if (!isCurrentPasswordVerified.value) ...[
+                      Text(
+                        'Current Password',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: TAdminColors.getOnSurfaceColor(darkMode),
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TextFormField(
+                            controller: currentPasswordController,
+                            obscureText: !showCurrentPassword.value,
+                            style: TextStyle(
+                              color:
+                              TAdminColors.getOnSurfaceColor(darkMode),
+                            ),
+                            decoration: InputDecoration(
+                              hintText: 'Enter your current password',
+                              hintStyle: TextStyle(
+                                color: TAdminColors
+                                    .getOnSurfaceVariantColor(darkMode),
+                              ),
+                              prefixIcon: Icon(
+                                Iconsax.key_bold,
+                                color: TAdminColors
+                                    .getOnSurfaceVariantColor(darkMode),
+                              ),
+                              suffixIcon: IconButton(
+                                onPressed: () => showCurrentPassword.toggle(),
+                                icon: Icon(
+                                  showCurrentPassword.value
+                                      ? Iconsax.eye_bold
+                                      : Iconsax.eye_slash_bold,
+                                  color: TAdminColors
+                                      .getOnSurfaceVariantColor(darkMode),
+                                ),
+                              ),
+                              filled: true,
+                              fillColor: TAdminColors
+                                  .getSurfaceVariantColor(darkMode),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: currentPasswordError.value != null
+                                      ? TAdminColors.error
+                                      : TAdminColors.getBorderColor(darkMode),
+                                ),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: currentPasswordError.value != null
+                                      ? TAdminColors.error
+                                      : TAdminColors.getBorderColor(darkMode),
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: currentPasswordError.value != null
+                                      ? TAdminColors.error
+                                      : TAdminColors.primary,
+                                  width: 2,
+                                ),
+                              ),
+                            ),
+                            onChanged: (value) =>
+                            currentPasswordError.value = null,
+                          ),
+                          if (currentPasswordError.value != null)
+                            Padding(
+                              padding: EdgeInsets.only(top: 8, left: 12),
+                              child: Text(
+                                currentPasswordError.value!,
+                                style: TextStyle(
+                                  color: TAdminColors.error,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      SizedBox(height: 24),
+
+                      // 底部按钮：Cancel / Verify Password
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () {
+                                usernameError.value = null;
+                                phoneError.value = null;
+                                Get.back();
+                              },
+                              style: OutlinedButton.styleFrom(
+                                padding: EdgeInsets.symmetric(
+                                    vertical: isWeb ? 16 : 14),
+                                side: BorderSide(
+                                  color:
+                                  TAdminColors.getBorderColor(darkMode),
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: Text(
+                                'Cancel',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: TAdminColors
+                                      .getOnSurfaceColor(darkMode),
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 16),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: isLoading.value
+                                  ? null
+                                  : verifyCurrentPassword,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: TAdminColors.primary,
+                                foregroundColor: Colors.white,
+                                padding: EdgeInsets.symmetric(
+                                    vertical: isWeb ? 16 : 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 0,
+                              ),
+                              child: isLoading.value
+                                  ? SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor:
+                                  AlwaysStoppedAnimation<Color>(
+                                      Colors.white),
+                                ),
+                              )
+                                  : Text(
+                                'Verify Password',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ] else ...[
+                      // ====== 阶段 2：输入新密码 ======
+                      Text(
+                        'New Password',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: TAdminColors.getOnSurfaceColor(darkMode),
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Obx(
+                            () => Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            TextFormField(
+                              controller: newPasswordController,
+                              obscureText: !showNewPassword.value,
+                              style: TextStyle(
+                                color: TAdminColors
+                                    .getOnSurfaceColor(darkMode),
+                              ),
+                              decoration: InputDecoration(
+                                hintText: 'Enter new password',
+                                hintStyle: TextStyle(
+                                  color: TAdminColors
+                                      .getOnSurfaceVariantColor(darkMode),
+                                ),
+                                prefixIcon: Icon(
+                                  Iconsax.lock_bold,
+                                  color: TAdminColors
+                                      .getOnSurfaceVariantColor(darkMode),
+                                ),
+                                suffixIcon: IconButton(
+                                  onPressed: () => showNewPassword.toggle(),
+                                  icon: Icon(
+                                    showNewPassword.value
+                                        ? Iconsax.eye_bold
+                                        : Iconsax.eye_slash_bold,
+                                    color: TAdminColors
+                                        .getOnSurfaceVariantColor(darkMode),
+                                  ),
+                                ),
+                                filled: true,
+                                fillColor: TAdminColors
+                                    .getSurfaceVariantColor(darkMode),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: newPasswordError.value != null
+                                        ? TAdminColors.error
+                                        : TAdminColors
+                                        .getBorderColor(darkMode),
+                                  ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: newPasswordError.value != null
+                                        ? TAdminColors.error
+                                        : TAdminColors
+                                        .getBorderColor(darkMode),
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: newPasswordError.value != null
+                                        ? TAdminColors.error
+                                        : TAdminColors.primary,
+                                    width: 2,
+                                  ),
+                                ),
+                              ),
+                              onChanged: (value) {
+                                if (value.isNotEmpty) {
+                                  newPasswordError.value =
+                                      TUserProfileValidator
+                                          .validateNewPassword(value);
+                                } else {
+                                  newPasswordError.value = null;
+                                }
+                              },
+                            ),
+                            if (newPasswordError.value != null)
+                              Padding(
+                                padding: EdgeInsets.only(top: 8, left: 12),
+                                child: Text(
+                                  newPasswordError.value!,
+                                  style: TextStyle(
+                                    color: TAdminColors.error,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+
+                      SizedBox(height: 20),
+
+                      Text(
+                        'Confirm New Password',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: TAdminColors.getOnSurfaceColor(darkMode),
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Obx(
+                            () => Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            TextFormField(
+                              controller: confirmPasswordController,
+                              obscureText: !showConfirmPassword.value,
+                              style: TextStyle(
+                                color: TAdminColors
+                                    .getOnSurfaceColor(darkMode),
+                              ),
+                              decoration: InputDecoration(
+                                hintText: 'Confirm new password',
+                                hintStyle: TextStyle(
+                                  color: TAdminColors
+                                      .getOnSurfaceVariantColor(darkMode),
+                                ),
+                                prefixIcon: Icon(
+                                  Iconsax.lock_1_bold,
+                                  color: TAdminColors
+                                      .getOnSurfaceVariantColor(darkMode),
+                                ),
+                                suffixIcon: IconButton(
+                                  onPressed: () =>
+                                      showConfirmPassword.toggle(),
+                                  icon: Icon(
+                                    showConfirmPassword.value
+                                        ? Iconsax.eye_bold
+                                        : Iconsax.eye_slash_bold,
+                                    color: TAdminColors
+                                        .getOnSurfaceVariantColor(darkMode),
+                                  ),
+                                ),
+                                filled: true,
+                                fillColor: TAdminColors
+                                    .getSurfaceVariantColor(darkMode),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: confirmPasswordError.value != null
+                                        ? TAdminColors.error
+                                        : TAdminColors
+                                        .getBorderColor(darkMode),
+                                  ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: confirmPasswordError.value != null
+                                        ? TAdminColors.error
+                                        : TAdminColors
+                                        .getBorderColor(darkMode),
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: confirmPasswordError.value != null
+                                        ? TAdminColors.error
+                                        : TAdminColors.primary,
+                                    width: 2,
+                                  ),
+                                ),
+                              ),
+                              onChanged: (value) {
+                                if (value.isNotEmpty) {
+                                  confirmPasswordError.value =
+                                      TUserProfileValidator
+                                          .validateConfirmNewPassword(
+                                        value,
+                                        newPasswordController.text.trim(),
+                                      );
+                                } else {
+                                  confirmPasswordError.value = null;
+                                }
+                              },
+                            ),
+                            if (confirmPasswordError.value != null)
+                              Padding(
+                                padding: EdgeInsets.only(top: 8, left: 12),
+                                child: Text(
+                                  confirmPasswordError.value!,
+                                  style: TextStyle(
+                                    color: TAdminColors.error,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+
+                      SizedBox(height: 16),
+
+                      // Password requirements
+                      Container(
+                        padding: EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: TAdminColors.info.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color:
+                            TAdminColors.info.withOpacity(0.3),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Iconsax.info_circle_bold,
+                                  size: 16,
+                                  color: TAdminColors.info,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Password Requirements:',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: TAdminColors.info,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: 8),
+                            Text(
+                              '• At least 8 characters\n'
+                                  '• At least one uppercase letter\n'
+                                  '• At least one lowercase letter\n'
+                                  '• At least one number',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: TAdminColors
+                                    .getOnSurfaceVariantColor(darkMode),
+                                height: 1.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      SizedBox(height: 24),
+
+                      // 底部按钮：Cancel / Save Changes
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () async {
+                                if (isCurrentPasswordVerified.value) {
+                                  final shouldDiscard =
+                                  await TDialog.keepWriting(
+                                    title: 'Discard Changes?',
+                                    message:
+                                    'Are you sure you want to discard password change?',
+                                  );
+
+                                  if (shouldDiscard) {
+                                    usernameError.value = null;
+                                    phoneError.value = null;
+                                    Get.back();
+                                  }
+                                } else {
+                                  usernameError.value = null;
+                                  phoneError.value = null;
+                                  Get.back();
+                                }
+                              },
+                              style: OutlinedButton.styleFrom(
+                                padding: EdgeInsets.symmetric(
+                                    vertical: isWeb ? 16 : 14),
+                                side: BorderSide(
+                                  color:
+                                  TAdminColors.getBorderColor(darkMode),
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: Text(
+                                'Cancel',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: TAdminColors
+                                      .getOnSurfaceColor(darkMode),
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 16),
+                          Expanded(
+                            child: Obx(
+                                  () => ElevatedButton(
+                                onPressed: isLoading.value
+                                    ? null
+                                    : () {
+                                  final newPassword =
+                                  newPasswordController.text
+                                      .trim();
+                                  final confirmPassword =
+                                  confirmPasswordController.text
+                                      .trim();
+
+                                  final newPasswordValidation =
+                                  TUserProfileValidator
+                                      .validateNewPassword(
+                                      newPassword);
+                                  newPasswordError.value =
+                                      newPasswordValidation;
+
+                                  final confirmPasswordValidation =
+                                  TUserProfileValidator
+                                      .validateConfirmNewPassword(
+                                    confirmPassword,
+                                    newPassword,
+                                  );
+                                  confirmPasswordError.value =
+                                      confirmPasswordValidation;
+
+                                  if (newPasswordError.value ==
+                                      null &&
+                                      confirmPasswordError.value ==
+                                          null) {
+                                    updatePassword();
+                                  }
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: TAdminColors.primary,
+                                  foregroundColor: Colors.white,
+                                  padding: EdgeInsets.symmetric(
+                                      vertical: isWeb ? 16 : 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  elevation: 0,
+                                ),
+                                child: isLoading.value
+                                    ? SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor:
+                                    AlwaysStoppedAnimation<Color>(
+                                        Colors.white),
+                                  ),
+                                )
+                                    : Text(
+                                  'Save Changes',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

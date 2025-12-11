@@ -83,7 +83,7 @@ export const onReminderUpdated = onDocumentUpdated(
       const intervalTimeChanged = beforeData.intervalTime !== afterData.intervalTime;
 
       if (baseTimeChanged || repeatTypeChanged || customDaysChanged || intervalTimeChanged) {
-        functions.logger.log(`🔄 Reminder ${reminderId} configuration changed, recreating schedule`);
+        functions.logger.log(`Reminder ${reminderId} configuration changed, recreating schedule`);
         await deleteAllPendingSchedules(reminderId);
         await createNextSchedule(reminderId, afterData);
       }
@@ -101,7 +101,7 @@ export const onReminderDeleted = onDocumentDeleted(
 
     try {
       await deleteAllSchedules(reminderId);
-      functions.logger.log(`🗑️ All schedules deleted for reminder ${reminderId}`);
+      functions.logger.log(`All schedules deleted for reminder ${reminderId}`);
     } catch (error) {
       functions.logger.error("❌ Error deleting schedules:", error);
     }
@@ -116,7 +116,7 @@ export const onReminderDeleted = onDocumentDeleted(
 
 /**
  * 当 Schedule 完成后，创建下一个 Schedule
- * 🔧 重构：增加防护逻辑，避免重复创建
+ * 增加防护逻辑，避免重复创建
  */
 export const onScheduleProcessed = onDocumentUpdated(
   "reminders/{reminderId}/reminderSchedules/{scheduleId}",
@@ -133,40 +133,40 @@ export const onScheduleProcessed = onDocumentUpdated(
     // 只有当状态从 pending 变为完成状态时才处理
     const completedStates = ["triggered", "dismissed", "completed"];
     if (beforeData.status === "pending" && completedStates.includes(afterData.status)) {
-      functions.logger.log(`📋 Schedule ${scheduleId} processed with status: ${afterData.status}`);
+      functions.logger.log(`Schedule ${scheduleId} processed with status: ${afterData.status}`);
 
       const reminderDoc = await db.collection("reminders").doc(reminderId).get();
 
       if (!reminderDoc.exists) {
-        functions.logger.log(`⚠️ Reminder ${reminderId} not found`);
+        functions.logger.log(`Reminder ${reminderId} not found`);
         return;
       }
 
       const reminderData = reminderDoc.data();
 
       if (!reminderData || !reminderData.isActive) {
-        functions.logger.log(`⚠️ Reminder ${reminderId} is not active, skipping`);
+        functions.logger.log(`Reminder ${reminderId} is not active, skipping`);
         return;
       }
 
-      // 🔧 检查是否已有 pending schedule（防止重复创建）
+      // 检查是否已有 pending schedule（防止重复创建）
       const existingPending = await db
         .collection("reminders")
         .doc(reminderId)
         .collection("reminderSchedules")
         .where("status", "==", "pending")
-        .where("isSnooze", "==", false) // 🔧 排除 snooze schedules
+        .where("isSnooze", "==", false) // 排除 snooze schedules
         .limit(1)
         .get();
 
       if (!existingPending.empty) {
-        functions.logger.log(`⚠️ Pending schedule already exists for reminder ${reminderId}, skipping creation`);
+        functions.logger.log(`Pending schedule already exists for reminder ${reminderId}, skipping creation`);
         return;
       }
 
       // Once 类型：触发后自动 disable
       if (reminderData.repeatType === "once") {
-        functions.logger.log(`🔔 One-time reminder ${reminderId} triggered, auto-disabling`);
+        functions.logger.log(`One-time reminder ${reminderId} triggered, auto-disabling`);
         await db.collection("reminders").doc(reminderId).update({
           isActive: false
         });
@@ -181,9 +181,9 @@ export const onScheduleProcessed = onDocumentUpdated(
       }
     }
 
-    // 🔧 处理 snooze schedule 触发后的情况
+    // 处理 snooze schedule 触发后的情况
     if (beforeData.status === "pending" && afterData.status === "triggered" && afterData.isSnooze) {
-      functions.logger.log(`⏰ Snooze schedule ${scheduleId} triggered, will create next regular schedule after user action`);
+      functions.logger.log(`Snooze schedule ${scheduleId} triggered, will create next regular schedule after user action`);
       // Note: 下一个 regular schedule 会在 snooze 被 dismiss 后由上面的逻辑创建
     }
   }
@@ -210,7 +210,7 @@ export const monitorReminderTriggers = onSchedule(
 
       const currentTime = admin.firestore.Timestamp.fromDate(now);
 
-      functions.logger.log(`🔍 Checking schedules at Malaysia time: ${now.toISOString()}`);
+      functions.logger.log(`Checking schedules at Malaysia time: ${now.toISOString()}`);
 
       const dueSchedules = await db
         .collectionGroup("reminderSchedules")
@@ -218,7 +218,7 @@ export const monitorReminderTriggers = onSchedule(
         .where("triggerTime", "<=", currentTime)
         .get();
 
-      functions.logger.log(`📊 Found ${dueSchedules.size} due schedules`);
+      functions.logger.log(`Found ${dueSchedules.size} due schedules`);
 
       for (const scheduleDoc of dueSchedules.docs) {
         const scheduleId = scheduleDoc.id;
@@ -231,7 +231,7 @@ export const monitorReminderTriggers = onSchedule(
             triggeredAt: admin.firestore.FieldValue.serverTimestamp(),
           });
 
-          functions.logger.log(`⏰ Triggered schedule ${scheduleId} for reminder ${reminderId}`);
+          functions.logger.log(`Triggered schedule ${scheduleId} for reminder ${reminderId}`);
         } catch (error) {
           functions.logger.error(`❌ Error triggering schedule ${scheduleId}:`, error);
           await scheduleDoc.ref.update({
@@ -262,6 +262,7 @@ export const checkExpiredReminders = onSchedule(
       const expiredRemindersSnapshot = await db
         .collection("reminders")
         .where("isActive", "==", true)
+        .where("isMealReminder", "==", false)
         .where("endDate", "<", now)
         .get();
 
@@ -319,7 +320,7 @@ export const cleanupOldSchedules = onSchedule(
           await batch.commit();
 
           totalDeleted += oldSchedules.size;
-          functions.logger.log(`🗑️ Deleted ${oldSchedules.size} old schedules for reminder ${reminderId}`);
+          functions.logger.log(`Deleted ${oldSchedules.size} old schedules for reminder ${reminderId}`);
         }
       }
 
@@ -338,9 +339,10 @@ export const cleanupOldSchedules = onSchedule(
 
 /**
  * 为 Reminder 创建下一个 Schedule
- * 🔧 增加了重复创建检测
+ * 增加了重复创建检测
  */
 async function createNextSchedule(reminderId: string, reminderData: any) {
+  const isMealReminder = reminderData.isMealReminder === true;
   const nowMalaysia = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kuala_Lumpur" }));
 
   if (reminderData.repeatType !== "once") {
@@ -351,8 +353,15 @@ async function createNextSchedule(reminderId: string, reminderData: any) {
     const isPlaceholderDate = endDate && endDate.getFullYear() === 2099;
 
     if (endDate && !isPlaceholderDate && nowMalaysia > endDate) {
-      functions.logger.log(`⏰ Reminder ${reminderId} has expired, deactivating`);
-      await db.collection("reminders").doc(reminderId).update({ isActive: false });
+      if (isMealReminder) {
+        // meal reminder：到期直接删 reminder
+        functions.logger.log(`Meal reminder ${reminderId} (custom days) expired, deleting reminder`);
+        await db.collection("reminders").doc(reminderId).delete();
+      } else {
+        // 其他类型：保持原本的 auto-off 行为
+        functions.logger.log(`Reminder ${reminderId} has expired, deactivating`);
+        await db.collection("reminders").doc(reminderId).update({ isActive: false });
+      }
       return;
     }
   }
@@ -360,7 +369,7 @@ async function createNextSchedule(reminderId: string, reminderData: any) {
   const endDateUTC = reminderData.endDate ? reminderData.endDate.toDate() : null;
   const endDate = endDateUTC ? new Date(endDateUTC.getTime() + 8 * 60 * 60 * 1000) : null;
 
-  if (endDate && nowMalaysia > endDate) {
+  if (!isMealReminder && endDate && nowMalaysia > endDate) {
     functions.logger.log(`⏰ Reminder ${reminderId} has expired, deactivating`);
     await db.collection("reminders").doc(reminderId).update({ isActive: false });
     return;
@@ -377,7 +386,7 @@ async function createNextSchedule(reminderId: string, reminderData: any) {
 
     if (todayTrigger <= nowMalaysia) {
       todayTrigger.setDate(todayTrigger.getDate() + 1);
-      functions.logger.log(`📅 Once reminder ${reminderId}: base time passed, scheduling for tomorrow`);
+      functions.logger.log(`Once reminder ${reminderId}: base time passed, scheduling for tomorrow`);
     }
 
     nextTriggerTime = todayTrigger;
@@ -394,7 +403,7 @@ async function createNextSchedule(reminderId: string, reminderData: any) {
 
     if (baseTimeMalaysia > nowMalaysia) {
       nextTriggerTime = new Date(baseTimeMalaysia);
-      functions.logger.log("⏰ Fixed interval: base time is in future, using it directly");
+      functions.logger.log("Fixed interval: base time is in future, using it directly");
     } else {
       const diffMinutes = Math.floor((nowMalaysia.getTime() - baseTimeMalaysia.getTime()) / (1000 * 60));
       const intervalsPassed = Math.floor(diffMinutes / intervalMinutes);
@@ -404,7 +413,7 @@ async function createNextSchedule(reminderId: string, reminderData: any) {
       nextTriggerTime.setMinutes(nextTriggerTime.getMinutes() + (nextIntervalCount * intervalMinutes));
 
       functions.logger.log(
-        `⏰ Fixed interval: base time passed, calculated next trigger after ${nextIntervalCount} intervals`
+        `Fixed interval: base time passed, calculated next trigger after ${nextIntervalCount} intervals`
       );
     }
   }
@@ -415,27 +424,27 @@ async function createNextSchedule(reminderId: string, reminderData: any) {
 
   nextTriggerTime.setSeconds(0, 0);
 
-  if (endDate && nextTriggerTime > endDate) {
-    functions.logger.log(`⏰ Next trigger beyond end date, deactivating reminder ${reminderId}`);
+  if (!isMealReminder && endDate && nextTriggerTime > endDate) {
+    functions.logger.log(`Next trigger beyond end date, deactivating reminder ${reminderId}`);
     await db.collection("reminders").doc(reminderId).update({ isActive: false });
     return;
   }
 
   const nextTriggerTimeUTC = new Date(nextTriggerTime.getTime() - 8 * 60 * 60 * 1000);
 
-  // 🔧 再次检查是否已有相同时间的 pending schedule（防护双重创建）
+  // 再次检查是否已有相同时间的 pending schedule（防护双重创建）
   const existingSchedules = await db
     .collection("reminders")
     .doc(reminderId)
     .collection("reminderSchedules")
     .where("status", "==", "pending")
     .where("triggerTime", "==", admin.firestore.Timestamp.fromDate(nextTriggerTimeUTC))
-    .where("isSnooze", "==", false) // 🔧 排除 snooze schedules
+    .where("isSnooze", "==", false) // 排除 snooze schedules
     .limit(1)
     .get();
 
   if (!existingSchedules.empty) {
-    functions.logger.log(`⚠️ Schedule already exists for reminder ${reminderId} at ${nextTriggerTime.toISOString()}`);
+    functions.logger.log(`Schedule already exists for reminder ${reminderId} at ${nextTriggerTime.toISOString()}`);
     return;
   }
 

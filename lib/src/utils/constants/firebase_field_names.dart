@@ -209,6 +209,7 @@ class FirebaseFieldNames {
   static const String endDate = 'endDate';
   static const String nextTriggerTime = 'nextTriggerTime';
   static const String snoozeDuration = 'snoozeDuration';
+  static const String isMealReminder = 'isMealReminder';
   // static const String isActive = 'isActive';
 
   /// -- ReminderSchedule

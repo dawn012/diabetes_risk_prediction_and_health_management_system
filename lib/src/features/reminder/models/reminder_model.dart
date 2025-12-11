@@ -17,6 +17,12 @@ class ReminderModel {
   final List<ReminderScheduleModel> reminderSchedules;
   final bool isActive;
 
+  // meal reminder
+  final String? mealPlanId;           // 关联的 meal plan ID
+  final String? mealPlanMealId;       // 关联的具体 meal ID
+  final bool isMealReminder;          // 标记是否为 meal reminder
+  final MealTimeSlot? mealTimeSlot;   // 餐点时间段（可选）
+
   ReminderModel({
     required this.reminderId,
     required this.reminderTitle,
@@ -28,7 +34,11 @@ class ReminderModel {
     required this.nextTriggerTime,
     required this.snoozeDuration,
     required this.reminderSchedules,
-    required this.isActive
+    required this.isActive,
+    this.mealPlanId,
+    this.mealPlanMealId,
+    this.isMealReminder = false,
+    this.mealTimeSlot,
   });
 
   ReminderModel copyWith({
@@ -43,6 +53,10 @@ class ReminderModel {
     int? snoozeDuration,
     List<ReminderScheduleModel>? reminderSchedules,
     bool? isActive,
+    bool? isMealReminder,
+    String? mealPlanId,
+    String? mealPlanMealId,
+    MealTimeSlot? mealTimeSlot,
   }) {
     return ReminderModel(
       reminderId: reminderId ?? this.reminderId,
@@ -56,6 +70,10 @@ class ReminderModel {
       snoozeDuration: snoozeDuration ?? this.snoozeDuration,
       reminderSchedules: reminderSchedules ?? this.reminderSchedules,
       isActive: isActive ?? this.isActive,
+      isMealReminder: isMealReminder ?? this.isMealReminder,
+      mealPlanId: mealPlanId ?? this.mealPlanId,
+      mealPlanMealId: mealPlanMealId ?? this.mealPlanMealId,
+      mealTimeSlot: mealTimeSlot ?? this.mealTimeSlot,
     );
   }
 
@@ -73,6 +91,10 @@ class ReminderModel {
       snoozeDuration: 0,
       reminderSchedules: [],
       isActive: false,
+      isMealReminder: false,
+      mealPlanId: null,
+      mealPlanMealId: null,
+      mealTimeSlot: null,
     );
   }
 
@@ -123,7 +145,7 @@ class ReminderModel {
     print("Base time: $baseTime");
     print("Next Trigger: $nextTriggerTime");
 
-    // 🔧 修复 endDate 处理
+    // 修复 endDate 处理
     DateTime? endDate;
     final endDateTimestamp = data[FirebaseFieldNames.endDate];
 
@@ -148,6 +170,12 @@ class ReminderModel {
       snoozeDuration: data[FirebaseFieldNames.snoozeDuration] ?? 0,
       reminderSchedules: [],
       isActive: data[FirebaseFieldNames.isActive] ?? false,
+      isMealReminder: data[FirebaseFieldNames.isMealReminder] ?? false,
+      mealPlanId: data[FirebaseFieldNames.mealPlanId],
+      mealPlanMealId: data[FirebaseFieldNames.mealPlanMealId],
+      mealTimeSlot: data[FirebaseFieldNames.mealTimeSlot] != null
+          ? MealTimeSlot.fromString(data[FirebaseFieldNames.mealTimeSlot])
+          : null,
     );
   }
 }

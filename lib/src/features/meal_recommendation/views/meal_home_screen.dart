@@ -21,6 +21,7 @@ import 'meal_plan_detail_screen.dart';
 import 'meal_plan_preview_screen.dart';
 import 'meal_recommendation_form.dart';
 import 'meal_recommendation_info_screen.dart';
+import 'meal_reminder_settings_screen.dart';
 
 class MealHomeScreen extends StatelessWidget {
   const MealHomeScreen({super.key});
@@ -46,6 +47,15 @@ class MealHomeScreen extends StatelessWidget {
           showBackArrow: false,
           isCenter: false,
           actions: [
+            IconButton(
+              icon: Icon(
+                Iconsax.notification_bold,
+                color: isDark ? TColors.white : TColors.dark,
+              ),
+              onPressed: () {
+                Get.to(() => const MealReminderSettingsScreen());
+              },
+            ),
             IconButton(
               icon: Icon(
                 Icons.info_outline_rounded,
@@ -797,7 +807,7 @@ class MealHomeScreen extends StatelessWidget {
           selectedFilter: controller.selectedStatus,
           onFilterSelected: controller.onStatusFilterChanged,
           getFilterLabel: controller.getStatusLabel,
-          spaceBetweenChips: 10,
+          spaceBetweenChips: 20,
         ),
 
         Expanded(

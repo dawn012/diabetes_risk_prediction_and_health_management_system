@@ -132,7 +132,7 @@ class ProfileScreen extends StatelessWidget {
                         title: 'Phone Number',
                         value: pendingChanges.containsKey('phoneNumber')
                             ? TUserProfileValidator.convertToDisplayFormat(pendingChanges['phoneNumber'])
-                            : (user.phoneNumber.isNotEmpty ? user.formattedPhoneNo : 'Not set'),
+                            : (user.phoneNumber.isNotEmpty ? user.phoneNumberDisplay : 'Not set'),
                         onTap: () => _editPhoneNumber(context, updateController),
                         trailing: Icon(Iconsax.arrow_right_3_outline, size: 18),
                       ),

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:icons_plus/icons_plus.dart';
 import 'package:image_picker/image_picker.dart';
@@ -756,6 +757,10 @@ class AdminProfileController extends GetxController {
                         style: TextStyle(
                           color: TAdminColors.getOnSurfaceColor(darkMode),
                         ),
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
                         decoration: InputDecoration(
                           hintText: '01XXXXXXXXX',
                           hintStyle: TextStyle(
@@ -796,7 +801,6 @@ class AdminProfileController extends GetxController {
                             ),
                           ),
                         ),
-                        keyboardType: TextInputType.phone,
                         onChanged: (value) => phoneError.value = null,
                       ),
                       if (phoneError.value != null)

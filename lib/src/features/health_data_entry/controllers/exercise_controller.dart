@@ -63,7 +63,7 @@ class ExerciseController extends GetxController with GetTickerProviderStateMixin
 
   // Keep track of the time ranges for each tab
   String weekTimeRange = 'This Week';
-  String monthTimeRange = 'Nov 2025';
+  String monthTimeRange = 'Dec 2025';
 
   // Data from Firestore
   final healthDataList = <HealthDataModel>[].obs;

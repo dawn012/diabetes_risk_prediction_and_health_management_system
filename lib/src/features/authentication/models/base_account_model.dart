@@ -1,5 +1,6 @@
 import '../../../utils/constants/firebase_field_names.dart';
 import '../../../utils/formatters/formatter.dart';
+import '../../../utils/validators/user_profile_validator.dart';
 
 abstract class BaseAccountModel {
   final String userId;
@@ -49,4 +50,7 @@ abstract class BaseAccountModel {
     }
     return TFormatter.formatPhoneNumber(phoneNumber);
   }
+
+  String get phoneNumberDisplay =>
+      TUserProfileValidator.convertToDisplayFormat(phoneNumber);
 }

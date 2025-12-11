@@ -45,36 +45,62 @@ class TUserProfileValidator {
   /// Stored format: 60XXXXXXXXX (without +)
   /// Input format: 0XXXXXXXXXX
   static String? validatePhone(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return null;
+    if (value == null || value.trim().isEmpty) return null; // 可选字段
+
+    // 先统一清洗：去掉空格、- 等非数字
+    var phone = value.replaceAll(RegExp(r'\D'), '');
+
+    // 支持 601..., 01..., 1... 这几种输入，先 normalize 成 storage 格式方便判断
+    final normalized = normalizeMalaysiaPhone(phone); // 一定是 60 开头
+
+    // normalized 形如 6017xxxxxxx / 6011xxxxxxxx
+    if (!normalized.startsWith('60')) {
+      return 'Invalid phone number.';
     }
 
-    // Remove any spaces
-    final cleanValue = value.replaceAll(' ', '');
+    final national = normalized.substring(2); // 去掉 60，剩下 1X...
 
-    // Must start with 0
-    if (!cleanValue.startsWith('0')) {
-      return 'Phone number must start with 0.';
+    // 必须是以 1 开头的 mobile
+    if (!national.startsWith('1')) {
+      return 'Invalid Malaysian mobile number.';
     }
 
-    // Check if it's a valid Malaysian phone format
-    // Format: 01X-XXXXXXX or 01X-XXXXXXXX (10-11 digits total)
-    final phoneRegExp = RegExp(r'^01\d{8,9}$');
+    // prefix：011, 012, 017...
+    final prefix3 = '0' + national.substring(0, 2);
+    // national: 17xxxxxxx / 11xxxxxxxx
+    final local = '0$national'; // 转回本地 0 开头，方便用户理解长度规则
 
-    if (!phoneRegExp.hasMatch(cleanValue)) {
-      return 'Invalid phone number. Format: 01XXXXXXXXX';
+    if (prefix3 == '011' || prefix3 == '015') {
+      if (local.length != 11) return '011/015 numbers must be 11 digits';
+    } else {
+      if (local.length != 10) return 'Mobile numbers must be 10 digits';
     }
 
     return null;
   }
 
-  /// Convert Malaysian phone from 0XX to 60XX format for storage
-  static String convertToStorageFormat(String phone) {
-    final cleanPhone = phone.replaceAll(' ', '').replaceAll('-', '');
-    if (cleanPhone.startsWith('0')) {
-      return '60${cleanPhone.substring(1)}';
+  static String normalizeMalaysiaPhone(String input) {
+    var phone = input.replaceAll(RegExp(r'\D'), ''); // 去掉空格、- 等
+
+    // 已经是 60 开头（6017..., 6011...）
+    if (phone.startsWith('60')) {
+      return phone;
     }
-    return cleanPhone;
+
+    // 本地写法：01xxxx...
+    if (phone.startsWith('0')) {
+      // 去掉前面的 0，再加上 60
+      phone = phone.substring(1); // 1 开头，例如 17xxxxxxx 或 11xxxxxxxx
+      return '60$phone';
+    }
+
+    // 其它情况（容错处理）：如果不是 0/60 开头，就直接当作本地号加 60
+    return '60$phone';
+  }
+
+  /// Convert Malaysian phone from 0XX to 60XX format for storage
+  static String convertToStorageFormat(String phoneNumber) {
+    return normalizeMalaysiaPhone(phoneNumber);
   }
 
   /// Convert from storage format (60XX) to display format (0XX)

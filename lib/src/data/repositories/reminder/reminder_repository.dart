@@ -41,6 +41,13 @@ class ReminderRepository extends GetxController {
       FirebaseFieldNames.nextTriggerTime: Timestamp.fromDate(reminder.nextTriggerTime),
       FirebaseFieldNames.snoozeDuration: reminder.snoozeDuration,
       FirebaseFieldNames.isActive: reminder.isActive,
+      FirebaseFieldNames.isMealReminder: reminder.isMealReminder,
+      if (reminder.mealPlanId != null)
+        FirebaseFieldNames.mealPlanId: reminder.mealPlanId,
+      if (reminder.mealPlanMealId != null)
+        FirebaseFieldNames.mealPlanMealId: reminder.mealPlanMealId,
+      if (reminder.mealTimeSlot != null)
+        FirebaseFieldNames.mealTimeSlot: reminder.mealTimeSlot!.value,
     };
 
     // 2. 处理 endDate
@@ -148,6 +155,10 @@ class ReminderRepository extends GetxController {
     DateTime? endDate,
     required int snoozeDuration,
     bool isActive = true,
+    bool isMealReminder = false,
+    String? mealPlanId,
+    String? mealPlanMealId,
+    MealTimeSlot? mealTimeSlot,
   }) async {
     try {
       if (!isAuthenticated) {
@@ -176,6 +187,10 @@ class ReminderRepository extends GetxController {
         snoozeDuration: snoozeDuration,
         reminderSchedules: [],
         isActive: isActive,
+        isMealReminder: isMealReminder,
+        mealPlanId: mealPlanId,
+        mealPlanMealId: mealPlanMealId,
+        mealTimeSlot: mealTimeSlot,
       );
 
       await remindersRef.doc(reminderId).set(_reminderToJson(reminder));

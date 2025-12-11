@@ -223,7 +223,7 @@ class MealRepository extends GetxController {
           .where(FirebaseFieldNames.status, whereIn: [
         MealPlanStatus.completed.value,
         MealPlanStatus.cancelled.value,
-        MealPlanStatus.expired.value,
+        // MealPlanStatus.expired.value,
       ])
           .orderBy(FirebaseFieldNames.startDateTime, descending: true)
           .get();
@@ -368,7 +368,22 @@ class MealRepository extends GetxController {
 
       await _updateMealPlanAdherence(mealPlanId);
 
-      print('✅ Meal consumption status updated');
+      // 检查是否所有 meal 都非 pending，如果是就标记 plan 为 completed
+      final hasPending = updatedMeals.any((raw) {
+        final m = raw as Map<String, dynamic>;
+        return m[FirebaseFieldNames.status] ==
+            MealConsumptionStatus.pending.value;
+      });
+
+      if (!hasPending) {
+        await planRef.update({
+          FirebaseFieldNames.status: MealPlanStatus.completed.value,
+          FirebaseFieldNames.completedAt: DateTime.now().millisecondsSinceEpoch,
+        });
+        print('Meal plan $mealPlanId marked as completed');
+      }
+
+      print('Meal consumption status updated');
     } on FirebaseException catch (e) {
       throw TFirebaseException(e.code).message;
     } on FormatException catch (_) {

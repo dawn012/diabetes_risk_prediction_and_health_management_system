@@ -154,7 +154,6 @@ class UpdateSingleFieldController extends GetxController {
 
     final keyboardType = currentField['keyboardType'];
     return keyboardType == TextInputType.number ||
-        keyboardType == TextInputType.phone ||
         keyboardType == const TextInputType.numberWithOptions(decimal: true) ||
         keyboardType == const TextInputType.numberWithOptions(signed: true) ||
         fieldName == 'height' ||

@@ -7,12 +7,14 @@ import 'package:icons_plus/icons_plus.dart';
 import '../../../common/loaders/loaders.dart';
 import '../../../common/widgets/dialogs/dialog.dart';
 import '../../../data/repositories/meal_recommendation/meal_repository.dart';
+import '../../../data/repositories/reminder/reminder_repository.dart';
 import '../../../services/meal_hive_storage_manager.dart';
 import '../../../utils/constants/colors.dart';
 import '../../../utils/constants/enums.dart';
 import '../../../utils/constants/meal_time_constants.dart';
 import '../models/meal_plan_meal_model.dart';
 import '../models/meal_plan_model.dart';
+import 'meal_reminder_controller.dart';
 
 class MealPlanController extends GetxController {
   static MealPlanController get instance => Get.find();
@@ -35,22 +37,25 @@ class MealPlanController extends GetxController {
   final selectedSortOption = 'date_desc'.obs;
 
   // Filter and sort options
-  final statusFilters = ['all', 'completed', 'cancelled', 'expired'];
+  final statusFilters = ['all', 'completed', 'cancelled'];
   final sortOptions = ['date_desc', 'date_asc', 'adherence_desc', 'adherence_asc'];
 
   final hasTempMealPlan = false.obs;
   Timer? _tempPlanCheckTimer;
+  Timer? _autoSkipCheckTimer;
 
   @override
   void onInit() {
     super.onInit();
     _initializeMealPlans();
     _setupTempPlanTimer();
+    _setupAutoSkipTimer();
   }
 
   @override
   void onClose() {
     _tempPlanCheckTimer?.cancel();
+    _autoSkipCheckTimer?.cancel();
     searchController.dispose();
     super.onClose();
   }
@@ -63,6 +68,21 @@ class MealPlanController extends GetxController {
     // 每2秒检查一次
     _tempPlanCheckTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       _checkForTempPlan();
+    });
+  }
+
+  /// 设置自动标记 skip 的定时器
+  void _setupAutoSkipTimer() {
+    // 立即检查一次
+    if (activeMealPlan.value != null) {
+      _autoMarkSkippedMeals(activeMealPlan.value!);
+    }
+
+    // 每 5 分钟检查一次
+    _autoSkipCheckTimer = Timer.periodic(const Duration(minutes: 5), (timer) {
+      if (activeMealPlan.value != null) {
+        _autoMarkSkippedMeals(activeMealPlan.value!);
+      }
     });
   }
 
@@ -133,9 +153,23 @@ class MealPlanController extends GetxController {
     mealRepo.streamActiveMealPlan().listen((plan) {
       activeMealPlan.value = plan;
 
-      // Auto-mark meals as skipped if time window passed
-      if (plan != null) {
-        _autoMarkSkippedMeals(plan);
+      // 同步通知 MealReminderController
+      final reminderController = Get.isRegistered<MealReminderController>()
+          ? MealReminderController.instance
+          : null;
+
+      if (reminderController != null) {
+        if (plan == null) {
+          // 没有 active plan 了
+          reminderController.hasActiveMealPlan.value = false;
+          reminderController.activeMealPlan.value = null;
+          reminderController.activeReminders.clear();
+        } else {
+          // 有新的 active plan
+          reminderController.activeMealPlan.value = plan;
+          reminderController.hasActiveMealPlan.value = true;
+          reminderController.loadMealReminders(); // 重新拉对应 plan 的 meal reminders
+        }
       }
     });
   }
@@ -146,6 +180,10 @@ class MealPlanController extends GetxController {
       isLoadingActive.value = true;
       final plan = await mealRepo.getActiveMealPlan();
       activeMealPlan.value = plan;
+
+      if (plan != null) {
+        await _autoMarkSkippedMeals(plan); // 这里补一发
+      }
     } catch (e) {
       print('Error loading active meal plan: $e');
       TLoaders.errorSnackBar(
@@ -178,34 +216,44 @@ class MealPlanController extends GetxController {
   Future<void> _autoMarkSkippedMeals(MealPlanModel plan) async {
     try {
       final now = DateTime.now();
+      bool hasUpdated = false;
 
       for (var meal in plan.scheduledMeals) {
-        // Skip if already consumed or skipped
         if (meal.status != MealConsumptionStatus.pending) continue;
 
         // Check if meal is for today or past
-        final isTodayOrPast = meal.scheduledDate.isBefore(
-          DateTime(now.year, now.month, now.day).add(const Duration(days: 1)),
+        final mealDate = DateTime(
+          meal.scheduledDate.year,
+          meal.scheduledDate.month,
+          meal.scheduledDate.day,
+        );
+        final today = DateTime(now.year, now.month, now.day);
+
+        if (mealDate.isAfter(today)) continue;
+
+        final hasPassed = MealTimeConstants.hasMealWindowPassed(
+          meal.mealTimeSlot,
+          now,
         );
 
-        if (isTodayOrPast) {
-          // Check if consumption window has passed
-          final hasPassed = MealTimeConstants.hasMealWindowPassed(
-            meal.mealTimeSlot,
-            now,
+        if (hasPassed) {
+          await markMealAsSkipped(
+            plan.mealPlanId,
+            meal.mealPlanMealId,
+            autoMarked: true,
           );
+          hasUpdated = true;
 
-          if (hasPassed) {
-            await markMealAsSkipped(
-              plan.mealPlanId,
-              meal.mealPlanMealId,
-              autoMarked: true,
-            );
-          }
+          print('⏰ Auto-marked as skipped: ${meal.meal.mealName} (${meal.mealTimeSlot.value})');
         }
       }
+
+      // 如果有更新，刷新 plan
+      if (hasUpdated) {
+        await loadActiveMealPlan();
+      }
     } catch (e) {
-      print('Error auto-marking skipped meals: $e');
+      print('❌ Error auto-marking skipped meals: $e');
     }
   }
 
@@ -230,6 +278,13 @@ class MealPlanController extends GetxController {
 
       // Refresh active plan
       await loadActiveMealPlan();
+
+      // 再查一次这个 plan，看状态是不是 completed
+      final completedPlan = await mealRepo.getMealPlanById(mealPlanId);
+      if (completedPlan != null &&
+          completedPlan.status == MealPlanStatus.completed) {
+        await _deleteMealRemindersForPlan(mealPlanId);
+      }
     } catch (e) {
       TLoaders.errorSnackBar(
         title: 'Error',
@@ -264,6 +319,13 @@ class MealPlanController extends GetxController {
 
       // Refresh active plan
       await loadActiveMealPlan();
+
+      // 检查是否已经 completed
+      final completedPlan = await mealRepo.getMealPlanById(mealPlanId);
+      if (completedPlan != null &&
+          completedPlan.status == MealPlanStatus.completed) {
+        await _deleteMealRemindersForPlan(mealPlanId);
+      }
     } catch (e) {
       if (!autoMarked) {
         TLoaders.errorSnackBar(
@@ -297,6 +359,10 @@ class MealPlanController extends GetxController {
     if (activeMealPlan.value == null) return;
 
     try {
+      // 1. Delete associated meal reminders first
+      await _deleteMealRemindersForPlan(activeMealPlan.value!.mealPlanId);
+
+      // 2. Cancel the meal plan
       await mealRepo.cancelMealPlan(activeMealPlan.value!.mealPlanId);
 
       TLoaders.successSnackBar(
@@ -312,6 +378,32 @@ class MealPlanController extends GetxController {
         title: 'Error',
         message: 'Failed to cancel meal plan',
       );
+    }
+  }
+
+  /// Delete all meal reminders associated with a meal plan
+  Future<void> _deleteMealRemindersForPlan(String mealPlanId) async {
+    try {
+      final reminderRepo = Get.put(ReminderRepository());
+      final allReminders = await reminderRepo.fetchAllReminders();
+
+      // Filter meal reminders for this plan
+      final planReminders = allReminders.where(
+            (r) => r.isMealReminder && r.mealPlanId == mealPlanId,
+      ).toList();
+
+      // Delete each reminder
+      for (final reminder in planReminders) {
+        await reminderRepo.deleteReminder(reminder.reminderId);
+        print('🗑️ Deleted meal reminder: ${reminder.reminderId}');
+      }
+
+      if (planReminders.isNotEmpty) {
+        print('✅ Deleted ${planReminders.length} meal reminders for plan $mealPlanId');
+      }
+    } catch (e) {
+      print('❌ Error deleting meal reminders: $e');
+      // Don't throw - we still want to cancel the plan even if reminder deletion fails
     }
   }
 

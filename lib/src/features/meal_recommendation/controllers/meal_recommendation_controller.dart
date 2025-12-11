@@ -255,6 +255,7 @@ class MealRecommendationController extends GetxController {
       'age': currentUser.profile.age,
       'gender': currentUser.profile.gender.toLowerCase(),
       'diabetes_risk': latestPrediction?.riskLevel ?? 'medium',
+      // 'diabetes_risk': 'high',
       // 这里需要从实际的 prediction 获取
       'diet_preference': selectedDietPreference.value != null
           ? [selectedDietPreference.value!.value]
@@ -507,6 +508,7 @@ class MealRecommendationController extends GetxController {
       ) async {
     final userPreferences = await _buildUserPreferencesForApi();
     final diabetesRisk = userPreferences['diabetes_risk'] ?? 'medium';
+    // final diabetesRisk = 'high';
 
     // 今天还剩哪些 slot（按业务规则排好顺序）
     final remainingSlots = MealTimeConstants.getRemainingMealSlots(

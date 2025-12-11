@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 
 class MealRecommendationApiService {
   // API base URL
-  static const String baseUrl = 'http://192.168.45.188:5000';
+  static const String baseUrl = 'http://192.168.0.188:5000';
 
   /// 生成每日餐食计划
   ///
@@ -30,6 +30,7 @@ class MealRecommendationApiService {
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
+        print('Error: ${response.body}');
         throw Exception('Failed to generate daily plan: ${response.body}');
       }
     } catch (e) {

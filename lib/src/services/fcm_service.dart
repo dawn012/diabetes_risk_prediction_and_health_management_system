@@ -20,7 +20,7 @@ class FCMService {
   @pragma('vm:entry-point')
   FCMService._internal();
 
-  // ✅ FIX: Make Firebase instances lazy and nullable
+  // Make Firebase instances lazy and nullable
   FirebaseMessaging? _messaging;
   FirebaseFirestore? _firestore;
   FirebaseFunctions? _functions;
@@ -33,7 +33,7 @@ class FCMService {
 
   bool _isInitialized = false;
 
-  // ✅ FIX: Lazy getters for Firebase instances
+  // Lazy getters for Firebase instances
   FirebaseMessaging get messaging => _messaging ??= FirebaseMessaging.instance;
   FirebaseFirestore get firestore => _firestore ??= FirebaseFirestore.instance;
   FirebaseFunctions get functions => _functions ??= FirebaseFunctions.instance;
@@ -48,7 +48,7 @@ class FCMService {
     }
 
     try {
-      // ✅ Ensure Firebase is initialized
+      // Ensure Firebase is initialized
       await _ensureFirebaseInitialized();
 
       await _initializeLocalNotifications();
@@ -292,7 +292,8 @@ class FCMService {
     // Foreground messages
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       print('Received foreground reminder, data: ${message.data}');
-      showLocalNotification(message);
+      // showLocalNotification(message);
+      _handleIncomingMessage(message);
     });
 
     // Background message opened
@@ -308,6 +309,87 @@ class FCMService {
         _handleNotificationClick(message.data);
       }
     });
+  }
+
+  Future<void> _handleIncomingMessage(RemoteMessage message) async {
+    final type = message.data['type'];
+
+    if (type == 'meal_reminder_notification') {
+      await _showMealReminderNotification(message);
+    } else if (type == 'reminder_notification') {
+      await showLocalNotification(message); // 你原来的普通 reminder
+    } else {
+      // 兜底: 当作普通 reminder 处理
+      await showLocalNotification(message);
+    }
+  }
+
+  Future<void> _showMealReminderNotification(RemoteMessage message) async {
+    final data = message.data;
+    final reminderId = data['reminderId'];
+    final scheduleId = data['scheduleId'];
+    final snoozeDuration = int.tryParse(data['snoozeDuration'] ?? '5') ?? 5;
+
+    final mealTimeSlot = data['mealTimeSlot'] ?? '';          // 例如 breakfast / lunch / dinner
+    final title = data['reminderTitle'] ?? 'Meal Preparation';
+    final body = data['reminderDescription'] ??
+        'Time to prepare your $mealTimeSlot meal';
+
+    final androidDetails = AndroidNotificationDetails(
+      _channelId,
+      _channelName,
+      channelDescription: 'Notifications for health reminders',
+      importance: Importance.high,
+      priority: Priority.high,
+      playSound: true,
+      enableVibration: true,
+      actions: <AndroidNotificationAction>[
+        AndroidNotificationAction(
+          'snooze_action',
+          'Snooze ${snoozeDuration}m',
+          showsUserInterface: false,
+          cancelNotification: true,
+        ),
+        AndroidNotificationAction(
+          'dismiss_action',
+          'Dismiss',
+          showsUserInterface: false,
+          cancelNotification: true,
+        ),
+      ],
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      categoryIdentifier: 'reminder_category',
+    );
+
+    final details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    final payload = jsonEncode({
+      'type': 'meal_reminder_notification',  // 这里标明是 meal
+      'reminderId': reminderId,
+      'scheduleId': scheduleId,
+      'snoozeDuration': snoozeDuration.toString(),
+      'mealTimeSlot': mealTimeSlot,
+      'timestamp': DateTime.now().toIso8601String(),
+    });
+
+    final notificationId =
+    DateTime.now().millisecondsSinceEpoch.remainder(100000);
+
+    await _localNotifications.show(
+      notificationId,
+      '🍽️ $title',
+      body,
+      details,
+      payload: payload,
+    );
   }
 
   /// Setup auth state listener

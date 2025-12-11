@@ -325,17 +325,25 @@ async function sendReminderNotification(
       return;
     }
 
+    const isMealReminder = reminderData.isMealReminder || false;
+    const mealTimeSlot = reminderData.mealTimeSlot || "";
+
     const message: admin.messaging.MulticastMessage = {
       tokens: fcmTokens,
-      // ❌ 不再使用 notification，改为纯 data-only
+      // 不再使用 notification，改为纯 data-only
       data: {
-        type: "reminder_notification",
+        type: isMealReminder ? "meal_reminder_notification" : "reminder_notification",
         reminderId,
         scheduleId,
         userId,
         reminderTitle: reminderData.reminderTitle || "",
         reminderDescription: reminderData.reminderDescription || "",
         snoozeDuration: (reminderData.snoozeDuration || 5).toString(),
+        ...(isMealReminder && {
+          isMealReminder: "true",
+          mealTimeSlot: mealTimeSlot,
+          mealPlanId: reminderData.mealPlanId || "",
+        }),
         click_action: "FLUTTER_NOTIFICATION_CLICK",
         screen: "reminder_detail",
         id: reminderId,

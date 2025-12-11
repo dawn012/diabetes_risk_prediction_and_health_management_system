@@ -28,6 +28,7 @@ class FilterChipsWidget extends StatelessWidget {
     return Container(
       height: 60,
       padding: const EdgeInsets.symmetric(vertical: 8),
+      alignment: Alignment.centerLeft,
       decoration: BoxDecoration(
         // color: isDark ? TColors.darkContainer : TColors.white,
         border: Border(
@@ -39,59 +40,57 @@ class FilterChipsWidget extends StatelessWidget {
           ),
         ),
       ),
-      child: Center(
-        child: ListView.builder(
-          scrollDirection: Axis.horizontal,
-          shrinkWrap: true,
-          padding: const EdgeInsets.symmetric(horizontal: TSizes.md),
-          itemCount: filters.length,
-          itemBuilder: (context, index) {
-            return Obx(() {
-              final filterType = filters[index];
-              final isSelected = selectedFilter.value == filterType;
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        shrinkWrap: true,
+        padding: const EdgeInsets.symmetric(horizontal: TSizes.md),
+        itemCount: filters.length,
+        itemBuilder: (context, index) {
+          return Obx(() {
+            final filterType = filters[index];
+            final isSelected = selectedFilter.value == filterType;
 
-              return Container(
-                margin: EdgeInsets.only(
-                  right: index == filters.length - 1 ? 0 :
-                  (spaceBetweenChips > 0 ? spaceBetweenChips : TSizes.sm),
-                ),
-                child: FilterChip(
-                  label: Text(
-                    getFilterLabel(filterType),
-                    style: TextStyle(
-                      color: isSelected
-                          ? TColors.white
-                          : (isDark ? TColors.lightGrey : TColors.textPrimary),
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                      fontSize: 13,
-                    ),
-                  ),
-                  selected: isSelected,
-                  onSelected: (selected) {
-                    onFilterSelected(filterType);
-                  },
-                  backgroundColor: isDark
-                      ? TColors.darkGrey.withOpacity(0.3)
-                      : TColors.lightGrey,
-                  selectedColor: TColors.primary,
-                  showCheckmark: false,
-                  checkmarkColor: Colors.transparent,
-                  side: BorderSide(
+            return Container(
+              margin: EdgeInsets.only(
+                right: index == filters.length - 1 ? 0 :
+                (spaceBetweenChips > 0 ? spaceBetweenChips : TSizes.sm),
+              ),
+              child: FilterChip(
+                label: Text(
+                  getFilterLabel(filterType),
+                  style: TextStyle(
                     color: isSelected
-                        ? TColors.primary
-                        : (isDark
-                        ? TColors.borderPrimary.withOpacity(0.3)
-                        : TColors.borderPrimary),
-                    width: 1,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
+                        ? TColors.white
+                        : (isDark ? TColors.lightGrey : TColors.textPrimary),
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    fontSize: 13,
                   ),
                 ),
-              );
-            });
-          },
-        ),
+                selected: isSelected,
+                onSelected: (selected) {
+                  onFilterSelected(filterType);
+                },
+                backgroundColor: isDark
+                    ? TColors.darkGrey.withOpacity(0.3)
+                    : TColors.lightGrey,
+                selectedColor: TColors.primary,
+                showCheckmark: false,
+                checkmarkColor: Colors.transparent,
+                side: BorderSide(
+                  color: isSelected
+                      ? TColors.primary
+                      : (isDark
+                      ? TColors.borderPrimary.withOpacity(0.3)
+                      : TColors.borderPrimary),
+                  width: 1,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+            );
+          });
+        },
       ),
     );
   }
